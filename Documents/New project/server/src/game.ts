@@ -123,6 +123,20 @@ export function isUserInRoom(userId: string) {
   return Array.from(rooms.values()).some((room) => room.members.some((member) => member.userId === userId));
 }
 
+export function getRoomForUser(userId: string) {
+  return Array.from(rooms.values()).find((room) => room.members.some((member) => member.userId === userId)) || null;
+}
+
+export function refreshRoomMemberCharacters(roomId: string, characters: CharacterProfile[]) {
+  const room = ensureRoom(roomId);
+  for (const member of room.members) {
+    const nextCharacter = characters.find((character) => character.userId === member.userId);
+    if (!nextCharacter) continue;
+    member.character = cloneCharacter(nextCharacter);
+  }
+  return room;
+}
+
 export function leaveRoom(socketId: string) {
   const roomId = socketToRoom.get(socketId);
   if (!roomId) {

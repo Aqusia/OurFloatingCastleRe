@@ -65,6 +65,8 @@
   - 功能、系統規則、目前狀態
 - `docs/documentation-policy.md`
   - 文件同步規則與提交前檢查
+- `docs/open-source-references.md`
+  - 開源遊戲、UI、架構工具參考與授權判斷
 - `docs/changelog.md`
   - 每輪改動紀錄
 - `docs/repository-guide.md`

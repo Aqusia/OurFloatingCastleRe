@@ -1,7 +1,21 @@
 :root {
   font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
-  color: #edf3ff;
-  background: #151c2b;
+  --bg-0: #101417;
+  --bg-1: #161e20;
+  --bg-2: #202628;
+  --panel: rgba(28, 34, 36, 0.94);
+  --panel-strong: rgba(35, 41, 42, 0.98);
+  --line: #52635c;
+  --line-bright: #8bb49d;
+  --text: #f2f0e7;
+  --muted: #b6c0b8;
+  --gold: #d6ad5d;
+  --teal: #5ec6b5;
+  --red: #d96f68;
+  --blue: #75a7d8;
+  --green: #73c992;
+  color: var(--text);
+  background: var(--bg-0);
   line-height: 1.5;
 }
 
@@ -18,9 +32,9 @@ body,
 body {
   margin: 0;
   background:
-    radial-gradient(circle at top left, rgba(148, 119, 255, 0.18), transparent 26%),
-    radial-gradient(circle at bottom right, rgba(255, 190, 111, 0.14), transparent 24%),
-    linear-gradient(180deg, #1a2233 0%, #111827 100%);
+    linear-gradient(135deg, rgba(214, 173, 93, 0.12) 0 1px, transparent 1px 18px),
+    linear-gradient(225deg, rgba(94, 198, 181, 0.08) 0 1px, transparent 1px 22px),
+    linear-gradient(180deg, #18201f 0%, #101417 54%, #0d1012 100%);
 }
 
 button,
@@ -33,18 +47,24 @@ button {
   border: 0;
 }
 
+button svg,
+.mini-pill svg,
+.status-pill svg {
+  flex: 0 0 auto;
+}
+
 input,
 select {
   width: 100%;
   border-radius: 10px;
-  border: 1px solid #41506d;
-  background: rgba(28, 36, 53, 0.95);
-  color: #eef3ff;
+  border: 1px solid var(--line);
+  background: rgba(17, 22, 22, 0.96);
+  color: var(--text);
   padding: 12px 14px;
 }
 
 input::placeholder {
-  color: #93a3c4;
+  color: #8fa19a;
 }
 
 .auth-shell,
@@ -80,8 +100,13 @@ input::placeholder {
 .battle-stage {
   border: 1px solid rgba(66, 81, 110, 0.84);
   border-radius: 8px;
-  background: rgba(27, 35, 52, 0.88);
-  box-shadow: 0 18px 35px rgba(6, 10, 20, 0.24);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 42%),
+    var(--panel);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 0 0 1px rgba(214, 173, 93, 0.08),
+    0 18px 35px rgba(5, 8, 9, 0.26);
   backdrop-filter: blur(10px);
 }
 
@@ -100,10 +125,10 @@ input::placeholder {
 
 .eyebrow {
   margin: 0 0 8px;
-  color: #d6c8ff;
+  color: var(--gold);
   font-size: 0.8rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
 }
 
 h1,
@@ -133,7 +158,7 @@ h3 {
 }
 
 .muted {
-  color: #a6b4cf;
+  color: var(--muted);
 }
 
 .status-stack,
@@ -165,8 +190,8 @@ h3 {
   padding: 8px 12px;
   border-radius: 999px;
   border: 1px solid #46557a;
-  background: rgba(37, 46, 67, 0.94);
-  color: #dce4f7;
+  background: rgba(31, 39, 39, 0.94);
+  color: #e8eee7;
   font-size: 0.92rem;
 }
 
@@ -177,8 +202,31 @@ h3 {
 }
 
 .status-pill.is-live {
-  border-color: #6f8bff;
-  box-shadow: 0 0 0 4px rgba(111, 139, 255, 0.14);
+  border-color: var(--teal);
+  box-shadow: 0 0 0 4px rgba(94, 198, 181, 0.14);
+}
+
+.status-idle {
+  border-color: rgba(115, 201, 146, 0.72);
+  color: #dff7e9;
+}
+
+.status-training,
+.status-mining,
+.status-crafting {
+  border-color: rgba(214, 173, 93, 0.72);
+  color: #ffe8b8;
+}
+
+.status-combat {
+  border-color: rgba(217, 111, 104, 0.78);
+  color: #ffd3cf;
+}
+
+.status-moving,
+.status-resting {
+  border-color: rgba(117, 167, 216, 0.72);
+  color: #d7ebff;
 }
 
 .mini-pill.is-win {
@@ -229,10 +277,10 @@ h3 {
 .nav-button,
 .ghost-button {
   border-radius: 8px;
-  background: rgba(34, 44, 64, 0.94);
-  color: #d7e0f5;
+  background: rgba(25, 31, 32, 0.94);
+  color: #e7eee8;
   padding: 12px 14px;
-  border: 1px solid #394965;
+  border: 1px solid #465851;
   text-align: left;
 }
 
@@ -244,9 +292,11 @@ h3 {
 
 .auth-tabs button.is-active,
 .nav-button.is-active {
-  background: linear-gradient(135deg, #6f7cff 0%, #8c78ff 100%);
-  color: #fff;
-  border-color: transparent;
+  background:
+    linear-gradient(135deg, rgba(94, 198, 181, 0.28), rgba(214, 173, 93, 0.16)),
+    rgba(31, 39, 39, 0.98);
+  color: #fffaf0;
+  border-color: var(--line-bright);
 }
 
 .auth-tabs button:hover,
@@ -267,18 +317,25 @@ h3 {
 }
 
 .primary-button {
-  background: linear-gradient(135deg, #6d7cff 0%, #8a72ff 100%);
-  color: #fff;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 42%),
+    linear-gradient(135deg, #2e7c72 0%, #b58337 100%);
+  color: #fffaf0;
+  border: 1px solid rgba(238, 215, 154, 0.62);
 }
 
 .secondary-button {
-  background: rgba(132, 149, 255, 0.16);
-  color: #edf2ff;
-  border: 1px solid #5f73e4;
+  background: rgba(94, 198, 181, 0.13);
+  color: #effaf5;
+  border: 1px solid rgba(94, 198, 181, 0.62);
 }
 
 .ghost-button {
-  color: #d7e0f5;
+  color: #e7eee8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 button:disabled {
@@ -335,12 +392,36 @@ button:disabled {
 
 .nav-button {
   display: grid;
-  gap: 4px;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 56px;
 }
 
-.nav-button span {
-  font-size: 0.88rem;
-  color: #afbad6;
+.nav-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: rgba(9, 12, 13, 0.35);
+  border: 1px solid rgba(139, 180, 157, 0.22);
+  color: var(--gold);
+}
+
+.nav-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.nav-copy strong {
+  font-size: 0.95rem;
+}
+
+.nav-copy small {
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .sidebar-footer {
@@ -403,22 +484,22 @@ button:disabled {
   height: 10px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(14, 19, 31, 0.94);
-  border: 1px solid rgba(74, 88, 120, 0.6);
+  background: rgba(11, 14, 15, 0.94);
+  border: 1px solid rgba(82, 99, 92, 0.7);
 }
 
 .progress-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #ff8d86 0%, #ffbb72 100%);
+  background: linear-gradient(90deg, var(--red) 0%, #e2b45f 100%);
 }
 
 .progress-fill.is-mp {
-  background: linear-gradient(90deg, #69a3ff 0%, #8f82ff 100%);
+  background: linear-gradient(90deg, var(--blue) 0%, #83d2cf 100%);
 }
 
 .progress-fill.is-energy {
-  background: linear-gradient(90deg, #60dfb2 0%, #67c8ff 100%);
+  background: linear-gradient(90deg, var(--green) 0%, var(--teal) 100%);
 }
 
 .progress-fill.is-danger {
@@ -558,9 +639,9 @@ button:disabled {
   text-align: left;
   padding: 16px;
   border-radius: 8px;
-  border: 1px solid #394965;
-  background: rgba(34, 44, 64, 0.94);
-  color: #d7e0f5;
+  border: 1px solid #465851;
+  background: rgba(25, 31, 32, 0.94);
+  color: #e7eee8;
   cursor: pointer;
   transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
 }
@@ -572,9 +653,9 @@ button:disabled {
 
 .selector-card.is-active,
 .compact-row.is-selected {
-  border-color: #7d87ff;
-  box-shadow: 0 0 0 1px rgba(125, 135, 255, 0.3);
-  background: rgba(53, 63, 91, 0.96);
+  border-color: var(--line-bright);
+  box-shadow: 0 0 0 1px rgba(139, 180, 157, 0.3);
+  background: rgba(44, 54, 52, 0.96);
 }
 
 .compact-row {
@@ -663,8 +744,8 @@ button:disabled {
 
 .announcement-hero {
   background:
-    linear-gradient(135deg, rgba(110, 124, 255, 0.18) 0%, rgba(140, 120, 255, 0.1) 100%),
-    rgba(27, 35, 52, 0.92);
+    linear-gradient(135deg, rgba(94, 198, 181, 0.16) 0%, rgba(214, 173, 93, 0.12) 100%),
+    rgba(28, 34, 36, 0.94);
 }
 
 .draggable-row {
@@ -681,12 +762,12 @@ button:disabled {
 }
 
 .tag.is-buff {
-  border-color: #63c89d;
+  border-color: var(--green);
   color: #dcffee;
 }
 
 .tag.is-debuff {
-  border-color: #d27b8d;
+  border-color: var(--red);
   color: #ffd7df;
 }
 
@@ -709,8 +790,8 @@ button:disabled {
 .inventory-card {
   padding: 12px;
   border-radius: 8px;
-  background: rgba(35, 43, 62, 0.95);
-  border: 1px solid #394863;
+  background: rgba(25, 31, 32, 0.95);
+  border: 1px solid #465851;
 }
 
 .inventory-card span {
@@ -835,9 +916,9 @@ button:disabled {
 
 .battle-stage {
   background:
-    radial-gradient(circle at top, rgba(121, 103, 255, 0.16), transparent 28%),
-    radial-gradient(circle at bottom, rgba(255, 180, 92, 0.12), transparent 26%),
-    rgba(24, 31, 46, 0.95);
+    linear-gradient(145deg, rgba(94, 198, 181, 0.12), transparent 42%),
+    linear-gradient(215deg, rgba(217, 111, 104, 0.11), transparent 48%),
+    rgba(24, 30, 31, 0.95);
 }
 
 .battle-stage-top {

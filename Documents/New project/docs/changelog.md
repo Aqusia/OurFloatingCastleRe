@@ -2,6 +2,48 @@
 
 ## 2026-05-29
 
+### 狀態、隊伍行動與數字限制
+
+- 新增角色狀態顯示：閒暇中、訓練中、挖礦中、休息中、鍛造中、狩獵中。
+- 調整組隊規則：玩家可在忙碌時建立或加入隊伍，但開始狩獵 / 進攻時必須由隊長發起，且全隊都要閒暇中。
+- 攻城支援隊伍檢查與多參與者紀錄，隊伍成員會共同承受消耗。
+- 移除「人在房間內不能加入行動隊列」的舊限制。
+- 鍛造材料投入改成前端即時限制，不能超過持有數量或單次 16 個材料上限。
+- 玩家市場上架數量改成不能超過持有數量。
+- Admin 與獎勵相關數字輸入新增上下限，後端也會 clamp，避免離譜數值寫入。
+
+### 相關檔案
+
+- `client/src/App.tsx`
+- `client/src/index.css`
+- `server/src/game.ts`
+- `server/src/routes.ts`
+- `server/src/socketServer.ts`
+- `server/src/persistence/localStore.ts`
+- `docs/game-design.md`
+
+## 2026-05-29
+
+### 開源參考與 UI 小改
+
+- 研究 browser RPG、idle RPG、多人遊戲、RPG UI 元件與架構工具的開源參考。
+- 新增 `docs/open-source-references.md`，記錄可參考資源、license 與導入建議。
+- 新增 `lucide-react`，先用 MIT icon library 改善側邊導覽與資源狀態資訊。
+- 調整 `client/src/index.css`，讓整體更接近 RPG dashboard / HUD：更清楚的面板框線、內陰影、資源徽章、icon 導覽。
+- 文件同步更新 `README.md`、`docs/repository-guide.md`、`docs/game-design.md`。
+
+### 相關檔案
+
+- `client/package.json`
+- `client/src/App.tsx`
+- `client/src/index.css`
+- `docs/open-source-references.md`
+- `README.md`
+- `docs/repository-guide.md`
+- `docs/game-design.md`
+
+## 2026-05-29
+
 ### 這一輪調整
 
 - 整理文件檔名，將內部文件統一為較清楚的 `kebab-case`

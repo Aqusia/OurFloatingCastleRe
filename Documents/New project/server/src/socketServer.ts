@@ -6,11 +6,11 @@ import {
   createRoom,
   getRoomForSocket,
   getRoomState,
-  isUserInRoom,
   joinRoom,
   leaveRoom,
   listRoomSummaries,
   publicRoomState,
+  refreshRoomMemberCharacters,
   runBattleTick,
   startBattle,
   updateLoadoutForSocket
@@ -99,14 +99,6 @@ async function withAuth(socket: Socket<ClientToServerEvents, ServerToClientEvent
   return nextContext;
 }
 
-function ensureBattleAvailable(socket: Socket<ClientToServerEvents, ServerToClientEvents>, context: SocketContext) {
-  if (isCharacterBusy(context.character)) {
-    socket.emit("app:error", "角色正在處理其他行動，請先等待隊列完成。");
-    return false;
-  }
-  return true;
-}
-
 export function registerSocketServer(io: Server<ClientToServerEvents, ServerToClientEvents>) {
   io.on("connection", (socket: Socket<ClientToServerEvents, ServerToClientEvents>) => {
     socket.on("auth:ready", async (token) => {
@@ -140,7 +132,7 @@ export function registerSocketServer(io: Server<ClientToServerEvents, ServerToCl
 
     socket.on("room:create", async (requestedRoomId) => {
       const auth = await withAuth(socket);
-      if (!auth || !ensureBattleAvailable(socket, auth)) {
+      if (!auth) {
         return;
       }
 
@@ -158,7 +150,7 @@ export function registerSocketServer(io: Server<ClientToServerEvents, ServerToCl
 
     socket.on("room:join", async (roomId) => {
       const auth = await withAuth(socket);
-      if (!auth || !ensureBattleAvailable(socket, auth)) {
+      if (!auth) {
         return;
       }
 
@@ -206,10 +198,27 @@ export function registerSocketServer(io: Server<ClientToServerEvents, ServerToCl
       if (!auth) {
         return;
       }
-      if (isUserInRoom(auth.user.id) && isCharacterBusy(auth.character)) {
-        socket.emit("app:error", "角色忙碌中，暫時不能開始戰鬥。");
+
+      const roomState = getRoomState(roomId);
+      if (!roomState) {
+        socket.emit("app:error", "找不到房間。");
         return;
       }
+      if (roomState.hostId !== auth.user.id) {
+        socket.emit("app:error", "只有隊長可以開始狩獵。");
+        return;
+      }
+      const onlineUsers = getOnlineUserIds();
+      const latestCharacters: CharacterProfile[] = [];
+      for (const member of roomState.members) {
+        const processed = await processCharacterQueue(member.userId, onlineUsers.has(member.userId));
+        if (isCharacterBusy(processed.character)) {
+          socket.emit("app:error", `${member.displayName} 目前不是閒暇中，隊伍不能開始狩獵。`);
+          return;
+        }
+        latestCharacters.push(processed.character);
+      }
+      refreshRoomMemberCharacters(roomId, latestCharacters);
 
       try {
         const room = startBattle(roomId, auth.user.id);

@@ -1,5 +1,25 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import {
+  Backpack,
+  BatteryCharging,
+  Castle,
+  Coins,
+  Dumbbell,
+  Hammer,
+  HeartPulse,
+  LogOut,
+  MessageSquareText,
+  ShieldCheck,
+  Sparkles,
+  Store,
+  Swords,
+  UserRound,
+  UsersRound,
+  Wifi,
+  WifiOff
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type {
   ActionType,
   AdminState,
@@ -97,17 +117,17 @@ const classOptions: Array<{ value: CharacterClass; label: string }> = [
   { value: "priest", label: "祭司" }
 ];
 
-const navItems: Array<{ key: NavKey; label: string }> = [
-  { key: "character", label: "角色" },
-  { key: "actions", label: "行動" },
-  { key: "battle", label: "戰鬥" },
-  { key: "faction", label: "陣營" },
-  { key: "inventory", label: "揹包" },
-  { key: "forge", label: "鍛造" },
-  { key: "messages", label: "消息" },
-  { key: "friends", label: "好友" },
-  { key: "shop", label: "商店" },
-  { key: "admin", label: "Admin" }
+const navItems: Array<{ key: NavKey; label: string; icon: LucideIcon; hint: string }> = [
+  { key: "character", label: "角色", icon: UserRound, hint: "狀態與裝備" },
+  { key: "actions", label: "行動", icon: Dumbbell, hint: "訓練與隊列" },
+  { key: "battle", label: "戰鬥", icon: Swords, hint: "房間與討伐" },
+  { key: "faction", label: "陣營", icon: Castle, hint: "城池與外交" },
+  { key: "inventory", label: "揹包", icon: Backpack, hint: "物品與穿戴" },
+  { key: "forge", label: "鍛造", icon: Hammer, hint: "製作與修復" },
+  { key: "messages", label: "消息", icon: MessageSquareText, hint: "公告與戰報" },
+  { key: "friends", label: "好友", icon: UsersRound, hint: "社交與在線" },
+  { key: "shop", label: "商店", icon: Store, hint: "NPC 與市場" },
+  { key: "admin", label: "Admin", icon: ShieldCheck, hint: "管理工具" }
 ];
 
 const initialRegister: RegisterPayload = {
@@ -134,6 +154,52 @@ const inventoryTabs: Array<{ key: InventoryTab; label: string }> = [
   { key: "other", label: "其他" }
 ];
 const equipmentGroupOrder: EquipmentSlotKey[] = ["weapon", "offhand", "helmet", "armor", "kneepad", "pet", "avatar"];
+const forgeMaterialLimit = 16;
+const numberLimits = {
+  grantGold: 999999,
+  resourceQuantity: 9999,
+  marketPrice: 999999,
+  customStatBonus: 999,
+  durability: 9999,
+  monsterHp: 999999,
+  monsterAttack: 9999
+};
+
+type ActivityStatusTone = "idle" | "training" | "mining" | "combat" | "moving" | "resting" | "crafting";
+
+function toClampedInt(value: string | number | undefined | null, min: number, max: number, fallback = min) {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(numberValue)));
+}
+
+function clampedInputValue(value: string, min: number, max: number) {
+  if (value.trim() === "") return "";
+  return String(toClampedInt(value, min, max));
+}
+
+function activeQueueItem(character: CharacterProfile) {
+  return character.actionQueue.items.find((item) => item.status === "active") || character.actionQueue.items[0] || null;
+}
+
+function activityStatusFor(character: CharacterProfile, room?: RoomState | null, userId?: string) {
+  if (room?.phase === "battle" && room.members.some((member) => member.userId === userId)) {
+    return { label: "狩獵中", tone: "combat" as ActivityStatusTone };
+  }
+
+  const currentAction = activeQueueItem(character);
+  if (!currentAction) return { label: "閒暇中", tone: "idle" as ActivityStatusTone };
+  if (currentAction.actionType === "mine_shallow" || currentAction.actionType === "mine_deep") {
+    return { label: "挖礦中", tone: "mining" as ActivityStatusTone };
+  }
+  if (currentAction.actionType === "rest") return { label: "休息中", tone: "resting" as ActivityStatusTone };
+  if (currentAction.actionType === "forge") return { label: "鍛造中", tone: "crafting" as ActivityStatusTone };
+  return { label: "訓練中", tone: "training" as ActivityStatusTone };
+}
+
+function isIdle(character: CharacterProfile) {
+  return character.actionQueue.items.length === 0;
+}
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
@@ -373,6 +439,10 @@ function App() {
 
   const battleOverlayVisible = roomState?.phase === "battle" || roomState?.phase === "ended";
   const detailModalRoot = typeof document !== "undefined" ? document.body : null;
+  const myActivityStatus = character ? activityStatusFor(character, roomState, user?.id) : { label: "閒暇中", tone: "idle" as ActivityStatusTone };
+  const partyBlocker = roomState?.members.find((member) => !isIdle(member.character)) || null;
+  const canLeadPartyAction = Boolean(roomState && user && roomState.hostId === user.id && roomState.phase === "lobby" && !partyBlocker);
+  const canAttackCastle = character ? (!roomState ? isIdle(character) : canLeadPartyAction) : false;
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowTick(Date.now()), 1000);
@@ -685,16 +755,32 @@ async function bootstrap(nextToken: string) {
     }
   }
 
+  function forgeSelectedCount(exceptItemId?: string) {
+    return inventoryGroups.material.reduce((total, item) => {
+      if (item.id === exceptItemId) return total;
+      return total + toClampedInt(forgeMaterialAmounts[item.id], 0, item.quantity || 0, 0);
+    }, 0);
+  }
+
+  function updateForgeMaterialAmount(item: InventoryItem, value: string) {
+    const remaining = Math.max(0, forgeMaterialLimit - forgeSelectedCount(item.id));
+    const maxForItem = Math.min(item.quantity || 0, remaining);
+    setForgeMaterialAmounts((current) => ({
+      ...current,
+      [item.id]: clampedInputValue(value, 0, maxForItem)
+    }));
+  }
+
   async function handleForge() {
     if (!token || !character || !currentForgeOption) return;
     try {
       const materialItemIds = character.inventory
         .filter((item) => item.category === "material")
         .flatMap((item) => {
-          const amount = Number(forgeMaterialAmounts[item.id] || 0);
-          return Array.from({ length: Math.max(0, Math.min(amount, item.quantity || 0)) }, () => item.id);
+          const amount = toClampedInt(forgeMaterialAmounts[item.id], 0, item.quantity || 0, 0);
+          return Array.from({ length: amount }, () => item.id);
         })
-        .slice(0, 16);
+        .slice(0, forgeMaterialLimit);
       if (!materialItemIds.length) {
         setFeedback("請至少選 1 個材料");
         return;
@@ -758,12 +844,13 @@ async function bootstrap(nextToken: string) {
 
   async function handleGrantTreasury() {
     if (!token || !treasuryTargetName.trim()) return;
+    const treasury = factionState?.selectedFaction?.treasury;
     try {
       setFactionState(
         await grantTreasury(token, {
           targetCharacterName: treasuryTargetName.trim(),
-          gold: Number(treasuryGold || 0),
-          materials: Number(treasuryMaterials || 0)
+          gold: toClampedInt(treasuryGold, 0, treasury?.gold || 0, 0),
+          materials: toClampedInt(treasuryMaterials, 0, treasury?.materials || 0, 0)
         })
       );
       setFeedback("公庫已發放");
@@ -774,8 +861,13 @@ async function bootstrap(nextToken: string) {
 
   async function handleListMarket(item: InventoryItem) {
     if (!token) return;
-    const price = Number(window.prompt(`設定 ${item.name} 的售價`, "100") || "0");
-    const quantity = Number(window.prompt(`上架數量（最多 ${item.quantity || 1}）`, String(item.quantity || 1)) || "0");
+    const priceText = window.prompt(`設定 ${item.name} 的售價`, "100");
+    if (priceText === null) return;
+    const maxQuantity = Math.max(1, item.quantity || 1);
+    const quantityText = window.prompt(`上架數量（最多 ${maxQuantity}）`, String(maxQuantity));
+    if (quantityText === null) return;
+    const price = toClampedInt(priceText, 1, numberLimits.marketPrice, 0);
+    const quantity = toClampedInt(quantityText, 1, maxQuantity, 0);
     if (price <= 0 || quantity <= 0) return;
     try {
       setFactionState(await listMarketItem(token, { itemId: item.id, price, quantity }));
@@ -839,8 +931,8 @@ async function bootstrap(nextToken: string) {
       () =>
         adminGrantResources(token, {
           targetCharacterName: adminTargetName.trim(),
-          gold: Number(adminGrantGold || 0),
-          resources: [{ materialType: adminResourceType, quantity: Number(adminResourceQuantity || 0) }]
+          gold: toClampedInt(adminGrantGold, 0, numberLimits.grantGold, 0),
+          resources: [{ materialType: adminResourceType, quantity: toClampedInt(adminResourceQuantity, 0, numberLimits.resourceQuantity, 0) }]
         }),
       "資源已發送。"
     );
@@ -855,12 +947,12 @@ async function bootstrap(nextToken: string) {
           customWeapon: {
             name: adminCustomWeaponName.trim(),
             equipmentSlot: adminCustomWeaponSlot,
-            attackBonus: Number(adminCustomWeaponAttack || 0),
-            defenseBonus: Number(adminCustomWeaponDefense || 0),
-            luckBonus: Number(adminCustomWeaponLuck || 0),
-            intelligenceBonus: Number(adminCustomWeaponIntelligence || 0),
-            tenacityBonus: Number(adminCustomWeaponTenacity || 0),
-            durability: Number(adminCustomWeaponDurability || 100)
+            attackBonus: toClampedInt(adminCustomWeaponAttack, 0, numberLimits.customStatBonus, 0),
+            defenseBonus: toClampedInt(adminCustomWeaponDefense, 0, numberLimits.customStatBonus, 0),
+            luckBonus: toClampedInt(adminCustomWeaponLuck, 0, numberLimits.customStatBonus, 0),
+            intelligenceBonus: toClampedInt(adminCustomWeaponIntelligence, 0, numberLimits.customStatBonus, 0),
+            tenacityBonus: toClampedInt(adminCustomWeaponTenacity, 0, numberLimits.customStatBonus, 0),
+            durability: toClampedInt(adminCustomWeaponDurability, 1, numberLimits.durability, 100)
           }
         }),
       "自訂武器已發送。"
@@ -871,6 +963,16 @@ async function bootstrap(nextToken: string) {
     if (!token) return;
     const config = kind === "daily" ? dailyConfigForm : flashConfigForm;
     if (!config) return;
+    const reward: RewardTemplate = {
+      ...config.reward,
+      gold: toClampedInt(config.reward.gold, 0, numberLimits.grantGold, 0),
+      materials: (config.reward.materials || [])
+        .map((resource) => ({
+          materialType: resource.materialType,
+          quantity: toClampedInt(resource.quantity, 0, numberLimits.resourceQuantity, 0)
+        }))
+        .filter((resource) => resource.quantity > 0)
+    };
     await handleAdminAction(
       () =>
         adminUpdateRewardConfig(token, {
@@ -879,7 +981,7 @@ async function bootstrap(nextToken: string) {
           active: config.active,
           startAt: config.startAt || null,
           endAt: config.endAt || null,
-          reward: config.reward
+          reward
         }),
       `${kind === "daily" ? "每日獎勵" : "突發活動"}設定已更新。`
     );
@@ -887,6 +989,10 @@ async function bootstrap(nextToken: string) {
 
   async function handleAttackCastle(castleId: string) {
     if (!token) return;
+    if (!canAttackCastle) {
+      setFeedback(roomState ? "只有隊長且全隊閒暇中才能進攻。" : "角色目前不是閒暇中，不能進攻。");
+      return;
+    }
     try {
       const result = await attackCastle(token, castleId);
       setFactionState(result.factionState);
@@ -962,6 +1068,10 @@ async function bootstrap(nextToken: string) {
 
   function startBattle() {
     if (!roomState) return;
+    if (!canLeadPartyAction) {
+      setFeedback(partyBlocker ? `${partyBlocker.displayName} 目前不是閒暇中。` : "只有隊長且全隊閒暇中才能開始狩獵。");
+      return;
+    }
     socket.emit("room:start", roomState.roomId);
   }
 
@@ -1066,17 +1176,29 @@ async function bootstrap(nextToken: string) {
               <div className="muted">{user.displayName} · {classOptions.find((option) => option.value === character.className)?.label}</div>
             </div>
             <div className="status-stack">
-              <span className={`status-pill compact ${connected ? "is-live" : ""}`}>{connected ? "連線中" : "離線"}</span>
+              <span className={`status-pill compact ${connected ? "is-live" : ""}`}>
+                {connected ? <Wifi size={15} /> : <WifiOff size={15} />}
+                {connected ? "連線中" : "離線"}
+              </span>
               <span className="status-pill compact">等級 Lv.{character.instinctLevel}</span>
+              <span className={`status-pill compact status-${myActivityStatus.tone}`}>狀態 {myActivityStatus.label}</span>
             </div>
             <div className="nav-stack">
-              {visibleNav.map((item) => (
-                <button key={item.key} className={`nav-button ${activeNav === item.key ? "is-active" : ""}`} onClick={() => setActiveNav(item.key)} type="button">
-                  {item.label}
-                </button>
-              ))}
+              {visibleNav.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button key={item.key} className={`nav-button ${activeNav === item.key ? "is-active" : ""}`} onClick={() => setActiveNav(item.key)} type="button">
+                    <span className="nav-icon"><Icon size={18} /></span>
+                    <span className="nav-copy">
+                      <strong>{item.label}</strong>
+                      <small>{item.hint}</small>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
             <button className="ghost-button" onClick={logout} type="button">
+              <LogOut size={16} />
               登出
             </button>
           </div>
@@ -1092,10 +1214,10 @@ async function bootstrap(nextToken: string) {
                 </div>
               </div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <span className="mini-pill">HP {character.hp}/{character.maxHp}</span>
-                <span className="mini-pill">MP {character.mp}/{character.maxMp}</span>
-                <span className="mini-pill">精力 {character.energy}/{character.maxEnergy}</span>
-                <span className="mini-pill">金幣 {character.gold}</span>
+                <span className="mini-pill"><HeartPulse size={15} />HP {character.hp}/{character.maxHp}</span>
+                <span className="mini-pill"><Sparkles size={15} />MP {character.mp}/{character.maxMp}</span>
+                <span className="mini-pill"><BatteryCharging size={15} />精力 {character.energy}/{character.maxEnergy}</span>
+                <span className="mini-pill"><Coins size={15} />金幣 {character.gold}</span>
               </div>
             </div>
           </div>
@@ -1289,12 +1411,17 @@ async function bootstrap(nextToken: string) {
                       <div className="muted">隊長 {roomState.members.find((member) => member.isHost)?.displayName || "-"}</div>
                     </div>
                     {roomState.phase === "lobby" ? (
-                      <button className="primary-button" onClick={startBattle} type="button">開始戰鬥</button>
+                      <button className="primary-button" onClick={startBattle} disabled={!canLeadPartyAction} type="button">開始戰鬥</button>
                     ) : null}
                   </div>
+                  {partyBlocker ? <div className="banner" style={{ padding: 12, marginTop: 12 }}>隊伍中有成員不是閒暇中：{partyBlocker.displayName}</div> : null}
                   <div className="member-grid" style={{ marginTop: 14 }}>
                     {roomState.members.map((member) => (
                       <div key={member.userId} className="member-card" style={{ padding: 12 }}>
+                        {(() => {
+                          const memberStatus = activityStatusFor(member.character, roomState, member.userId);
+                          return <span className={`mini-pill status-${memberStatus.tone}`} style={{ marginBottom: 8 }}>{memberStatus.label}</span>;
+                        })()}
                         <strong>{member.displayName}</strong>
                         <div className="muted">{member.isHost ? "隊長" : "隊員"}</div>
                         <div className="muted" style={{ marginTop: 8 }}>
@@ -1415,7 +1542,7 @@ async function bootstrap(nextToken: string) {
                                 <div className="muted" style={{ marginTop: 6 }}>城防 {castle.fortification} / {castle.maxFortification}</div>
                                 <div className="muted">Boss {castle.bossName}</div>
                                 {!isMine ? (
-                                  <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleAttackCastle(castle.id)} type="button">
+                                  <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleAttackCastle(castle.id)} disabled={!canAttackCastle} type="button">
                                     攻打城堡
                                   </button>
                                 ) : (
@@ -1473,11 +1600,25 @@ async function bootstrap(nextToken: string) {
                         </label>
                         <label className="field">
                           <span>金幣</span>
-                          <input value={treasuryGold} onChange={(event) => setTreasuryGold(event.target.value)} />
+                          <input
+                            type="number"
+                            min={0}
+                            max={factionState?.selectedFaction?.treasury.gold || 0}
+                            step={1}
+                            value={treasuryGold}
+                            onChange={(event) => setTreasuryGold(clampedInputValue(event.target.value, 0, factionState?.selectedFaction?.treasury.gold || 0))}
+                          />
                         </label>
                         <label className="field">
                           <span>素材</span>
-                          <input value={treasuryMaterials} onChange={(event) => setTreasuryMaterials(event.target.value)} />
+                          <input
+                            type="number"
+                            min={0}
+                            max={factionState?.selectedFaction?.treasury.materials || 0}
+                            step={1}
+                            value={treasuryMaterials}
+                            onChange={(event) => setTreasuryMaterials(clampedInputValue(event.target.value, 0, factionState?.selectedFaction?.treasury.materials || 0))}
+                          />
                         </label>
                       </div>
                       <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleGrantTreasury()} type="button">發放公庫</button>
@@ -1644,6 +1785,9 @@ async function bootstrap(nextToken: string) {
               </div>
 
               <div className="history-list">
+                <div className="banner" style={{ padding: 12 }}>
+                  已投入 {forgeSelectedCount()} / {forgeMaterialLimit} 個材料
+                </div>
                 {inventoryGroups.material.map((item) => (
                   <div key={item.id} className="history-card" style={{ padding: 14, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
                     <div>
@@ -1653,8 +1797,12 @@ async function bootstrap(nextToken: string) {
                     <label className="field" style={{ minWidth: 120 }}>
                       <span>投入數量</span>
                       <input
+                        type="number"
+                        min={0}
+                        max={Math.min(item.quantity || 0, Math.max(0, forgeMaterialLimit - forgeSelectedCount(item.id)))}
+                        step={1}
                         value={forgeMaterialAmounts[item.id] || ""}
-                        onChange={(event) => setForgeMaterialAmounts((current) => ({ ...current, [item.id]: event.target.value }))}
+                        onChange={(event) => updateForgeMaterialAmount(item, event.target.value)}
                         placeholder="0"
                       />
                     </label>
@@ -1858,10 +2006,10 @@ async function bootstrap(nextToken: string) {
                 <div className="panel" style={{ padding: 16 }}>
                   <div className="form-grid three-col">
                     <label className="field"><span>怪物名稱</span><input value={adminBattleName} onChange={(event) => setAdminBattleName(event.target.value)} /></label>
-                    <label className="field"><span>HP</span><input value={adminBattleHp} onChange={(event) => setAdminBattleHp(event.target.value)} /></label>
-                    <label className="field"><span>攻擊</span><input value={adminBattleAttack} onChange={(event) => setAdminBattleAttack(event.target.value)} /></label>
+                    <label className="field"><span>HP</span><input type="number" min={1} max={numberLimits.monsterHp} step={1} value={adminBattleHp} onChange={(event) => setAdminBattleHp(clampedInputValue(event.target.value, 1, numberLimits.monsterHp))} /></label>
+                    <label className="field"><span>攻擊</span><input type="number" min={1} max={numberLimits.monsterAttack} step={1} value={adminBattleAttack} onChange={(event) => setAdminBattleAttack(clampedInputValue(event.target.value, 1, numberLimits.monsterAttack))} /></label>
                   </div>
-                  <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleAdminAction(() => adminBattleTest(token, { targetCharacterName: adminTargetName, monsterName: adminBattleName, monsterHp: Number(adminBattleHp), monsterAttack: Number(adminBattleAttack) }), "已啟動測試戰鬥")} type="button">啟動測試戰鬥</button>
+                  <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleAdminAction(() => adminBattleTest(token, { targetCharacterName: adminTargetName, monsterName: adminBattleName, monsterHp: toClampedInt(adminBattleHp, 1, numberLimits.monsterHp, 1), monsterAttack: toClampedInt(adminBattleAttack, 1, numberLimits.monsterAttack, 1) }), "已啟動測試戰鬥")} type="button">啟動測試戰鬥</button>
                 </div>
               ) : null}
 
@@ -1881,12 +2029,12 @@ async function bootstrap(nextToken: string) {
                     <div className="form-grid three-col" style={{ marginTop: 12 }}>
                       <label className="field"><span>名稱</span><input value={adminCustomWeaponName} onChange={(event) => setAdminCustomWeaponName(event.target.value)} /></label>
                       <label className="field"><span>部位</span><select value={adminCustomWeaponSlot} onChange={(event) => setAdminCustomWeaponSlot(event.target.value as EquipmentSlotKey)}>{equipmentGroupOrder.map((slot) => <option key={slot} value={slot}>{slotLabel(slot)}</option>)}</select></label>
-                      <label className="field"><span>耐久</span><input value={adminCustomWeaponDurability} onChange={(event) => setAdminCustomWeaponDurability(event.target.value)} /></label>
-                      <label className="field"><span>攻擊</span><input value={adminCustomWeaponAttack} onChange={(event) => setAdminCustomWeaponAttack(event.target.value)} /></label>
-                      <label className="field"><span>防禦</span><input value={adminCustomWeaponDefense} onChange={(event) => setAdminCustomWeaponDefense(event.target.value)} /></label>
-                      <label className="field"><span>運氣</span><input value={adminCustomWeaponLuck} onChange={(event) => setAdminCustomWeaponLuck(event.target.value)} /></label>
-                      <label className="field"><span>智慧</span><input value={adminCustomWeaponIntelligence} onChange={(event) => setAdminCustomWeaponIntelligence(event.target.value)} /></label>
-                      <label className="field"><span>韌性</span><input value={adminCustomWeaponTenacity} onChange={(event) => setAdminCustomWeaponTenacity(event.target.value)} /></label>
+                      <label className="field"><span>耐久</span><input type="number" min={1} max={numberLimits.durability} step={1} value={adminCustomWeaponDurability} onChange={(event) => setAdminCustomWeaponDurability(clampedInputValue(event.target.value, 1, numberLimits.durability))} /></label>
+                      <label className="field"><span>攻擊</span><input type="number" min={0} max={numberLimits.customStatBonus} step={1} value={adminCustomWeaponAttack} onChange={(event) => setAdminCustomWeaponAttack(clampedInputValue(event.target.value, 0, numberLimits.customStatBonus))} /></label>
+                      <label className="field"><span>防禦</span><input type="number" min={0} max={numberLimits.customStatBonus} step={1} value={adminCustomWeaponDefense} onChange={(event) => setAdminCustomWeaponDefense(clampedInputValue(event.target.value, 0, numberLimits.customStatBonus))} /></label>
+                      <label className="field"><span>運氣</span><input type="number" min={0} max={numberLimits.customStatBonus} step={1} value={adminCustomWeaponLuck} onChange={(event) => setAdminCustomWeaponLuck(clampedInputValue(event.target.value, 0, numberLimits.customStatBonus))} /></label>
+                      <label className="field"><span>智慧</span><input type="number" min={0} max={numberLimits.customStatBonus} step={1} value={adminCustomWeaponIntelligence} onChange={(event) => setAdminCustomWeaponIntelligence(clampedInputValue(event.target.value, 0, numberLimits.customStatBonus))} /></label>
+                      <label className="field"><span>韌性</span><input type="number" min={0} max={numberLimits.customStatBonus} step={1} value={adminCustomWeaponTenacity} onChange={(event) => setAdminCustomWeaponTenacity(clampedInputValue(event.target.value, 0, numberLimits.customStatBonus))} /></label>
                     </div>
                     <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleAdminGrantCustomWeapon()} type="button">發送自訂武器</button>
                   </div>
@@ -1894,9 +2042,9 @@ async function bootstrap(nextToken: string) {
                   <div className="panel" style={{ padding: 16 }}>
                     <strong>發送資源</strong>
                     <div className="form-grid three-col" style={{ marginTop: 12 }}>
-                      <label className="field"><span>金幣</span><input value={adminGrantGold} onChange={(event) => setAdminGrantGold(event.target.value)} /></label>
+                      <label className="field"><span>金幣</span><input type="number" min={0} max={numberLimits.grantGold} step={1} value={adminGrantGold} onChange={(event) => setAdminGrantGold(clampedInputValue(event.target.value, 0, numberLimits.grantGold))} /></label>
                       <label className="field"><span>資源種類</span><select value={adminResourceType} onChange={(event) => setAdminResourceType(event.target.value as MaterialType)}>{adminState?.resourceTypes.map((entry) => <option key={entry.type} value={entry.type}>{entry.name}</option>)}</select></label>
-                      <label className="field"><span>數量</span><input value={adminResourceQuantity} onChange={(event) => setAdminResourceQuantity(event.target.value)} /></label>
+                      <label className="field"><span>數量</span><input type="number" min={0} max={numberLimits.resourceQuantity} step={1} value={adminResourceQuantity} onChange={(event) => setAdminResourceQuantity(clampedInputValue(event.target.value, 0, numberLimits.resourceQuantity))} /></label>
                     </div>
                     <button className="secondary-button" style={{ marginTop: 12 }} onClick={() => void handleAdminGrantResources()} type="button">發送資源</button>
                   </div>
@@ -1928,9 +2076,9 @@ async function bootstrap(nextToken: string) {
                           <label className="field"><span>標題</span><input value={config.title} onChange={(event) => setConfig((current) => current ? { ...current, title: event.target.value } : current)} /></label>
                           <label className="field"><span>開始時間</span><input type="datetime-local" value={toDateTimeLocalValue(config.startAt)} onChange={(event) => setConfig((current) => current ? { ...current, startAt: event.target.value ? new Date(event.target.value).toISOString() : null } : current)} /></label>
                           <label className="field"><span>結束時間</span><input type="datetime-local" value={toDateTimeLocalValue(config.endAt)} onChange={(event) => setConfig((current) => current ? { ...current, endAt: event.target.value ? new Date(event.target.value).toISOString() : null } : current)} /></label>
-                          <label className="field"><span>金幣</span><input value={String(config.reward.gold || 0)} onChange={(event) => setConfig((current) => current ? { ...current, reward: { ...current.reward, gold: Number(event.target.value || 0) } } : current)} /></label>
+                          <label className="field"><span>金幣</span><input type="number" min={0} max={numberLimits.grantGold} step={1} value={String(config.reward.gold || 0)} onChange={(event) => setConfig((current) => current ? { ...current, reward: { ...current.reward, gold: toClampedInt(event.target.value, 0, numberLimits.grantGold, 0) } } : current)} /></label>
                           <label className="field"><span>資源種類</span><select value={config.reward.materials?.[0]?.materialType || "iron_ore"} onChange={(event) => setConfig((current) => current ? { ...current, reward: { ...current.reward, materials: [{ materialType: event.target.value as MaterialType, quantity: current.reward.materials?.[0]?.quantity || 1 }] } } : current)}>{adminState?.resourceTypes.map((entry) => <option key={entry.type} value={entry.type}>{entry.name}</option>)}</select></label>
-                          <label className="field"><span>資源數量</span><input value={String(config.reward.materials?.[0]?.quantity || 0)} onChange={(event) => setConfig((current) => current ? { ...current, reward: { ...current.reward, materials: [{ materialType: current.reward.materials?.[0]?.materialType || "iron_ore", quantity: Number(event.target.value || 0) }] } } : current)} /></label>
+                          <label className="field"><span>資源數量</span><input type="number" min={0} max={numberLimits.resourceQuantity} step={1} value={String(config.reward.materials?.[0]?.quantity || 0)} onChange={(event) => setConfig((current) => current ? { ...current, reward: { ...current.reward, materials: [{ materialType: current.reward.materials?.[0]?.materialType || "iron_ore", quantity: toClampedInt(event.target.value, 0, numberLimits.resourceQuantity, 0) }] } } : current)} /></label>
                           <label className="field"><span>附贈物品</span><select value={config.reward.itemGrants?.[0]?.shopItemId || ""} onChange={(event) => setConfig((current) => current ? { ...current, reward: { ...current.reward, itemGrants: event.target.value ? [{ shopItemId: event.target.value }] : [] } } : current)}><option value="">不使用</option>{shopItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
                           <label className="field"><span>啟用狀態</span><select value={config.active ? "on" : "off"} onChange={(event) => setConfig((current) => current ? { ...current, active: event.target.value === "on" } : current)}><option value="on">啟用</option><option value="off">停用</option></select></label>
                         </div>

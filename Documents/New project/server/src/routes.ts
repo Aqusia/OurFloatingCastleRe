@@ -14,6 +14,7 @@ import type {
   AdminFillResourcesPayload,
   AdminGrantItemPayload,
   CharacterClass,
+  CharacterProfile,
   CooperateRespondPayload,
   CraftPayload,
   EquipItemPayload,
@@ -30,7 +31,7 @@ import type {
 } from "../../shared/events";
 import type { AuthedRequest } from "./auth";
 import { login, register, requireAuth, requireFactionLeaderOrAdmin, requireRole } from "./auth";
-import { getPublicRoomState, isUserInRoom, listRoomSummaries } from "./game";
+import { getPublicRoomState, getRoomForUser, listRoomSummaries, refreshRoomMemberCharacters } from "./game";
 import {
   addFriend,
   adminAdjustResources,
@@ -68,6 +69,7 @@ import {
   getQueueState,
   getSignInStatus,
   grantFactionTreasury,
+  isCharacterBusy,
   listBattleRecordsForUser,
   listFactionMarket,
   listFactions,
@@ -154,10 +156,6 @@ export function createApiRouter() {
 
   router.post("/queue/actions", requireAuth(), async (request: AuthedRequest, response) => {
     try {
-      if (isUserInRoom(request.auth!.user.id)) {
-        response.status(400).json({ error: "戰鬥房內無法加入行動隊列。" });
-        return;
-      }
       const queuePayload = request.body as QueueActionPayload;
       await processCharacterQueue(request.auth!.user.id, true);
       const result = await enqueueAction(request.auth!.user.id, queuePayload.actionType as ActionType, queuePayload.durationHours);
@@ -329,7 +327,35 @@ export function createApiRouter() {
   router.post("/factions/castles/:castleId/attack", requireAuth(), async (request: AuthedRequest, response) => {
     try {
       const castleId = Array.isArray(request.params.castleId) ? request.params.castleId[0] : request.params.castleId;
-      response.json(await attackCastle(request.auth!.user.id, castleId));
+      const room = getRoomForUser(request.auth!.user.id);
+      if (room) {
+        if (room.phase !== "lobby") {
+          response.status(400).json({ error: "隊伍已經在行動中。" });
+          return;
+        }
+        if (room.hostId !== request.auth!.user.id) {
+          response.status(400).json({ error: "只有隊長可以發起進攻。" });
+          return;
+        }
+        const onlineUsers = getOnlineUserIds();
+        const latestCharacters: CharacterProfile[] = [];
+        for (const member of room.members) {
+          const processed = await processCharacterQueue(member.userId, onlineUsers.has(member.userId));
+          if (isCharacterBusy(processed.character)) {
+            response.status(400).json({ error: `${member.displayName} 目前不是閒暇中，隊伍不能進攻。` });
+            return;
+          }
+          latestCharacters.push(processed.character);
+        }
+        refreshRoomMemberCharacters(room.roomId, latestCharacters);
+      } else {
+        const processed = await processCharacterQueue(request.auth!.user.id, true);
+        if (isCharacterBusy(processed.character)) {
+          response.status(400).json({ error: "角色目前不是閒暇中，不能進攻。" });
+          return;
+        }
+      }
+      response.json(await attackCastle(request.auth!.user.id, castleId, room?.members.map((member) => member.userId)));
     } catch (error) {
       response.status(400).json({ error: error instanceof Error ? error.message : "攻城失敗。" });
     }

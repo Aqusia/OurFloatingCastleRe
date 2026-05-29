@@ -137,6 +137,17 @@ type StoreData = {
 const dataDir = path.resolve(process.cwd(), "server", "data");
 const dataFile = path.join(dataDir, "store.json");
 
+const GAME_LIMITS = {
+  goldBalance: 999999,
+  grantGold: 999999,
+  resourceQuantity: 9999,
+  marketPrice: 999999,
+  customStatBonus: 999,
+  durability: 9999,
+  monsterHp: 999999,
+  monsterAttack: 9999
+};
+
 const initialData: StoreData = {
   users: [],
   sessions: [],
@@ -200,6 +211,12 @@ function normalizeCharacterName(value: string) {
   return value.trim().toLowerCase();
 }
 
+function clampedInt(value: unknown, min: number, max: number, fallback = min) {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return fallback;
+  return clamp(Math.floor(numberValue), min, max);
+}
+
 function flashWindowInfo(forcedEndsAt: string | null, now = new Date()) {
   if (forcedEndsAt && new Date(forcedEndsAt).getTime() > now.getTime()) {
     return { active: true, endsAt: forcedEndsAt, dayKey: taipeiDayKey(now) };
@@ -228,12 +245,12 @@ function flashWindowInfo(forcedEndsAt: string | null, now = new Date()) {
 
 function normalizeRewardTemplate(rawReward: any, fallback: RewardTemplate): RewardTemplate {
   return {
-    gold: Number(rawReward?.gold ?? fallback.gold ?? 0),
+    gold: clampedInt(rawReward?.gold ?? fallback.gold ?? 0, 0, GAME_LIMITS.grantGold, 0),
     materials: Array.isArray(rawReward?.materials)
       ? rawReward.materials
           .map((entry: any) => ({
             materialType: entry.materialType as MaterialType,
-            quantity: Math.max(0, Number(entry.quantity || 0))
+            quantity: clampedInt(entry.quantity, 0, GAME_LIMITS.resourceQuantity, 0)
           }))
           .filter((entry: any) => entry.materialType && entry.quantity > 0)
       : fallback.materials || [],
@@ -441,7 +458,8 @@ function addMaterialRewards(character: CharacterProfile, materialTypes: Material
 function addMaterialResourceRewards(character: CharacterProfile, resources: Array<{ materialType: MaterialType; quantity: number }>) {
   const added: InventoryItem[] = [];
   for (const resource of resources) {
-    for (let count = 0; count < Math.max(0, resource.quantity); count += 1) {
+    const quantity = clampedInt(resource.quantity, 0, GAME_LIMITS.resourceQuantity, 0);
+    for (let count = 0; count < quantity; count += 1) {
       const item = createMaterialItem(resource.materialType, 1);
       mergeInventoryStack(character, item);
       added.push(item);
@@ -451,8 +469,12 @@ function addMaterialResourceRewards(character: CharacterProfile, resources: Arra
 }
 
 function buildAdminCustomWeapon(payload: NonNullable<AdminGrantItemPayload["customWeapon"]>): InventoryItem {
-  const durability = Math.max(1, Number(payload.durability || 100));
-  const intelligenceBonus = Math.max(0, Number(payload.intelligenceBonus || 0));
+  const durability = clampedInt(payload.durability || 100, 1, GAME_LIMITS.durability, 100);
+  const attackBonus = clampedInt(payload.attackBonus, 0, GAME_LIMITS.customStatBonus, 0);
+  const defenseBonus = clampedInt(payload.defenseBonus, 0, GAME_LIMITS.customStatBonus, 0);
+  const luckBonus = clampedInt(payload.luckBonus, 0, GAME_LIMITS.customStatBonus, 0);
+  const intelligenceBonus = clampedInt(payload.intelligenceBonus, 0, GAME_LIMITS.customStatBonus, 0);
+  const tenacityBonus = clampedInt(payload.tenacityBonus, 0, GAME_LIMITS.customStatBonus, 0);
   return normalizeItem({
     id: randomId("item"),
     name: payload.name.trim(),
@@ -462,22 +484,22 @@ function buildAdminCustomWeapon(payload: NonNullable<AdminGrantItemPayload["cust
     qualityTier: payload.qualityTier || "fine",
     craftSource: "admin_custom",
     effectSummary: payload.effectSummary || "由管理員建立的自訂裝備",
-    attackBonus: Math.max(0, Number(payload.attackBonus || 0)),
-    defenseBonus: Math.max(0, Number(payload.defenseBonus || 0)),
-    luckBonus: Math.max(0, Number(payload.luckBonus || 0)),
-    tenacityBonus: Math.max(0, Number(payload.tenacityBonus || 0)),
+    attackBonus,
+    defenseBonus,
+    luckBonus,
+    tenacityBonus,
     durability,
     maxDurability: durability,
     statBonus: {
-      ...(payload.attackBonus ? { attack: Number(payload.attackBonus) } : {}),
-      ...(payload.defenseBonus ? { defense: Number(payload.defenseBonus) } : {}),
-      ...(payload.luckBonus ? { luck: Number(payload.luckBonus) } : {}),
+      ...(attackBonus ? { attack: attackBonus } : {}),
+      ...(defenseBonus ? { defense: defenseBonus } : {}),
+      ...(luckBonus ? { luck: luckBonus } : {}),
       ...(intelligenceBonus ? { intelligence: intelligenceBonus } : {}),
-      ...(payload.tenacityBonus ? { tenacity: Number(payload.tenacityBonus) } : {})
+      ...(tenacityBonus ? { tenacity: tenacityBonus } : {})
     },
-    itemLevel: 1 + Math.max(0, Number(payload.attackBonus || 0) + Number(payload.defenseBonus || 0) + intelligenceBonus),
-    sellPrice: Math.max(0, Number(payload.attackBonus || 0) * 30 + Number(payload.defenseBonus || 0) * 24 + intelligenceBonus * 20),
-    salvagePrice: Math.max(0, Number(payload.attackBonus || 0) * 10 + Number(payload.defenseBonus || 0) * 8 + intelligenceBonus * 6),
+    itemLevel: 1 + attackBonus + defenseBonus + intelligenceBonus,
+    sellPrice: attackBonus * 30 + defenseBonus * 24 + intelligenceBonus * 20,
+    salvagePrice: attackBonus * 10 + defenseBonus * 8 + intelligenceBonus * 6,
     craftedBy: payload.craftedBy || "Admin",
     craftedAt: payload.craftedAt || nowIso()
   });
@@ -516,7 +538,8 @@ function summarizeRewardTemplate(reward: RewardTemplate) {
 
 function grantRewardTemplate(character: CharacterProfile, reward: RewardTemplate, notificationTitle: string) {
   const grantedItems: InventoryItem[] = [];
-  character.gold += Math.max(0, Number(reward.gold || 0));
+  const gold = clampedInt(reward.gold, 0, GAME_LIMITS.grantGold, 0);
+  character.gold = clamp(character.gold + gold, 0, GAME_LIMITS.goldBalance);
   addMaterialResourceRewards(character, reward.materials || []);
   for (const itemGrant of reward.itemGrants || []) {
     const item = buildGrantedItem(itemGrant);
@@ -1654,15 +1677,25 @@ export async function craftEquipment(userId: string, payload: CraftPayload) {
   }
 
   const materialTypes: MaterialType[] = [];
+  const materialCounts = new Map<string, number>();
   for (const materialItemId of payload.materialItemIds) {
+    materialCounts.set(materialItemId, (materialCounts.get(materialItemId) || 0) + 1);
+  }
+  for (const [materialItemId, count] of materialCounts.entries()) {
     const source = character.inventory.find((item) => item.id === materialItemId);
     if (!source || source.category !== "material" || !source.materialType) {
       throw new Error("材料清單中有無效項目");
     }
-    materialTypes.push(source.materialType);
+    if (count > (source.quantity || 0)) {
+      throw new Error(`${source.name} 的投入數量超過持有數量`);
+    }
+    for (let index = 0; index < count; index += 1) {
+      materialTypes.push(source.materialType);
+    }
   }
-  for (const materialItemId of payload.materialItemIds) {
-    removeInventoryQuantity(character, materialItemId, 1);
+  for (const [materialItemId, count] of materialCounts.entries()) {
+    const removed = removeInventoryQuantity(character, materialItemId, count);
+    if (!removed) throw new Error("材料扣除失敗");
   }
 
   const item = normalizeItem(
@@ -1798,13 +1831,13 @@ export async function grantFactionTreasury(userId: string, payload: TreasuryGran
   const targetCharacter = findCharacterByName(data, payload.targetCharacterName);
   if (!targetCharacter) throw new Error("找不到這個角色名稱");
   if (targetCharacter.factionId !== faction.id) throw new Error("目標不在同一個陣營");
-  const gold = Math.max(0, Number(payload.gold || 0));
-  const materials = Math.max(0, Number(payload.materials || 0));
+  const gold = clampedInt(payload.gold, 0, faction.treasury.gold, 0);
+  const materials = clampedInt(payload.materials, 0, faction.treasury.materials, 0);
   if (faction.treasury.gold < gold || faction.treasury.materials < materials) throw new Error("公庫資源不足");
 
   faction.treasury.gold -= gold;
   faction.treasury.materials -= materials;
-  targetCharacter.gold += gold;
+  targetCharacter.gold = clamp(targetCharacter.gold + gold, 0, GAME_LIMITS.goldBalance);
   addMaterialRewards(targetCharacter, Array.from({ length: materials }, () => "iron_ore"));
   appendNotification(targetCharacter, "faction", "公庫發放", `你收到陣營公庫發放：${gold} 金幣與 ${materials} 份素材。`);
   await persist();
@@ -1819,8 +1852,12 @@ export async function listFactionMarket(userId: string) {
 export async function createMarketListing(userId: string, payload: MarketListPayload) {
   const { data, character, user } = await findCharacterForUpdate(userId);
   if (!character.factionId) throw new Error("需要先加入陣營才能使用市場");
-  if (payload.price <= 0) throw new Error("價格必須大於 0");
-  const quantity = Math.max(1, Number(payload.quantity || 1));
+  const source = character.inventory.find((item) => item.id === payload.itemId);
+  if (!source) throw new Error("找不到要上架的物品");
+  const maxQuantity = Math.max(1, source.quantity || 1);
+  const price = clampedInt(payload.price, 1, GAME_LIMITS.marketPrice, 0);
+  if (price <= 0) throw new Error("價格必須大於 0");
+  const quantity = clampedInt(payload.quantity || 1, 1, maxQuantity, 1);
   const removed = removeInventoryQuantity(character, payload.itemId, quantity);
   if (!removed) throw new Error("找不到要上架的物品");
 
@@ -1831,7 +1868,7 @@ export async function createMarketListing(userId: string, payload: MarketListPay
     sellerCharacterName: character.name,
     factionId: character.factionId,
     quantity,
-    price: payload.price,
+    price,
     item: normalizeItem(removed),
     createdAt: nowIso()
   });
@@ -1870,39 +1907,56 @@ export async function cancelMarketListing(userId: string, listingId: string) {
   return buildFactionState(data, userId);
 }
 
-export async function attackCastle(userId: string, castleId: string): Promise<AttackCastleResult> {
-  const { data, character, user } = await findCharacterForUpdate(userId);
+export async function attackCastle(userId: string, castleId: string, participantUserIds: string[] = [userId]): Promise<AttackCastleResult> {
+  const { data, character } = await findCharacterForUpdate(userId);
   if (!character.factionId) throw new Error("需要先加入陣營");
+  if (isCharacterBusy(character)) throw new Error("角色目前不是閒暇中，不能進攻");
   const castle = data.castles.find((entry) => entry.id === castleId);
   if (!castle) throw new Error("找不到城池");
   if (castle.ownerFactionId === character.factionId) throw new Error("不能攻打自己的城池");
+  const targetFactionId = castle.ownerFactionId;
   const myFaction = getFactionById(data, character.factionId);
-  if (myFaction.allyIds.includes(castle.ownerFactionId)) throw new Error("不能攻打盟友城池");
+  if (myFaction.allyIds.includes(targetFactionId)) throw new Error("不能攻打盟友城池");
 
-  const warBonus = myFaction.warTargetIds.includes(castle.ownerFactionId) ? 1.15 : 1;
+  const participants = Array.from(new Set(participantUserIds.length > 0 ? participantUserIds : [userId]))
+    .map((participantUserId) => {
+      const participant = data.characters.find((entry) => entry.userId === participantUserId);
+      if (!participant) throw new Error("找不到隊伍成員資料");
+      if (participant.factionId !== character.factionId) throw new Error("隊伍成員必須在同一陣營才能進攻");
+      if (isCharacterBusy(participant)) throw new Error(`${participant.name} 目前不是閒暇中，不能進攻`);
+      return participant;
+    });
+
+  const warBonus = myFaction.warTargetIds.includes(targetFactionId) ? 1.15 : 1;
   const bossHp = castle.isCapital ? Math.round(castle.bossHp * 1.25) : castle.bossHp;
   const bossAttack = castle.isCapital ? Math.round(castle.bossAttack * 1.25) : castle.bossAttack;
-  const power = Math.round(
-    (character.instinctLevel * 6 +
-      character.battleLevel * 5 +
-      character.stats.attack * 3 +
-      character.stats.defense * 2 +
-      character.stats.intelligence * 2 +
-      character.stats.technique * 2 +
-      character.stats.luck +
-      character.stats.tenacity) * warBonus
+  const rawPower = participants.reduce(
+    (total, participant) =>
+      total +
+      participant.instinctLevel * 6 +
+      participant.battleLevel * 5 +
+      participant.stats.attack * 3 +
+      participant.stats.defense * 2 +
+      participant.stats.intelligence * 2 +
+      participant.stats.technique * 2 +
+      participant.stats.luck +
+      participant.stats.tenacity,
+    0
   );
+  const power = Math.round(rawPower * warBonus);
   const defenseScore = bossHp + bossAttack * 8;
   const won = power + Math.floor(Math.random() * 80) >= defenseScore;
   const siegeDamage = 25;
-  const hpLoss = Math.min(character.hp - 1, Math.max(4, Math.floor(bossAttack / 2) - Math.floor(character.stats.tenacity / 3)));
-  const mpLoss = Math.min(character.mp, Math.max(6, Math.floor(bossAttack / 3)));
-  const energyLoss = Math.min(character.energy, 12);
-
-  character.hp = clamp(character.hp - Math.max(0, hpLoss), 1, character.maxHp);
-  character.mp = clamp(character.mp - mpLoss, 0, character.maxMp);
-  character.energy = clamp(character.energy - energyLoss, 0, character.maxEnergy);
-  damageEquippedForBattle(character, hpLoss > 0);
+  const participantResults = participants.map((participant) => {
+    const hpLoss = Math.min(participant.hp - 1, Math.max(4, Math.floor(bossAttack / 2) - Math.floor(participant.stats.tenacity / 3)));
+    const mpLoss = Math.min(participant.mp, Math.max(6, Math.floor(bossAttack / 3)));
+    const energyLoss = Math.min(participant.energy, 12);
+    participant.hp = clamp(participant.hp - Math.max(0, hpLoss), 1, participant.maxHp);
+    participant.mp = clamp(participant.mp - mpLoss, 0, participant.maxMp);
+    participant.energy = clamp(participant.energy - energyLoss, 0, participant.maxEnergy);
+    damageEquippedForBattle(participant, hpLoss > 0);
+    return { participant, hpLoss, mpLoss, energyLoss };
+  });
 
   if (won) {
     castle.fortification -= siegeDamage;
@@ -1926,23 +1980,22 @@ export async function attackCastle(userId: string, castleId: string): Promise<At
     createdAt: nowIso(),
     battleContext: "castle",
     castleId: castle.id,
-    targetFactionId: castle.ownerFactionId,
-    participants: [
-      {
-        userId,
-        displayName: user.displayName,
-        className: character.className,
-        damageDealt: won ? bossHp : Math.floor(power / 6),
-        healingDone: 0,
-        damageTaken: hpLoss
-      }
-    ],
+    targetFactionId,
+    participants: participantResults.map(({ participant, hpLoss }, index) => ({
+      userId: participant.userId,
+      displayName: data.users.find((entry) => entry.id === participant.userId)?.displayName || participant.name,
+      className: participant.className,
+      damageDealt: won ? Math.floor(bossHp / participantResults.length) : Math.floor(power / Math.max(6, participantResults.length * 6)) + index,
+      healingDone: 0,
+      damageTaken: hpLoss
+    })),
     logs: [
       `目標：${castle.name} / ${castle.bossName}`,
       `結果：${won ? "勝利" : "失敗"}`,
       `造成傷害：${won ? bossHp : Math.floor(power / 6)}`,
-      `承受傷害：${hpLoss}`,
-      `消耗 MP：${mpLoss}、精力：${energyLoss}`
+      `參與人數：${participantResults.length}`,
+      `承受傷害：${participantResults.reduce((total, result) => total + result.hpLoss, 0)}`,
+      `消耗 MP：${participantResults.reduce((total, result) => total + result.mpLoss, 0)}、精力：${participantResults.reduce((total, result) => total + result.energyLoss, 0)}`
     ]
   };
   await recordBattle(record);
@@ -2034,8 +2087,8 @@ export async function adminAdjustResources(payload: AdminAdjustResourcesPayload)
   const target = await resolveCharacterByName(payload.targetCharacterName);
   if (!target) throw new Error("找不到這個角色名稱");
   const { character } = await findCharacterForUpdate(target.userId);
-  character.gold = Math.max(0, Number(payload.gold ?? character.gold));
-  character.materials = Math.max(0, Number(payload.materials ?? character.materials));
+  character.gold = clampedInt(payload.gold ?? character.gold, 0, GAME_LIMITS.goldBalance, character.gold);
+  character.materials = clampedInt(payload.materials ?? character.materials, 0, GAME_LIMITS.resourceQuantity, character.materials);
   await persist();
   return toPublicCharacter(character);
 }
@@ -2044,10 +2097,16 @@ export async function adminGrantResources(payload: AdminGrantResourcesPayload) {
   const target = await resolveCharacterByName(payload.targetCharacterName);
   if (!target) throw new Error("找不到這個角色名稱");
   const { character } = await findCharacterForUpdate(target.userId);
-  const gold = Math.max(0, Number(payload.gold || 0));
-  character.gold += gold;
-  addMaterialResourceRewards(character, payload.resources || []);
-  appendNotification(character, "admin", "管理員發送資源", `你收到金幣 ${gold} 與 ${summarizeRewardTemplate({ materials: payload.resources || [] })}。`);
+  const gold = clampedInt(payload.gold, 0, GAME_LIMITS.grantGold, 0);
+  const resources = (payload.resources || [])
+    .map((resource) => ({
+      materialType: resource.materialType,
+      quantity: clampedInt(resource.quantity, 0, GAME_LIMITS.resourceQuantity, 0)
+    }))
+    .filter((resource) => resource.quantity > 0);
+  character.gold = clamp(character.gold + gold, 0, GAME_LIMITS.goldBalance);
+  addMaterialResourceRewards(character, resources);
+  appendNotification(character, "admin", "管理員發送資源", `你收到金幣 ${gold} 與 ${summarizeRewardTemplate({ materials: resources })}。`);
   await persist();
   return toPublicCharacter(character);
 }
@@ -2056,6 +2115,8 @@ export async function adminBattleTest(payload: AdminBattleTestPayload) {
   const target = await resolveCharacterByName(payload.targetCharacterName);
   if (!target) throw new Error("找不到這個角色名稱");
   const { character } = await findCharacterForUpdate(target.userId);
+  const monsterHp = clampedInt(payload.monsterHp, 1, GAME_LIMITS.monsterHp, 1);
+  const monsterAttack = clampedInt(payload.monsterAttack, 1, GAME_LIMITS.monsterAttack, 1);
   const power =
     character.instinctLevel * 6 +
     character.battleLevel * 6 +
@@ -2063,9 +2124,9 @@ export async function adminBattleTest(payload: AdminBattleTestPayload) {
     character.stats.defense * 2 +
     character.stats.technique +
     character.stats.tenacity;
-  const monsterPower = payload.monsterHp + payload.monsterAttack * 8;
+  const monsterPower = monsterHp + monsterAttack * 8;
   const won = power + Math.floor(Math.random() * 40) >= monsterPower;
-  const damageTaken = won ? Math.max(1, Math.floor(payload.monsterAttack / 2) - Math.floor(character.stats.tenacity / 4)) : payload.monsterAttack;
+  const damageTaken = won ? Math.max(1, Math.floor(monsterAttack / 2) - Math.floor(character.stats.tenacity / 4)) : monsterAttack;
   character.hp = clamp(character.hp - damageTaken, 1, character.maxHp);
   damageEquippedForBattle(character, damageTaken > 0);
   const record: BattleRecordSummary = {
@@ -2082,7 +2143,7 @@ export async function adminBattleTest(payload: AdminBattleTestPayload) {
         userId: character.userId,
         displayName: character.name,
         className: character.className,
-        damageDealt: won ? payload.monsterHp : Math.floor(power / 6),
+    damageDealt: won ? monsterHp : Math.floor(power / 6),
         healingDone: 0,
         damageTaken
       }
@@ -2090,9 +2151,9 @@ export async function adminBattleTest(payload: AdminBattleTestPayload) {
     logs: [
       `目標：${payload.monsterName}`,
       `結果：${won ? "勝利" : "失敗"}`,
-      `造成傷害：${won ? payload.monsterHp : Math.floor(power / 6)}`,
+      `造成傷害：${won ? monsterHp : Math.floor(power / 6)}`,
       `承受傷害：${damageTaken}`,
-      `怪物攻擊：${payload.monsterAttack}`
+      `怪物攻擊：${monsterAttack}`
     ]
   };
   await recordBattle(record);
@@ -2174,8 +2235,8 @@ export async function adminSetCastleOwner(payload: AdminSetCastleOwnerPayload) {
 export async function adminAdjustTreasury(payload: AdminAdjustTreasuryPayload) {
   const data = await ensureLoaded();
   const faction = getFactionById(data, payload.factionId);
-  faction.treasury.gold = Math.max(0, Number(payload.gold ?? faction.treasury.gold));
-  faction.treasury.materials = Math.max(0, Number(payload.materials ?? faction.treasury.materials));
+  faction.treasury.gold = clampedInt(payload.gold ?? faction.treasury.gold, 0, GAME_LIMITS.goldBalance, faction.treasury.gold);
+  faction.treasury.materials = clampedInt(payload.materials ?? faction.treasury.materials, 0, GAME_LIMITS.resourceQuantity, faction.treasury.materials);
   await persist();
   return toFactionSummary(data, faction);
 }

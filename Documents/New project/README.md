@@ -68,6 +68,8 @@ npm.cmd --workspace client run dev
   - 讀 repo 最快的導覽，說明每個資料夾與關鍵檔案負責什麼
 - `docs/documentation-policy.md`
   - 明文規定什麼改動一定要同步更新文件
+- `docs/open-source-references.md`
+  - 可參考的開源遊戲、UI 資源、架構工具與授權判斷
 - `docs/game-design.md`
   - 目前玩法、系統規則、功能狀態
 - `docs/changelog.md`
