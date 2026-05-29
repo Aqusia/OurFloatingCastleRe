@@ -1,65 +1,36 @@
 # 多人養成討伐原型
 
-這是一個以網頁為主的多人養成 + 自動討伐原型。
+這是一個以網頁為主的多人養成 + 自動討伐原型，採用 `client` / `server` / `shared` 的分層結構。
 
-目前方向：
+目前重點包含：
 
-- 中文介面
-- 左側固定導覽
-- 行動隊列
-- 自動戰鬥
-- 歷史戰報 / 通知
-- 好友與簽到
+- 中文介面與左側固定導覽
+- 行動隊列、訓練、挖礦、休息
+- 多人房間、自動戰鬥、戰報
+- 陣營、城池、外交、公庫
+- 揹包、裝備、鍛造、玩家市場
+- Admin 功能、公告、每日獎勵、突發活動
 
-## 目前功能
+## 快速入口
 
-### 角色
+第一次接手這個 repo，建議依序看：
 
-- 顯示 HP / MP / 精力 / 金錢 / 材料
-- 顯示攻擊、防禦、運氣、心態
-- 顯示背包、稱號、狀態欄
-- 顯示裝備欄與賦能位
-- 支援每日簽到與突擊簽到狀態
+1. `AGENTS.md`
+2. `README.md`
+3. `docs/repository-guide.md`
+4. `docs/documentation-policy.md`
+5. `docs/game-design.md`
+6. `docs/changelog.md`
 
-### 行動
+## 專案結構
 
-- 釣魚
-- 跳繩
-- 伏地挺身
-- 讀書
-- 休息
-- 淺層礦坑
-- 深層礦坑
-
-規則：
-
-- 行動會進入單一隊列
-- 隊列上限一天
-- 行動會消耗精力
-- 在線完成額外 +20% 獎勵
-- 進房後不能再安排行動
-
-### 戰鬥
-
-- 建房 / 加房
-- 房主開始討伐
-- 自動戰鬥
-- Boss 自動攻擊
-- 獨立戰鬥畫面
-- 戰後回寫 HP / MP
-
-### 消息 / 社交
-
-- 戰報頁
-- 通知頁
-- 好友系統
-- 在線狀態顯示
-
-### 商店
-
-- 消耗品
-- 基礎裝備
-- 賦能道具
+```text
+client/                 React + Vite 前端
+server/                 Express + Socket.IO 後端
+shared/                 前後端共用型別與事件契約
+docs/                   專案導覽、設計、變更紀錄
+supabase/               schema / migration 草稿
+```
 
 ## 啟動方式
 
@@ -89,8 +60,35 @@ npm.cmd --workspace client run dev
 
 - [http://127.0.0.1:3001/api/health](http://127.0.0.1:3001/api/health)
 
-## 主要資料位置
+## 文件索引
 
-- 本地資料：`server/data/store.json`
-- 文件：`docs/game-plan.md`
+- `AGENTS.md`
+  - 給 AI / 維護者的進場順序、改動守則、文件同步規則
+- `docs/repository-guide.md`
+  - 讀 repo 最快的導覽，說明每個資料夾與關鍵檔案負責什麼
+- `docs/documentation-policy.md`
+  - 明文規定什麼改動一定要同步更新文件
+- `docs/game-design.md`
+  - 目前玩法、系統規則、功能狀態
+- `docs/changelog.md`
+  - 每一輪實際改動紀錄
+
+## 文件同步規則
+
+只要有以下變更，就要在同一次提交補文件：
+
+- 功能或規則改動：更新 `docs/game-design.md`
+- 結構、資料流、關鍵入口改動：更新 `docs/repository-guide.md`
+- 已完成的工作內容：更新 `docs/changelog.md`
+- 啟動方式、環境需求、入口路徑改動：更新 `README.md`
+
+如果程式改了但文件沒改，這個 repo 很快就會變得難以維護，也會讓 AI 判讀成本大幅上升。
+
+## 目前主要資料位置
+
+- 本地持久化：`server/server/data/store.json`
+- 前後端契約：`shared/events.ts`
+- 後端主路由：`server/src/routes.ts`
+- 戰鬥流程：`server/src/game.ts`
+- 前端主畫面：`client/src/App.tsx`
 - Supabase migration 草稿：`supabase/migrations/`

@@ -1,4 +1,24 @@
-# CHANGELOG
+# Changelog
+
+## 2026-05-29
+
+### 這一輪調整
+
+- 整理文件檔名，將內部文件統一為較清楚的 `kebab-case`
+- 新增 `AGENTS.md`，明確規定 AI / 維護者的閱讀順序與文件同步責任
+- 新增 `docs/repository-guide.md`，讓新接手的人或 AI 能快速理解結構與資料流
+- 新增 `docs/documentation-policy.md`，把「改程式就要同步改文件」寫成明文規則
+- 重寫 `README.md`，補上文件入口、專案地圖與文件更新規則
+- 重整 `docs/game-design.md`，讓內容更聚焦於目前已實作的真實狀態
+
+### 相關檔案
+
+- `README.md`
+- `AGENTS.md`
+- `docs/repository-guide.md`
+- `docs/documentation-policy.md`
+- `docs/game-design.md`
+- `docs/changelog.md`
 
 ## 2026-05-27
 
