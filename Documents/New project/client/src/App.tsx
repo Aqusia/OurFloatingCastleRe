@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import type {
   ActionType,
@@ -1511,7 +1511,7 @@ async function bootstrap(nextToken: string) {
                     type="button"
                   >
                     <strong>{tab.label}</strong>
-                    <div className="muted" style={{ marginTop: 6 }}>{inventoryGroups[tab.key].length} ???</div>
+                    <div className="muted" style={{ marginTop: 6 }}>{inventoryGroups[tab.key].length} 件</div>
                   </button>
                 ))}
               </div>
@@ -1520,7 +1520,7 @@ async function bootstrap(nextToken: string) {
                 <div className="section-stack">
                   <div className="panel" style={{ padding: 16 }}>
                     <div className="panel-heading">
-                      <strong>?????</strong>
+                      <strong>目前穿戴中</strong>
                       <span className="muted">{equipmentGroupOrder.filter((slot) => Boolean(character.equipmentSlots[slot])).length} / {equipmentGroupOrder.length}</span>
                     </div>
                     <div className="table-list" style={{ marginTop: 12 }}>
@@ -1530,15 +1530,15 @@ async function bootstrap(nextToken: string) {
                           <div key={slot} className="history-card table-row">
                             <div className="table-main">
                               <strong>{slotLabel(slot)}</strong>
-                              <div className="muted">{item?.name || "???"}</div>
+                              <div className="muted">{item?.name || "未裝備"}</div>
                             </div>
                             {item ? (
                               <div className="table-actions">
-                                <button className="ghost-button" onClick={() => setDetailItem(item)} type="button">??</button>
-                                <button className="secondary-button" onClick={() => void handleUnequip(slot)} type="button">??</button>
-                                <button className="ghost-button" onClick={() => void handleRepairEquipment(slot, item.id)} type="button">??</button>
+                                <button className="ghost-button" onClick={() => setDetailItem(item)} type="button">詳情</button>
+                                <button className="secondary-button" onClick={() => void handleUnequip(slot)} type="button">卸下</button>
+                                <button className="ghost-button" onClick={() => void handleRepairEquipment(slot, item.id)} type="button">修復</button>
                               </div>
-                            ) : <span className="mini-pill">???</span>}
+                            ) : null}
                           </div>
                         );
                       })}
@@ -1550,7 +1550,7 @@ async function bootstrap(nextToken: string) {
                       <div className="panel-heading">
                         <strong>{group.label}</strong>
                         <div className="battle-actions">
-                          <span className="muted">{group.items.length} ?</span>
+                          <span className="muted">{group.items.length} 件</span>
                           <button
                             className="ghost-button"
                             onClick={() =>
@@ -1561,7 +1561,7 @@ async function bootstrap(nextToken: string) {
                             }
                             type="button"
                           >
-                            {collapsedEquipmentGroups[group.slot || "other"] ? "??" : "??"}
+                            {collapsedEquipmentGroups[group.slot || "other"] ? "展開" : "收起"}
                           </button>
                         </div>
                       </div>
@@ -1581,10 +1581,10 @@ async function bootstrap(nextToken: string) {
                                 <div className="muted">{inventoryRowSummary(item)}</div>
                               </div>
                               <div className="table-actions">
-                                <button className="ghost-button" onClick={() => setDetailItem(item)} type="button">??</button>
-                                <button className="primary-button" onClick={() => void handleEquip(item.id)} type="button">??</button>
-                                <button className="ghost-button" onClick={() => void handleRepairInventory(item.id)} type="button">??</button>
-                                <button className="secondary-button" onClick={() => void handleListMarket(item)} type="button">??</button>
+                                <button className="ghost-button" onClick={() => setDetailItem(item)} type="button">詳情</button>
+                                <button className="primary-button" onClick={() => void handleEquip(item.id)} type="button">裝備</button>
+                                <button className="ghost-button" onClick={() => void handleRepairInventory(item.id)} type="button">修復</button>
+                                <button className="secondary-button" onClick={() => void handleListMarket(item)} type="button">上架</button>
                               </div>
                             </div>
                           ))}
@@ -1593,7 +1593,7 @@ async function bootstrap(nextToken: string) {
                     </div>
                   ))}
 
-                  {equipmentInventoryGroups.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>?????????</div> : null}
+                  {equipmentInventoryGroups.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>目前沒有可用裝備</div> : null}
                 </div>
               ) : (
                 <div className="panel" style={{ padding: 16 }}>
@@ -1612,12 +1612,12 @@ async function bootstrap(nextToken: string) {
                           <div className="muted">{inventoryRowSummary(item)}</div>
                         </div>
                         <div className="table-actions">
-                          <button className="ghost-button" onClick={() => setDetailItem(item)} type="button">??</button>
-                          {item.category === "material" ? <button className="secondary-button" onClick={() => void handleListMarket(item)} type="button">??</button> : null}
+                          <button className="ghost-button" onClick={() => setDetailItem(item)} type="button">詳情</button>
+                          {item.category === "material" ? <button className="secondary-button" onClick={() => void handleListMarket(item)} type="button">上架</button> : null}
                         </div>
                       </div>
                     ))}
-                    {selectedInventoryItems.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>???????????</div> : null}
+                    {selectedInventoryItems.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>這個分類目前沒有物品</div> : null}
                   </div>
                 </div>
               )}
@@ -1751,8 +1751,8 @@ async function bootstrap(nextToken: string) {
             <section className="section-stack">
               <div className="auth-tabs">
                 {([
-                  ["npc", "NPC ??"],
-                  ["market", "????"]
+                  ["npc", "NPC 商店"],
+                  ["market", "玩家市場"]
                 ] as Array<[ShopTab, string]>).map(([key, label]) => (
                   <button key={key} className={shopTab === key ? "is-active" : ""} onClick={() => setShopTab(key)} type="button">
                     {label}
@@ -1763,20 +1763,20 @@ async function bootstrap(nextToken: string) {
               <div className="panel" style={{ padding: 16 }}>
                 <div className="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
                   <label className="field">
-                    <span>??</span>
+                    <span>分類</span>
                     <select value={shopCategoryFilter} onChange={(event) => setShopCategoryFilter(event.target.value as ShopCategoryFilter)}>
-                      <option value="all">??</option>
-                      <option value="weapon">???</option>
-                      <option value="offhand">???</option>
-                      <option value="armor">??</option>
-                      <option value="material">??</option>
-                      <option value="other">??</option>
+                      <option value="all">全部</option>
+                      <option value="weapon">主武器</option>
+                      <option value="offhand">副武器</option>
+                      <option value="armor">防具</option>
+                      <option value="material">材料</option>
+                      <option value="other">其他</option>
                     </select>
                   </label>
                   {shopTab === "market" ? (
                     <label className="field">
-                      <span>?????</span>
-                      <input value={marketSellerFilter} onChange={(event) => setMarketSellerFilter(event.target.value)} placeholder="????????" />
+                      <span>賣家名稱</span>
+                      <input value={marketSellerFilter} onChange={(event) => setMarketSellerFilter(event.target.value)} placeholder="搜尋販賣者名稱" />
                     </label>
                   ) : null}
                 </div>
@@ -1789,14 +1789,14 @@ async function bootstrap(nextToken: string) {
                       <div className="table-main">
                         <strong>{item.name}</strong>
                         <div className="muted">{item.description}</div>
-                        <div className="muted">{item.effectSummary} ? ?? {item.price}</div>
+                        <div className="muted">{item.effectSummary} · 售價 {item.price}</div>
                       </div>
                       <div className="table-actions">
-                        <button className="primary-button" onClick={() => void handlePurchase(item.id)} type="button">??</button>
+                        <button className="primary-button" onClick={() => void handlePurchase(item.id)} type="button">購買</button>
                       </div>
                     </div>
                   ))}
-                  {filteredShopItems.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>???????????</div> : null}
+                  {filteredShopItems.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>這個分類目前沒有商店物品</div> : null}
                 </div>
               ) : null}
 
@@ -1806,20 +1806,20 @@ async function bootstrap(nextToken: string) {
                     <div key={listing.id} className="history-card table-row">
                       <div className="table-main">
                         <strong>{listing.item.name}</strong>
-                        <div className="muted">?? {listing.sellerCharacterName}</div>
-                        <div className="muted">?? {listing.quantity} ? ?? {listing.price}</div>
+                        <div className="muted">賣家 {listing.sellerCharacterName}</div>
+                        <div className="muted">數量 {listing.quantity} · 售價 {listing.price}</div>
                       </div>
                       <div className="table-actions">
-                        <button className="ghost-button" onClick={() => setDetailItem(listing.item)} type="button">??</button>
+                        <button className="ghost-button" onClick={() => setDetailItem(listing.item)} type="button">詳情</button>
                         {listing.sellerUserId === user.id ? (
-                          <button className="ghost-button" onClick={() => void handleCancelListing(listing.id)} type="button">??</button>
+                          <button className="ghost-button" onClick={() => void handleCancelListing(listing.id)} type="button">下架</button>
                         ) : (
-                          <button className="primary-button" onClick={() => void handleBuyListing(listing)} type="button">??</button>
+                          <button className="primary-button" onClick={() => void handleBuyListing(listing)} type="button">購買</button>
                         )}
                       </div>
                     </div>
                   ))}
-                  {visibleListings.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>????????????</div> : null}
+                  {visibleListings.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>目前沒有符合條件的玩家掛單</div> : null}
                 </div>
               ) : null}
             </section>
@@ -1830,11 +1830,11 @@ async function bootstrap(nextToken: string) {
               <div className="panel" style={{ padding: 16 }}>
                 <div className="auth-tabs">
                   {([
-                    ["actions", "????"],
-                    ["battle", "????"],
-                    ["items", "????"],
-                    ["system", "??"],
-                    ["factions", "??"]
+                    ["actions", "行動"],
+                    ["battle", "戰鬥"],
+                    ["items", "物品"],
+                    ["system", "系統"],
+                    ["factions", "陣營"]
                   ] as Array<[AdminTab, string]>).map(([key, label]) => (
                     <button key={key} className={adminTab === key ? "is-active" : ""} onClick={() => setAdminTab(key)} type="button">
                       {label}
@@ -1842,63 +1842,63 @@ async function bootstrap(nextToken: string) {
                   ))}
                 </div>
                 <label className="field" style={{ marginTop: 14 }}>
-                  <span>??????</span>
-                  <input value={adminTargetName} onChange={(event) => setAdminTargetName(event.target.value)} placeholder="????????" />
+                  <span>目標角色名稱</span>
+                  <input value={adminTargetName} onChange={(event) => setAdminTargetName(event.target.value)} placeholder="輸入要操作的角色名稱" />
                 </label>
               </div>
 
               {adminTab === "actions" ? (
                 <div className="battle-actions">
-                  <button className="primary-button" onClick={() => void handleAdminAction(() => adminCompleteQueue(token, { targetCharacterName: adminTargetName }), "????????")} type="button">??????</button>
-                  <button className="secondary-button" onClick={() => void handleAdminAction(() => adminFillResources(token, { targetCharacterName: adminTargetName }), "??? HP / MP / ???")} type="button">????</button>
+                  <button className="primary-button" onClick={() => void handleAdminAction(() => adminCompleteQueue(token, { targetCharacterName: adminTargetName }), "已完成目標角色的隊列")} type="button">立即完成隊列</button>
+                  <button className="secondary-button" onClick={() => void handleAdminAction(() => adminFillResources(token, { targetCharacterName: adminTargetName }), "已補滿 HP / MP / 精力")} type="button">補滿狀態</button>
                 </div>
               ) : null}
 
               {adminTab === "battle" ? (
                 <div className="panel" style={{ padding: 16 }}>
                   <div className="form-grid three-col">
-                    <label className="field"><span>????</span><input value={adminBattleName} onChange={(event) => setAdminBattleName(event.target.value)} /></label>
+                    <label className="field"><span>怪物名稱</span><input value={adminBattleName} onChange={(event) => setAdminBattleName(event.target.value)} /></label>
                     <label className="field"><span>HP</span><input value={adminBattleHp} onChange={(event) => setAdminBattleHp(event.target.value)} /></label>
-                    <label className="field"><span>??</span><input value={adminBattleAttack} onChange={(event) => setAdminBattleAttack(event.target.value)} /></label>
+                    <label className="field"><span>攻擊</span><input value={adminBattleAttack} onChange={(event) => setAdminBattleAttack(event.target.value)} /></label>
                   </div>
-                  <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleAdminAction(() => adminBattleTest(token, { targetCharacterName: adminTargetName, monsterName: adminBattleName, monsterHp: Number(adminBattleHp), monsterAttack: Number(adminBattleAttack) }), "???????")} type="button">??????</button>
+                  <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleAdminAction(() => adminBattleTest(token, { targetCharacterName: adminTargetName, monsterName: adminBattleName, monsterHp: Number(adminBattleHp), monsterAttack: Number(adminBattleAttack) }), "已啟動測試戰鬥")} type="button">啟動測試戰鬥</button>
                 </div>
               ) : null}
 
               {adminTab === "items" ? (
                 <div className="section-stack">
                   <div className="panel" style={{ padding: 16 }}>
-                    <strong>??????</strong>
+                    <strong>發送既有物品</strong>
                     <div className="form-grid two-col" style={{ marginTop: 12 }}>
-                      <label className="field"><span>????</span><select value={adminRecipeId} onChange={(event) => setAdminRecipeId(event.target.value)}><option value="">???</option>{forgeOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</select></label>
-                      <label className="field"><span>????</span><select value={adminShopItemId} onChange={(event) => setAdminShopItemId(event.target.value)}><option value="">???</option>{shopItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+                      <label className="field"><span>鍛造配方</span><select value={adminRecipeId} onChange={(event) => setAdminRecipeId(event.target.value)}><option value="">不使用</option>{forgeOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</select></label>
+                      <label className="field"><span>商店物品</span><select value={adminShopItemId} onChange={(event) => setAdminShopItemId(event.target.value)}><option value="">不使用</option>{shopItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
                     </div>
-                    <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleAdminAction(() => adminGrantItem(token, { targetCharacterName: adminTargetName, recipeId: adminRecipeId || undefined, shopItemId: adminShopItemId || undefined }), "??????")} type="button">??????</button>
+                    <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleAdminAction(() => adminGrantItem(token, { targetCharacterName: adminTargetName, recipeId: adminRecipeId || undefined, shopItemId: adminShopItemId || undefined }), "已發送物品")} type="button">發送物品</button>
                   </div>
 
                   <div className="panel" style={{ padding: 16 }}>
-                    <strong>??????</strong>
+                    <strong>自訂武器</strong>
                     <div className="form-grid three-col" style={{ marginTop: 12 }}>
-                      <label className="field"><span>??</span><input value={adminCustomWeaponName} onChange={(event) => setAdminCustomWeaponName(event.target.value)} /></label>
-                      <label className="field"><span>??</span><select value={adminCustomWeaponSlot} onChange={(event) => setAdminCustomWeaponSlot(event.target.value as EquipmentSlotKey)}>{equipmentGroupOrder.map((slot) => <option key={slot} value={slot}>{slotLabel(slot)}</option>)}</select></label>
-                      <label className="field"><span>??</span><input value={adminCustomWeaponDurability} onChange={(event) => setAdminCustomWeaponDurability(event.target.value)} /></label>
-                      <label className="field"><span>??</span><input value={adminCustomWeaponAttack} onChange={(event) => setAdminCustomWeaponAttack(event.target.value)} /></label>
-                      <label className="field"><span>??</span><input value={adminCustomWeaponDefense} onChange={(event) => setAdminCustomWeaponDefense(event.target.value)} /></label>
-                      <label className="field"><span>??</span><input value={adminCustomWeaponLuck} onChange={(event) => setAdminCustomWeaponLuck(event.target.value)} /></label>
-                      <label className="field"><span>??</span><input value={adminCustomWeaponIntelligence} onChange={(event) => setAdminCustomWeaponIntelligence(event.target.value)} /></label>
-                      <label className="field"><span>??</span><input value={adminCustomWeaponTenacity} onChange={(event) => setAdminCustomWeaponTenacity(event.target.value)} /></label>
+                      <label className="field"><span>名稱</span><input value={adminCustomWeaponName} onChange={(event) => setAdminCustomWeaponName(event.target.value)} /></label>
+                      <label className="field"><span>部位</span><select value={adminCustomWeaponSlot} onChange={(event) => setAdminCustomWeaponSlot(event.target.value as EquipmentSlotKey)}>{equipmentGroupOrder.map((slot) => <option key={slot} value={slot}>{slotLabel(slot)}</option>)}</select></label>
+                      <label className="field"><span>耐久</span><input value={adminCustomWeaponDurability} onChange={(event) => setAdminCustomWeaponDurability(event.target.value)} /></label>
+                      <label className="field"><span>攻擊</span><input value={adminCustomWeaponAttack} onChange={(event) => setAdminCustomWeaponAttack(event.target.value)} /></label>
+                      <label className="field"><span>防禦</span><input value={adminCustomWeaponDefense} onChange={(event) => setAdminCustomWeaponDefense(event.target.value)} /></label>
+                      <label className="field"><span>運氣</span><input value={adminCustomWeaponLuck} onChange={(event) => setAdminCustomWeaponLuck(event.target.value)} /></label>
+                      <label className="field"><span>智慧</span><input value={adminCustomWeaponIntelligence} onChange={(event) => setAdminCustomWeaponIntelligence(event.target.value)} /></label>
+                      <label className="field"><span>韌性</span><input value={adminCustomWeaponTenacity} onChange={(event) => setAdminCustomWeaponTenacity(event.target.value)} /></label>
                     </div>
-                    <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleAdminGrantCustomWeapon()} type="button">??????</button>
+                    <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleAdminGrantCustomWeapon()} type="button">發送自訂武器</button>
                   </div>
 
                   <div className="panel" style={{ padding: 16 }}>
-                    <strong>????</strong>
+                    <strong>發送資源</strong>
                     <div className="form-grid three-col" style={{ marginTop: 12 }}>
-                      <label className="field"><span>??</span><input value={adminGrantGold} onChange={(event) => setAdminGrantGold(event.target.value)} /></label>
-                      <label className="field"><span>????</span><select value={adminResourceType} onChange={(event) => setAdminResourceType(event.target.value as MaterialType)}>{adminState?.resourceTypes.map((entry) => <option key={entry.type} value={entry.type}>{entry.name}</option>)}</select></label>
-                      <label className="field"><span>??</span><input value={adminResourceQuantity} onChange={(event) => setAdminResourceQuantity(event.target.value)} /></label>
+                      <label className="field"><span>金幣</span><input value={adminGrantGold} onChange={(event) => setAdminGrantGold(event.target.value)} /></label>
+                      <label className="field"><span>資源種類</span><select value={adminResourceType} onChange={(event) => setAdminResourceType(event.target.value as MaterialType)}>{adminState?.resourceTypes.map((entry) => <option key={entry.type} value={entry.type}>{entry.name}</option>)}</select></label>
+                      <label className="field"><span>數量</span><input value={adminResourceQuantity} onChange={(event) => setAdminResourceQuantity(event.target.value)} /></label>
                     </div>
-                    <button className="secondary-button" style={{ marginTop: 12 }} onClick={() => void handleAdminGrantResources()} type="button">????</button>
+                    <button className="secondary-button" style={{ marginTop: 12 }} onClick={() => void handleAdminGrantResources()} type="button">發送資源</button>
                   </div>
                 </div>
               ) : null}
@@ -1906,35 +1906,35 @@ async function bootstrap(nextToken: string) {
               {adminTab === "system" ? (
                 <div className="section-stack">
                   <div className="panel" style={{ padding: 16 }}>
-                    <strong>????</strong>
+                    <strong>公告管理</strong>
                     <div className="form-grid two-col" style={{ marginTop: 12 }}>
-                      <label className="field"><span>????</span><input value={adminAnnouncementTitle} onChange={(event) => setAdminAnnouncementTitle(event.target.value)} /></label>
-                      <label className="field"><span>????</span><input value={adminAnnouncementBody} onChange={(event) => setAdminAnnouncementBody(event.target.value)} /></label>
+                      <label className="field"><span>公告標題</span><input value={adminAnnouncementTitle} onChange={(event) => setAdminAnnouncementTitle(event.target.value)} /></label>
+                      <label className="field"><span>公告內容</span><input value={adminAnnouncementBody} onChange={(event) => setAdminAnnouncementBody(event.target.value)} /></label>
                     </div>
-                    <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleAdminAction(() => adminCreateAnnouncement(token, { title: adminAnnouncementTitle, body: adminAnnouncementBody }), "??????")} type="button">????</button>
+                    <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleAdminAction(() => adminCreateAnnouncement(token, { title: adminAnnouncementTitle, body: adminAnnouncementBody }), "已發布公告")} type="button">發布公告</button>
                   </div>
 
                   {([
-                    ["daily", dailyConfigForm, setDailyConfigForm, "??????????", () => void handleAdminAction(() => adminTriggerDaily(token, user.id), "??????????")],
-                    ["flash", flashConfigForm, setFlashConfigForm, "????????", () => void handleAdminAction(() => adminTriggerFlashEvent(token, 20), "??????????")]
+                    ["daily", dailyConfigForm, setDailyConfigForm, "立即觸發每日獎勵", () => void handleAdminAction(() => adminTriggerDaily(token, user.id), "已觸發每日獎勵")],
+                    ["flash", flashConfigForm, setFlashConfigForm, "立即觸發突發活動", () => void handleAdminAction(() => adminTriggerFlashEvent(token, 20), "已觸發突發活動")]
                   ] as const).map(([kind, config, setConfig, quickLabel, quickAction]) =>
                     config ? (
                       <div key={kind} className="panel" style={{ padding: 16 }}>
                         <div className="panel-heading">
-                          <strong>{kind === "daily" ? "??????" : "??????"}</strong>
+                          <strong>{kind === "daily" ? "每日獎勵設定" : "突發活動設定"}</strong>
                           <button className="secondary-button" onClick={quickAction} type="button">{quickLabel}</button>
                         </div>
                         <div className="form-grid three-col" style={{ marginTop: 12 }}>
-                          <label className="field"><span>??</span><input value={config.title} onChange={(event) => setConfig((current) => current ? { ...current, title: event.target.value } : current)} /></label>
-                          <label className="field"><span>????</span><input type="datetime-local" value={toDateTimeLocalValue(config.startAt)} onChange={(event) => setConfig((current) => current ? { ...current, startAt: event.target.value ? new Date(event.target.value).toISOString() : null } : current)} /></label>
-                          <label className="field"><span>????</span><input type="datetime-local" value={toDateTimeLocalValue(config.endAt)} onChange={(event) => setConfig((current) => current ? { ...current, endAt: event.target.value ? new Date(event.target.value).toISOString() : null } : current)} /></label>
-                          <label className="field"><span>??</span><input value={String(config.reward.gold || 0)} onChange={(event) => setConfig((current) => current ? { ...current, reward: { ...current.reward, gold: Number(event.target.value || 0) } } : current)} /></label>
-                          <label className="field"><span>????</span><select value={config.reward.materials?.[0]?.materialType || "iron_ore"} onChange={(event) => setConfig((current) => current ? { ...current, reward: { ...current.reward, materials: [{ materialType: event.target.value as MaterialType, quantity: current.reward.materials?.[0]?.quantity || 1 }] } } : current)}>{adminState?.resourceTypes.map((entry) => <option key={entry.type} value={entry.type}>{entry.name}</option>)}</select></label>
-                          <label className="field"><span>????</span><input value={String(config.reward.materials?.[0]?.quantity || 0)} onChange={(event) => setConfig((current) => current ? { ...current, reward: { ...current.reward, materials: [{ materialType: current.reward.materials?.[0]?.materialType || "iron_ore", quantity: Number(event.target.value || 0) }] } } : current)} /></label>
-                          <label className="field"><span>??????</span><select value={config.reward.itemGrants?.[0]?.shopItemId || ""} onChange={(event) => setConfig((current) => current ? { ...current, reward: { ...current.reward, itemGrants: event.target.value ? [{ shopItemId: event.target.value }] : [] } } : current)}><option value="">???</option>{shopItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-                          <label className="field"><span>????</span><select value={config.active ? "on" : "off"} onChange={(event) => setConfig((current) => current ? { ...current, active: event.target.value === "on" } : current)}><option value="on">??</option><option value="off">??</option></select></label>
+                          <label className="field"><span>標題</span><input value={config.title} onChange={(event) => setConfig((current) => current ? { ...current, title: event.target.value } : current)} /></label>
+                          <label className="field"><span>開始時間</span><input type="datetime-local" value={toDateTimeLocalValue(config.startAt)} onChange={(event) => setConfig((current) => current ? { ...current, startAt: event.target.value ? new Date(event.target.value).toISOString() : null } : current)} /></label>
+                          <label className="field"><span>結束時間</span><input type="datetime-local" value={toDateTimeLocalValue(config.endAt)} onChange={(event) => setConfig((current) => current ? { ...current, endAt: event.target.value ? new Date(event.target.value).toISOString() : null } : current)} /></label>
+                          <label className="field"><span>金幣</span><input value={String(config.reward.gold || 0)} onChange={(event) => setConfig((current) => current ? { ...current, reward: { ...current.reward, gold: Number(event.target.value || 0) } } : current)} /></label>
+                          <label className="field"><span>資源種類</span><select value={config.reward.materials?.[0]?.materialType || "iron_ore"} onChange={(event) => setConfig((current) => current ? { ...current, reward: { ...current.reward, materials: [{ materialType: event.target.value as MaterialType, quantity: current.reward.materials?.[0]?.quantity || 1 }] } } : current)}>{adminState?.resourceTypes.map((entry) => <option key={entry.type} value={entry.type}>{entry.name}</option>)}</select></label>
+                          <label className="field"><span>資源數量</span><input value={String(config.reward.materials?.[0]?.quantity || 0)} onChange={(event) => setConfig((current) => current ? { ...current, reward: { ...current.reward, materials: [{ materialType: current.reward.materials?.[0]?.materialType || "iron_ore", quantity: Number(event.target.value || 0) }] } } : current)} /></label>
+                          <label className="field"><span>附贈物品</span><select value={config.reward.itemGrants?.[0]?.shopItemId || ""} onChange={(event) => setConfig((current) => current ? { ...current, reward: { ...current.reward, itemGrants: event.target.value ? [{ shopItemId: event.target.value }] : [] } } : current)}><option value="">不使用</option>{shopItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+                          <label className="field"><span>啟用狀態</span><select value={config.active ? "on" : "off"} onChange={(event) => setConfig((current) => current ? { ...current, active: event.target.value === "on" } : current)}><option value="on">啟用</option><option value="off">停用</option></select></label>
                         </div>
-                        <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleSaveRewardConfig(kind as "daily" | "flash")} type="button">????</button>
+                        <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleSaveRewardConfig(kind as "daily" | "flash")} type="button">儲存設定</button>
                       </div>
                     ) : null
                   )}
@@ -1947,8 +1947,8 @@ async function bootstrap(nextToken: string) {
                           <div className="muted">{announcement.body}</div>
                         </div>
                         <div className="table-actions">
-                          <button className="ghost-button" onClick={() => void handleAdminAction(() => adminToggleAnnouncement(token, { announcementId: announcement.id, active: !announcement.active }), "????????")} type="button">
-                            {announcement.active ? "??" : "??"}
+                          <button className="ghost-button" onClick={() => void handleAdminAction(() => adminToggleAnnouncement(token, { announcementId: announcement.id, active: !announcement.active }), "已更新公告狀態")} type="button">
+                            {announcement.active ? "停用" : "啟用"}
                           </button>
                         </div>
                       </div>
@@ -1957,8 +1957,8 @@ async function bootstrap(nextToken: string) {
 
                   <div className="battle-actions">
                     {adminState?.classes.map((entry) => (
-                      <button key={entry.className} className="ghost-button" onClick={() => void handleAdminAction(() => adminToggleClass(token, { className: entry.className, active: !entry.active }), "????????") } type="button">
-                        {entry.label} ? {entry.active ? "??" : "??"}
+                      <button key={entry.className} className="ghost-button" onClick={() => void handleAdminAction(() => adminToggleClass(token, { className: entry.className, active: !entry.active }), "已更新職業狀態") } type="button">
+                        {entry.label} · {entry.active ? "啟用" : "停用"}
                       </button>
                     ))}
                   </div>
@@ -1968,15 +1968,15 @@ async function bootstrap(nextToken: string) {
               {adminTab === "factions" ? (
                 <div className="panel" style={{ padding: 16 }}>
                   <div className="form-grid">
-                    <label className="field"><span>??</span><select value={adminFactionId} onChange={(event) => setAdminFactionId(event.target.value)}><option value="">????</option>{adminState?.factions.map((faction) => <option key={faction.id} value={faction.id}>{faction.name}</option>)}</select></label>
-                    <label className="field"><span>??</span><select value={adminCastleId} onChange={(event) => setAdminCastleId(event.target.value)}><option value="">????</option>{adminState?.castles.map((castle) => <option key={castle.id} value={castle.id}>{castle.name}</option>)}</select></label>
-                    <label className="field"><span>????</span><select value={adminOwnerFactionId} onChange={(event) => setAdminOwnerFactionId(event.target.value)}><option value="">????</option>{adminState?.factions.map((faction) => <option key={faction.id} value={faction.id}>{faction.name}</option>)}</select></label>
+                    <label className="field"><span>陣營</span><select value={adminFactionId} onChange={(event) => setAdminFactionId(event.target.value)}><option value="">請先選擇</option>{adminState?.factions.map((faction) => <option key={faction.id} value={faction.id}>{faction.name}</option>)}</select></label>
+                    <label className="field"><span>城池</span><select value={adminCastleId} onChange={(event) => setAdminCastleId(event.target.value)}><option value="">請先選擇</option>{adminState?.castles.map((castle) => <option key={castle.id} value={castle.id}>{castle.name}</option>)}</select></label>
+                    <label className="field"><span>新擁有陣營</span><select value={adminOwnerFactionId} onChange={(event) => setAdminOwnerFactionId(event.target.value)}><option value="">請先選擇</option>{adminState?.factions.map((faction) => <option key={faction.id} value={faction.id}>{faction.name}</option>)}</select></label>
                   </div>
                   <div className="battle-actions" style={{ marginTop: 12 }}>
-                    <button className="primary-button" onClick={() => void handleAdminAction(() => adminAssignLeader(token, { factionId: adminFactionId, targetCharacterName: adminTargetName }), "???????") } type="button">????</button>
-                    <button className="secondary-button" onClick={() => void handleAdminAction(() => adminAdjustTreasury(token, { factionId: adminFactionId, gold: 9999, materials: 9999 }), "??????") } type="button">????</button>
-                    <button className="ghost-button" onClick={() => void handleAdminAction(() => adminSetCastleOwner(token, { castleId: adminCastleId, ownerFactionId: adminOwnerFactionId }), "?????????") } type="button">?????</button>
-                    <button className="ghost-button" onClick={() => void handleAdminAction(() => adminResetDiplomacy(token), "????????") } type="button">????</button>
+                    <button className="primary-button" onClick={() => void handleAdminAction(() => adminAssignLeader(token, { factionId: adminFactionId, targetCharacterName: adminTargetName }), "已指派新領袖") } type="button">指派領袖</button>
+                    <button className="secondary-button" onClick={() => void handleAdminAction(() => adminAdjustTreasury(token, { factionId: adminFactionId, gold: 9999, materials: 9999 }), "已補充公庫") } type="button">補充公庫</button>
+                    <button className="ghost-button" onClick={() => void handleAdminAction(() => adminSetCastleOwner(token, { castleId: adminCastleId, ownerFactionId: adminOwnerFactionId }), "已調整城池擁有權") } type="button">變更城池</button>
+                    <button className="ghost-button" onClick={() => void handleAdminAction(() => adminResetDiplomacy(token), "已重設外交") } type="button">重設外交</button>
                   </div>
                 </div>
               ) : null}
