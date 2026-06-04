@@ -7,10 +7,14 @@
 每次接手時，請依序閱讀：
 
 1. `README.md`
-2. `docs/repository-guide.md`
-3. `docs/documentation-policy.md`
-4. `docs/game-design.md`
-5. `docs/changelog.md`
+2. `CLAUDE.md`（架構慣例、禁止事項、AI 工作流提示）
+3. `docs/repository-guide.md`
+4. `docs/documentation-policy.md`
+5. `docs/game-design.md`
+6. `docs/changelog.md`
+7. `docs/environment.md`（環境變數、本地資料位置）
+8. `docs/contributing.md`（工作流程、Commit 規範、PR 檢查清單）
+9. `DECISIONS.md`（重大技術決策紀錄）
 
 ## 這個 repo 的基本判斷
 

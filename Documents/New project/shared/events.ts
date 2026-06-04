@@ -1,4 +1,4 @@
-export type CharacterClass = "warrior" | "mage" | "priest";
+export type CharacterClass = "warrior" | "assassin" | "mage" | "priest";
 
 export type UserRole = "player" | "admin";
 
@@ -14,13 +14,60 @@ export type CharacterStatKey =
   | "technique"
   | "tenacity";
 
-export type ActivityType = "training" | "mining" | "rest";
+export type ActivityType = "training" | "mining" | "rest" | "faction";
 
 export type RoomPhase = "lobby" | "battle" | "ended";
 
 export type BattleWinner = "players" | "boss";
 
-export type BattleContext = "raid" | "castle" | "factionBoss";
+export type BattleKind = "adventure" | "guildBoss" | "worldBoss";
+
+export type BattleContext = BattleKind | "raid" | "castle" | "factionBoss" | "solo";
+
+export type BattleSpecialEventKind =
+  | "lucky_crit"
+  | "technique_combo"
+  | "secondary_skill"
+  | "armor_break"
+  | "ally_support"
+  | "danger_dodge"
+  | "boss_counter";
+
+export type BattleSpecialEvent = {
+  kind: BattleSpecialEventKind;
+  actorUserId?: string | null;
+  label: string;
+  message: string;
+  impact: {
+    damage?: number;
+    healing?: number;
+    damageReduction?: number;
+    bossAttackModifier?: number;
+    shield?: number;
+  };
+};
+
+export type SiegeRulesConfig = {
+  durationMinutes: number;
+  tickIntervalSeconds: number;
+  baseEnergyCost: number;
+  minorFortificationDamage: number;
+  breakthroughMultiplier: number;
+  defenderTerrainMultiplier: number;
+  autoDefenseScaling: number;
+  minAttackerEnergy: number;
+};
+
+export type StatRuleEntry = {
+  attackPower: number;
+  defensePower: number;
+  sustain: number;
+  siege: number;
+  growth: number;
+  summary: string;
+};
+
+export type StatRulesConfig = Record<CharacterStatKey, StatRuleEntry>;
 
 export type ActionType =
   | "fishing"
@@ -123,6 +170,77 @@ export type LoadoutSummary = {
   skills: string[];
 };
 
+export type SpecialSkillSource = "class" | "secondary" | "manual";
+export type SkillLogStyle = "single" | "multi_hit";
+
+export type SpecialSkillDefinition = {
+  id: string;
+  name: string;
+  source: SpecialSkillSource;
+  detail: string;
+  statBonus?: Partial<CharacterStats>;
+  requiredClass?: CharacterClass;
+  unlockLevel?: number;
+  baseChance?: number;
+  cooldownTurns?: number;
+  hitCount?: number;
+  hitLabel?: string;
+  finisherText?: string;
+  logStyle?: SkillLogStyle;
+};
+
+export type SecondaryCharacterDefinition = {
+  id: string;
+  name: string;
+  origin: string;
+  role: string;
+  weapon: string;
+  detail: string;
+  statBonus: Partial<CharacterStats>;
+  unlockedSkillIds: string[];
+  classAffinity?: Partial<Record<CharacterClass, number>>;
+  preferredEquipmentSlots?: EquipmentSlotKey[];
+};
+
+export type SecondaryCharacterSlot = {
+  slot: number;
+  characterId: string | null;
+  level: number;
+  exp: number;
+  unlockedSkillIds: string[];
+  lastTriggeredSkillId: string | null;
+  cooldownUntilTick?: number | null;
+};
+
+export type ClassMasteryEntry = {
+  className: CharacterClass;
+  level: number;
+  exp: number;
+  unlocked: boolean;
+};
+
+export type ClassMasteryMap = Record<CharacterClass, ClassMasteryEntry>;
+
+export type LearnedManual = {
+  manualId: string;
+  name: string;
+  effectSummary: string;
+  statBonus?: Partial<CharacterStats>;
+  unlockedSkillId?: string | null;
+  learnedAt: string;
+};
+
+export type AchievementProgress = {
+  id: string;
+  title: string;
+  description: string;
+  progress: number;
+  target: number;
+  completed: boolean;
+  completedAt: string | null;
+  rewardSummary?: string | null;
+};
+
 export type InventoryItem = {
   id: string;
   name: string;
@@ -163,7 +281,7 @@ export type StatusEffect = {
   name: string;
   description: string;
   kind: StatusEffectKind;
-  source: "title" | "sub_role" | "battle" | "activity" | "faction";
+  source: "title" | "sub_role" | "battle" | "activity" | "faction" | "manual" | "secondary";
 };
 
 export type SubRoleSlot = {
@@ -232,6 +350,17 @@ export type CharacterProfile = {
   id: string;
   userId: string;
   factionId: string | null;
+  currentCastleId: string | null;
+  movement: {
+    fromCastleId: string;
+    toCastleId: string;
+    startedAt: string;
+    endsAt: string;
+  } | null;
+  garrisonAssignment: {
+    castleId: string;
+    startedAt: string;
+  } | null;
   name: string;
   className: CharacterClass;
   classChangedOn: string;
@@ -257,6 +386,12 @@ export type CharacterProfile = {
   inventory: InventoryItem[];
   statusEffects: StatusEffect[];
   subRoleSlots: SubRoleSlot[];
+  secondaryCharacters: SecondaryCharacterSlot[];
+  classMastery: ClassMasteryMap;
+  specialSkillSlot: string | null;
+  learnedManuals: LearnedManual[];
+  equippedManuals: string[];
+  achievements: AchievementProgress[];
   jobImage: string | null;
   loadout: LoadoutSummary;
   actionQueue: ActionQueueState;
@@ -337,6 +472,7 @@ export type BattleTickEvent = {
   boss: BossState;
   members: RoomMemberState[];
   recentLogs: string[];
+  specialEvents: BattleSpecialEvent[];
 };
 
 export type BattleRecordSummary = {
@@ -348,6 +484,7 @@ export type BattleRecordSummary = {
   totalTicks: number;
   createdAt: string;
   battleContext: BattleContext;
+  battleKind?: BattleKind;
   castleId?: string | null;
   targetFactionId?: string | null;
   participants: {
@@ -434,6 +571,37 @@ export type InventoryResult = {
   equipmentSlots: EquipmentSlots;
 };
 
+export type CharacterCatalogPayload = {
+  secondaryCharacters: SecondaryCharacterDefinition[];
+  specialSkills: SpecialSkillDefinition[];
+};
+
+export type SelectSecondaryCharacterPayload = {
+  slot: number;
+  characterId: string | null;
+};
+
+export type EquipSpecialSkillPayload = {
+  skillId: string | null;
+};
+
+export type LearnManualPayload = {
+  itemId: string;
+};
+
+export type EquipManualPayload = {
+  manualId: string;
+};
+
+export type UnequipManualPayload = {
+  manualId: string;
+};
+
+export type AchievementResult = {
+  achievements: AchievementProgress[];
+  character: CharacterProfile;
+};
+
 export type InventorySortPayload = {
   groupKey: string;
   orderedItemIds: string[];
@@ -498,6 +666,21 @@ export type RepairPayload = {
   slot?: EquipmentSlotKey;
 };
 
+export type FactionTechKey = "castle" | "defense" | "attack" | "support" | "offense_speed";
+
+export type FactionTechMap = Record<FactionTechKey, number>;
+
+export type MapNodePurpose = "capital" | "gathering" | "solo_combat" | "guild_boss" | "mining" | "trade";
+
+export type FactionTowerProgress = {
+  currentLayer: number;
+  highestClearedLayer: number;
+  bossName: string;
+  bossHp: number;
+  rewardSummary: string;
+  progress: number;
+};
+
 export type FactionSummary = {
   id: string;
   name: string;
@@ -511,6 +694,8 @@ export type FactionSummary = {
     gold: number;
     materials: number;
   };
+  tech: FactionTechMap;
+  tower: FactionTowerProgress;
   memberCount: number;
 };
 
@@ -519,15 +704,101 @@ export type CastleState = {
   name: string;
   row: number;
   col: number;
+  layer: number;
+  layerName: string;
+  specialty: "capital" | "agriculture" | "mining" | "boss" | "trade";
+  distanceFromCapital: number;
+  buildSlots: number;
+  facilities: string[];
   ownerFactionId: string;
   fortification: number;
   maxFortification: number;
+  terrainAdvantage: number;
+  autoDefensePower: number;
+  garrisonSlots: number;
+  siegeResistance: number;
   isCapital: boolean;
   bossName: string;
   bossHp: number;
   bossAttack: number;
   rewardGold: number;
   rewardMaterials: number;
+  bossSkills: string[];
+  rewardSummary: string;
+  mapNodePurpose: MapNodePurpose;
+  layerBenefit: string;
+};
+
+export type CastleGarrison = {
+  castleId: string;
+  userId: string;
+  characterId: string;
+  characterName: string;
+  factionId: string;
+  startedAt: string;
+};
+
+export type SiegeSide = "attack" | "defense";
+
+export type SiegeParticipant = {
+  userId: string;
+  characterId: string;
+  characterName: string;
+  factionId: string;
+  side: SiegeSide;
+  joinedAt: string;
+  status: "active" | "retreated" | "downed";
+  damageDealt: number;
+  damageTaken: number;
+  energySpent: number;
+};
+
+export type SiegeTickLog = {
+  tick: number;
+  createdAt: string;
+  message: string;
+  attackerPower: number;
+  defenderPower: number;
+  autoDefensePower: number;
+  fortificationDamage: number;
+  attackerEnergySpent: number;
+  retreatedUserIds: string[];
+};
+
+export type SiegeBattleState = {
+  id: string;
+  castleId: string;
+  attackerFactionId: string;
+  defenderFactionId: string;
+  status: "active" | "resolved";
+  startedAt: string;
+  endsAt: string;
+  lastResolvedTick: number;
+  participants: SiegeParticipant[];
+  logs: SiegeTickLog[];
+  fortificationStart: number;
+  fortificationCurrent: number;
+  winnerFactionId: string | null;
+  battleRecordId?: string | null;
+};
+
+export type FactionProjectKind = "build_facility" | "repair_castle";
+
+export type FactionProject = {
+  id: string;
+  factionId: string;
+  castleId: string;
+  kind: FactionProjectKind;
+  label: string;
+  startedAt: string;
+  endsAt: string;
+  contributorUserIds: string[];
+  status: "active" | "completed" | "cancelled";
+  facilityName?: string;
+  repairAmount?: number;
+  treasuryCost: {
+    gold: number;
+  };
 };
 
 export type DiplomacyRequestStatus = "pending" | "accepted" | "rejected" | "cancelled";
@@ -558,6 +829,9 @@ export type FactionState = {
   factions: FactionSummary[];
   selectedFaction: FactionSummary | null;
   castles: CastleState[];
+  garrisons: CastleGarrison[];
+  sieges: SiegeBattleState[];
+  projects: FactionProject[];
   diplomacyRequests: DiplomacyRequest[];
   marketListings: MarketListing[];
   myFactionId: string | null;
@@ -581,10 +855,89 @@ export type DeclareWarPayload = {
   targetFactionId: string;
 };
 
-export type TreasuryGrantPayload = {
-  targetCharacterName: string;
-  gold?: number;
-  materials?: number;
+export type FactionTechUpgradePayload = {
+  techKey: FactionTechKey;
+};
+
+export type SoloBattleDifficulty = "easy" | "normal" | "hard" | "elite";
+
+export type SoloDifficultyConfig = {
+  label: string;
+  hp: number;
+  attack: number;
+  gold: number;
+  exp: number;
+  qty: number;
+  risk: string;
+};
+
+export type SoloBattlePayload = {
+  difficulty: SoloBattleDifficulty;
+  mapNodeId: string;
+};
+
+export type SoloBattleResult = {
+  message: string;
+  character: CharacterProfile;
+  battleRecord: BattleRecordSummary;
+  rewards: {
+    gold: number;
+    battleExp: number;
+    materialType: MaterialType;
+    materialQuantity: number;
+  };
+};
+
+export type AdventureBattlePayload = SoloBattlePayload;
+
+export type AdventureBattleResult = SoloBattleResult;
+
+export type FactionTowerBattlePayload = {
+  castleId?: string;
+  mode: "skirmish" | "boss";
+};
+
+export type FactionTowerBattleResult = {
+  message: string;
+  character: CharacterProfile;
+  factionState: FactionState;
+  battleRecord: BattleRecordSummary;
+};
+
+export type WorldBossAttempt = {
+  id: string;
+  factionId: string;
+  factionName: string;
+  characterName: string;
+  won: boolean;
+  damageDealt: number;
+  createdAt: string;
+  battleRecordId: string;
+};
+
+export type WorldBossState = {
+  activeBossId: string;
+  bossName: string;
+  bossHp: number;
+  bossAttack: number;
+  rewardGold: number;
+  rewardMaterials: number;
+  winnerFactionId: string | null;
+  rewardClaimed: boolean;
+  attempts: WorldBossAttempt[];
+  startedAt: string;
+};
+
+export type WorldBossStateResult = {
+  worldBoss: WorldBossState;
+};
+
+export type WorldBossChallengeResult = {
+  message: string;
+  character: CharacterProfile;
+  factionState: FactionState;
+  worldBoss: WorldBossState;
+  battleRecord: BattleRecordSummary;
 };
 
 export type MarketListPayload = {
@@ -595,6 +948,29 @@ export type MarketListPayload = {
 
 export type MarketBuyPayload = {
   listingId: string;
+};
+
+export type TravelPayload = {
+  castleId: string;
+};
+
+export type BuildFacilityPayload = {
+  castleId: string;
+  facilityName: string;
+};
+
+export type RepairCastlePayload = {
+  castleId: string;
+};
+
+export type LeaveFactionProjectPayload = {
+  projectId: string;
+};
+
+export type FactionActionResult = {
+  message: string;
+  character: CharacterProfile;
+  factionState: FactionState;
 };
 
 export type AttackCastleResult = {
@@ -620,6 +996,42 @@ export type AdminState = {
     type: MaterialType;
     name: string;
   }>;
+};
+
+export type GameConfig = {
+  specialSkills: SpecialSkillDefinition[];
+  secondaryCharacters: SecondaryCharacterDefinition[];
+  soloDifficulties: Record<SoloBattleDifficulty, SoloDifficultyConfig>;
+  shopItems: ShopItem[];
+  forgeOptions: ForgeOption[];
+  siegeRules: SiegeRulesConfig;
+  statRules: StatRulesConfig;
+};
+
+export type AdminConfigSection =
+  | "classes"
+  | "secondaryCharacters"
+  | "specialSkills"
+  | "battle"
+  | "rewards"
+  | "castles"
+  | "factions"
+  | "shop"
+  | "forge"
+  | "siegeRules"
+  | "statRules"
+  | "announcements";
+
+export type AdminGameConfigResponse = {
+  gameConfig: GameConfig;
+  classes: ClassConfig[];
+  rewards: {
+    dailyRewardConfig: RewardScheduleConfig;
+    flashEventConfig: RewardScheduleConfig;
+  };
+  castles: CastleState[];
+  factions: FactionSummary[];
+  announcements: Announcement[];
 };
 
 export type AdminCompleteQueuePayload = {
@@ -674,7 +1086,6 @@ export type AdminSetCastleOwnerPayload = {
 export type AdminAdjustTreasuryPayload = {
   factionId: string;
   gold?: number;
-  materials?: number;
 };
 
 export type AdminRewardConfigPayload = {

@@ -1,6 +1,7 @@
 import cors from "cors";
 import express from "express";
 import { createServer } from "node:http";
+import path from "node:path";
 import { Server } from "socket.io";
 import type { ClientToServerEvents, ServerToClientEvents } from "../../shared/events";
 import { processAllCharacterQueues } from "./persistence/localStore";
@@ -17,6 +18,14 @@ app.use(
 app.use(express.json());
 app.use("/api", createApiRouter());
 
+if (process.env.NODE_ENV === "production") {
+  const clientDist = path.resolve(process.cwd(), "client", "dist");
+  app.use(express.static(clientDist));
+  app.get("*", (_request, response) => {
+    response.sendFile(path.join(clientDist, "index.html"));
+  });
+}
+
 const httpServer = createServer(app);
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
   cors: {
@@ -31,7 +40,7 @@ setInterval(() => {
   void processAllCharacterQueues((userId) => onlineUsers.has(userId));
 }, 15000);
 
-const port = 3001;
+const port = Number(process.env.PORT || 3001);
 httpServer.listen(port, () => {
   console.log(`Server listening on http://localhost:${port}`);
 });

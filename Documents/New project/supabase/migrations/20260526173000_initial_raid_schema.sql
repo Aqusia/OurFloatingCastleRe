@@ -46,7 +46,7 @@ create table if not exists public.characters (
   constraint characters_strength_positive check (strength > 0),
   constraint characters_intelligence_positive check (intelligence > 0),
   constraint characters_spirit_positive check (spirit > 0),
-  constraint characters_class_name_check check (class_name in ('warrior', 'mage', 'priest')),
+  constraint characters_class_name_check check (class_name in ('warrior', 'assassin', 'mage', 'priest')),
   constraint characters_profile_name_unique unique (profile_id, name)
 );
 

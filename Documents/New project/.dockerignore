@@ -1,0 +1,14 @@
+node_modules
+client/node_modules
+admin-client/node_modules
+server/node_modules
+client/dist
+admin-client/dist
+server/dist
+**/.vite
+**/coverage
+**/*.tsbuildinfo
+npm-debug.log
+.git
+.codex-logs
+server/server/data

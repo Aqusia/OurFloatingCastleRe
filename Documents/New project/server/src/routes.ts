@@ -10,14 +10,18 @@ import type {
   AdminAssignLeaderPayload,
   AdminBattleTestPayload,
   AdminClassTogglePayload,
+  AdminConfigSection,
   AdminCompleteQueuePayload,
   AdminFillResourcesPayload,
   AdminGrantItemPayload,
+  BuildFacilityPayload,
   CharacterClass,
   CharacterProfile,
   CooperateRespondPayload,
   CraftPayload,
   EquipItemPayload,
+  FactionTechUpgradePayload,
+  FactionTowerBattlePayload,
   FriendAddPayload,
   InventorySortPayload,
   MarketBuyPayload,
@@ -25,8 +29,10 @@ import type {
   PurchasePayload,
   QueueActionPayload,
   RepairPayload,
+  RepairCastlePayload,
   SelectFactionPayload,
-  TreasuryGrantPayload,
+  SoloBattlePayload,
+  TravelPayload,
   UnequipItemPayload
 } from "../../shared/events";
 import type { AuthedRequest } from "./auth";
@@ -41,9 +47,11 @@ import {
   adminCreateAnnouncement,
   adminCompleteQueue,
   adminFillResources,
+  adminResetGameConfigSection,
   adminGrantItem,
   adminGrantResources,
   adminListAnnouncements,
+  adminUpdateGameConfigSection,
   adminResetDiplomacy,
   adminSetCastleOwner,
   adminToggleAnnouncement,
@@ -51,25 +59,39 @@ import {
   adminTriggerDaily,
   adminTriggerFlashEvent,
   adminUpdateRewardConfig,
-  attackCastle,
   cancelMarketListing,
   cancelQueuedAction,
   cancelQueuedActionsExceptActive,
   changeCharacterClass,
+  challengeWorldBoss,
   claimDailySignIn,
   claimFlashSignIn,
   craftEquipment,
   createMarketListing,
   declareWar,
   enqueueAction,
+  enqueueCastleBuild,
+  enqueueCastleMove,
+  enqueueCastleRepair,
   equipInventoryItem,
+  equipManual,
+  equipSpecialSkill,
+  getAchievements,
   getAdminState,
+  getAdminGameConfig,
+  getCharacterCatalog,
   getFactionState,
+  getWorldBossState,
   getInventory,
   getQueueState,
+  garrisonCastle,
   getSignInStatus,
-  grantFactionTreasury,
   isCharacterBusy,
+  joinFactionProject,
+  joinCastleSiege,
+  learnManual,
+  leaveGarrison,
+  leaveFactionProject,
   listBattleRecordsForUser,
   listFactionMarket,
   listFactions,
@@ -84,8 +106,16 @@ import {
   requestCooperation,
   respondCooperation,
   selectFaction,
+  selectSecondaryCharacter,
+  startFactionTowerBattle,
+  startCastleSiege,
+  startAdventureBattle,
+  startSoloBattle,
+  resolveCastleSiege,
+  upgradeFactionTech,
   updateInventorySortOrder,
   unequipInventoryItem,
+  unequipManual,
   buyMarketListing
 } from "./persistence/localStore";
 import { getOnlineUserIds } from "./socketServer";
@@ -147,6 +177,30 @@ export function createApiRouter() {
     } catch (error) {
       response.status(400).json({ error: error instanceof Error ? error.message : "切換職業失敗。" });
     }
+  });
+
+  router.get("/character/catalog", requireAuth(), async (_request: AuthedRequest, response) => {
+    response.json(await getCharacterCatalog());
+  });
+
+  router.post("/character/secondary", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      response.json(await selectSecondaryCharacter(request.auth!.user.id, request.body));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "次要角色更新失敗" });
+    }
+  });
+
+  router.post("/character/special-skill", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      response.json(await equipSpecialSkill(request.auth!.user.id, request.body));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "特殊技能更新失敗" });
+    }
+  });
+
+  router.get("/achievements", requireAuth(), async (request: AuthedRequest, response) => {
+    response.json(await getAchievements(request.auth!.user.id));
   });
 
   router.get("/queue", requireAuth(), async (request: AuthedRequest, response) => {
@@ -227,6 +281,30 @@ export function createApiRouter() {
     }
   });
 
+  router.post("/inventory/manuals/learn", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      response.json(await learnManual(request.auth!.user.id, request.body));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "秘籍學習失敗" });
+    }
+  });
+
+  router.post("/inventory/manuals/equip", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      response.json(await equipManual(request.auth!.user.id, request.body));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "秘籍裝備失敗" });
+    }
+  });
+
+  router.post("/inventory/manuals/unequip", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      response.json(await unequipManual(request.auth!.user.id, request.body));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "秘籍卸下失敗" });
+    }
+  });
+
   router.get("/forge/options", requireAuth(), async (_request: AuthedRequest, response) => {
     response.json({ options: await listForgeOptions() });
   });
@@ -264,6 +342,50 @@ export function createApiRouter() {
     }
   });
 
+  router.post("/factions/castles/move", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      response.json(await enqueueCastleMove(request.auth!.user.id, request.body as TravelPayload));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "移動失敗。" });
+    }
+  });
+
+  router.post("/factions/castles/:castleId/build", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      const castleId = Array.isArray(request.params.castleId) ? request.params.castleId[0] : request.params.castleId;
+      response.json(await enqueueCastleBuild(request.auth!.user.id, { ...(request.body as BuildFacilityPayload), castleId }));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "建設失敗。" });
+    }
+  });
+
+  router.post("/factions/castles/:castleId/repair", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      const castleId = Array.isArray(request.params.castleId) ? request.params.castleId[0] : request.params.castleId;
+      response.json(await enqueueCastleRepair(request.auth!.user.id, { ...(request.body as RepairCastlePayload), castleId }));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "修建失敗。" });
+    }
+  });
+
+  router.post("/factions/projects/:projectId/join", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      const projectId = Array.isArray(request.params.projectId) ? request.params.projectId[0] : request.params.projectId;
+      response.json(await joinFactionProject(request.auth!.user.id, projectId));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "加入工程失敗。" });
+    }
+  });
+
+  router.post("/factions/projects/:projectId/leave", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      const projectId = Array.isArray(request.params.projectId) ? request.params.projectId[0] : request.params.projectId;
+      response.json(await leaveFactionProject(request.auth!.user.id, projectId));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "退出工程失敗。" });
+    }
+  });
+
   router.post("/factions/diplomacy/cooperate", requireFactionLeaderOrAdmin(), async (request: AuthedRequest, response) => {
     try {
       response.json(await requestCooperation(request.auth!.user.id, request.body));
@@ -288,11 +410,60 @@ export function createApiRouter() {
     }
   });
 
-  router.post("/factions/treasury/grant", requireFactionLeaderOrAdmin(), async (request: AuthedRequest, response) => {
+  router.post("/factions/tech/upgrade", requireFactionLeaderOrAdmin(), async (request: AuthedRequest, response) => {
     try {
-      response.json(await grantFactionTreasury(request.auth!.user.id, request.body as TreasuryGrantPayload));
+      response.json(await upgradeFactionTech(request.auth!.user.id, request.body as FactionTechUpgradePayload));
     } catch (error) {
-      response.status(400).json({ error: error instanceof Error ? error.message : "公庫分配失敗。" });
+      response.status(400).json({ error: error instanceof Error ? error.message : "科技升級失敗。" });
+    }
+  });
+
+  router.post("/battles/adventure/start", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      await processCharacterQueue(request.auth!.user.id, true);
+      response.json(await startAdventureBattle(request.auth!.user.id, request.body as SoloBattlePayload));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "探險失敗。" });
+    }
+  });
+
+  router.post("/battles/solo/start", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      await processCharacterQueue(request.auth!.user.id, true);
+      response.json(await startSoloBattle(request.auth!.user.id, request.body as SoloBattlePayload));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "探險失敗。" });
+    }
+  });
+
+  router.post("/factions/battles/guild-boss/start", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      await processCharacterQueue(request.auth!.user.id, true);
+      response.json(await startFactionTowerBattle(request.auth!.user.id, request.body as FactionTowerBattlePayload));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "公會 Boss 戰鬥失敗。" });
+    }
+  });
+
+  router.post("/factions/battles/tower/start", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      await processCharacterQueue(request.auth!.user.id, true);
+      response.json(await startFactionTowerBattle(request.auth!.user.id, request.body as FactionTowerBattlePayload));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "公會 Boss 戰鬥失敗。" });
+    }
+  });
+
+  router.get("/factions/world-boss", requireAuth(), async (_request: AuthedRequest, response) => {
+    response.json(await getWorldBossState());
+  });
+
+  router.post("/factions/world-boss/challenge", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      await processCharacterQueue(request.auth!.user.id, true);
+      response.json(await challengeWorldBoss(request.auth!.user.id));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "世界 Boss 挑戰失敗。" });
     }
   });
 
@@ -321,6 +492,51 @@ export function createApiRouter() {
       response.json(await cancelMarketListing(request.auth!.user.id, request.body.listingId as string));
     } catch (error) {
       response.status(400).json({ error: error instanceof Error ? error.message : "取消掛單失敗。" });
+    }
+  });
+
+  router.post("/factions/castles/:castleId/garrison", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      const castleId = Array.isArray(request.params.castleId) ? request.params.castleId[0] : request.params.castleId;
+      response.json(await garrisonCastle(request.auth!.user.id, castleId));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "駐防失敗。" });
+    }
+  });
+
+  router.post("/factions/castles/:castleId/garrison/leave", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      const castleId = Array.isArray(request.params.castleId) ? request.params.castleId[0] : request.params.castleId;
+      response.json(await leaveGarrison(request.auth!.user.id, castleId));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "退出駐防失敗。" });
+    }
+  });
+
+  router.post("/factions/castles/:castleId/siege/start", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      const castleId = Array.isArray(request.params.castleId) ? request.params.castleId[0] : request.params.castleId;
+      response.json(await startCastleSiege(request.auth!.user.id, castleId));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "發起攻城戰失敗。" });
+    }
+  });
+
+  router.post("/factions/sieges/:siegeId/join", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      const siegeId = Array.isArray(request.params.siegeId) ? request.params.siegeId[0] : request.params.siegeId;
+      response.json(await joinCastleSiege(request.auth!.user.id, siegeId));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "加入攻城戰失敗。" });
+    }
+  });
+
+  router.post("/factions/sieges/:siegeId/resolve", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      const siegeId = Array.isArray(request.params.siegeId) ? request.params.siegeId[0] : request.params.siegeId;
+      response.json(await resolveCastleSiege(request.auth!.user.id, siegeId));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "結算攻城戰失敗。" });
     }
   });
 
@@ -355,7 +571,7 @@ export function createApiRouter() {
           return;
         }
       }
-      response.json(await attackCastle(request.auth!.user.id, castleId, room?.members.map((member) => member.userId)));
+      response.json(await startCastleSiege(request.auth!.user.id, castleId));
     } catch (error) {
       response.status(400).json({ error: error instanceof Error ? error.message : "攻城失敗。" });
     }
@@ -414,6 +630,28 @@ export function createApiRouter() {
 
   router.get("/admin/state", requireRole("admin"), async (_request: AuthedRequest, response) => {
     response.json(await getAdminState());
+  });
+
+  router.get("/admin/config", requireRole("admin"), async (_request: AuthedRequest, response) => {
+    response.json(await getAdminGameConfig());
+  });
+
+  router.put("/admin/config/:section", requireRole("admin"), async (request: AuthedRequest, response) => {
+    try {
+      const section = (Array.isArray(request.params.section) ? request.params.section[0] : request.params.section) as AdminConfigSection;
+      response.json(await adminUpdateGameConfigSection(section, request.body));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "更新參數失敗。" });
+    }
+  });
+
+  router.post("/admin/config/:section/reset", requireRole("admin"), async (request: AuthedRequest, response) => {
+    try {
+      const section = (Array.isArray(request.params.section) ? request.params.section[0] : request.params.section) as AdminConfigSection;
+      response.json(await adminResetGameConfigSection(section));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "還原參數失敗。" });
+    }
   });
 
   router.get("/admin/announcements", requireRole("admin"), async (_request: AuthedRequest, response) => {

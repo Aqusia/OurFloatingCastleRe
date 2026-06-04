@@ -19,13 +19,24 @@
 
 - `client/src/App.tsx`
   - 主畫面與大部分頁面邏輯都集中在這裡
-  - 包含角色、行動、戰鬥、陣營、揹包、鍛造、消息、好友、商店、Admin
+  - 包含角色、行動、戰鬥、陣營、揹包、鍛造、消息、好友、商店
+  - 登入 / 建立角色畫面已抽成 `AuthScreen`
 - `client/src/lib/api.ts`
   - 所有 HTTP API 呼叫集中處
 - `client/src/lib/socket.ts`
   - Socket.IO 連線入口
 - `client/src/lib/storage.ts`
   - token 等本地儲存
+
+### `admin-client/`
+
+獨立 React + Vite 管理後台，預設使用 [http://127.0.0.1:5174](http://127.0.0.1:5174)。
+
+- 使用與主遊戲相同的 `/api/auth/login` 登入。
+- 登入後只允許 `user.role === "admin"` 載入參數頁。
+- 目前以 schema-driven 表單管理遊戲參數分類，不再要求 admin 直接編輯 JSON。
+- `admin-client/src/main.tsx` 的 `sections` / `FieldDef` 是後台擴充入口；新增參數時優先補欄位定義與預設新增模板。
+- 主遊戲 `client/` 不再顯示 Admin 導覽入口。
 
 ### `server/`
 
@@ -34,6 +45,7 @@
 - `server/src/index.ts`
   - 後端啟動入口
   - 掛載 REST API、Socket.IO、背景隊列處理
+  - production 模式會提供 `client/dist`，可用單一 Node 服務部署完整網站
 - `server/src/routes.ts`
   - 所有 REST 路由入口
 - `server/src/game.ts`
@@ -45,6 +57,7 @@
 - `server/src/persistence/localStore.ts`
   - 目前最重要的資料層
   - 角色、背包、公告、陣營、城池、市場、簽到、管理功能幾乎都在這裡
+  - 開發指令預設資料位置為 `server/server/data/store.json`，部署時可用 `GAME_DATA_DIR` 指向 persistent disk
 - `server/src/lib/supabase.ts`
   - Supabase 相關連線準備
 
@@ -99,11 +112,46 @@
 3. `server/src/game.ts` 建立房間狀態並跑戰鬥 tick
 4. 戰報與結果回寫到 `localStore`
 
+### Production 部署
+
+1. `npm run build` 先建置 `client/dist` 與 `server/dist`
+2. `npm start` 執行 `server/dist/server/src/index.js`
+3. `NODE_ENV=production` 時 Express 會回傳前端靜態檔
+4. REST API 仍在 `/api/*`，Socket.IO 與頁面共用同一個 origin
+
 ### 陣營、城池、市場
 
 1. REST API 入口在 `server/src/routes.ts`
 2. 實作大多在 `server/src/persistence/localStore.ts`
 3. 型別與 payload 定義在 `shared/events.ts`
+4. 城池資料包含層次、距離、特性、建設槽與設施，角色用 `currentCastleId` 記錄目前所在據點
+5. 移動透過 `/factions/castles/move` 寫入角色 `movement`，不進 `actionQueue`
+6. 建設與修建透過 `/factions/castles/*` 建立 `factionProjects`，成員可加入或退出，完成時寫回設施或城防
+7. 公庫不發放給個人；`/factions/tech/upgrade` 會消耗公庫金幣升級城堡、防禦、攻擊、支援或進攻速度科技
+8. 駐防走 `/factions/castles/:castleId/garrison` 與 `/garrison/leave`，角色會寫入 `garrisonAssignment` 並視為忙碌
+9. 攻城戰走 `/factions/castles/:castleId/siege/start`、`/factions/sieges/:siegeId/join`、`/factions/sieges/:siegeId/resolve`
+10. 攻城戰狀態存於 local store 的 `sieges`；讀取陣營狀態或操作戰場時會依 elapsed ticks 補跑回合
+11. 個人戰鬥走 `/battles/solo/start`，公會爬層走 `/factions/battles/tower/start`
+12. 即時房間戰鬥的特殊事件判定在 `server/src/combatEngine.ts`，房間戰鬥、個人戰鬥與公會戰鬥共用
+13. 次要角色自動技能在 `server/src/game.ts` 的房間戰鬥 tick 中判定；個人 / 公會即時結算戰鬥在 `server/src/persistence/localStore.ts` 內同步套用
+
+### 管理後台與遊戲參數
+
+1. `admin-client/src/api.ts` 使用 `/api/auth/login` 取得 token，再呼叫 `/api/admin/config`。
+2. `/api/admin/config` 回傳 `gameConfig`、職業狀態、獎勵、城池、陣營與公告。
+3. `/api/admin/config/:section` 只更新單一分類，避免整包設定被誤覆蓋。
+4. `/api/admin/config/:section/reset` 還原單一分類預設。
+5. 後台參數頁用表單 schema 產生輸入元件，支援文字、數字、開關、下拉、多選、時間、陣列增刪與巢狀欄位。
+6. `server/src/persistence/localStore.ts` 會正規化舊 store；沒有 `gameConfig`、`siegeRules`、`statRules` 或 `garrisonAssignment` 時自動補預設值。
+7. `server/src/utils.ts` 的技能、次要角色、戰鬥難度、商店、鍛造、攻城與屬性規則都會先讀取 store override，沒有 override 才使用預設值。
+
+### 探險、公會 Boss、世界 Boss
+
+1. 探險入口是 `/battles/adventure/start`，舊 `/battles/solo/start` 保留為 alias。
+2. 公會 Boss 入口是 `/factions/battles/guild-boss/start`，舊 `/factions/battles/tower/start` 保留為 alias。
+3. 世界 Boss 狀態與挑戰分別是 `/factions/world-boss`、`/factions/world-boss/challenge`。
+4. 三類戰鬥都由 `server/src/persistence/localStore.ts` 產生 `BattleRecordSummary`，新資料使用 `battleKind` 標示 `adventure / guildBoss / worldBoss`。
+5. 前端戰鬥頁在 `client/src/App.tsx` 顯示三類入口，戰報詳情會把舊 context 轉成可讀中文標籤。
 
 ## 哪些檔案是高影響區
 
@@ -123,3 +171,15 @@
 - 結構或入口是否需要更新 `docs/repository-guide.md`
 - 本輪內容是否需要更新 `docs/changelog.md`
 - 啟動或使用方式是否需要更新 `README.md`
+## Frontend assets
+
+- `client/src/assets/` stores frontend visual assets.
+- Third-party or public domain images must record source and license notes in `client/src/assets/asset-sources.md`.
+## 2026-05-31 角色擴充資料流
+
+- 共用型別在 `shared/events.ts`：`CharacterClass` 包含 `assassin`，角色資料包含 `secondaryCharacters`、`classMastery`、`specialSkillSlot`、`learnedManuals`、`equippedManuals`、`achievements`。
+- 角色/技能目錄在 `server/src/utils.ts`，前端透過 `/api/character/catalog` 取得次要角色卡與特殊技能清單。
+- 角色操作 REST API 位於 `server/src/routes.ts`：`/character/secondary`、`/character/special-skill`、`/inventory/manuals/*`、`/achievements`。
+- 前端主要入口仍是 `client/src/App.tsx`：角色頁負責主定位、職業熟練度、次要角色等級 / 經驗 / 自動技能顯示；背包秘笈 tab 負責秘籍學習/裝備；成就頁為獨立 nav。
+- 次要角色卡狀態從單一 id 擴充為 `level / exp / unlockedSkillIds / lastTriggeredSkillId / cooldownUntilTick`，舊資料會在 `localStore` 正規化時補預設值。
+- `specialSkillSlot` 仍保留，但次要角色技能的主要玩法已改為戰鬥中自動判定。

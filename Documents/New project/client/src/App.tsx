@@ -1,4 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import {
   Backpack,
@@ -13,7 +14,9 @@ import {
   ShieldCheck,
   Sparkles,
   Store,
+  ScrollText,
   Swords,
+  Trophy,
   UserRound,
   UsersRound,
   Wifi,
@@ -26,13 +29,17 @@ import type {
   Announcement,
   AuthPayload,
   AuthUser,
+  AchievementProgress,
   BattleRecordSummary,
   BattleSummary,
   BattleTickEvent,
+  CastleState,
   CharacterClass,
+  CharacterCatalogPayload,
   CharacterProfile,
   EquipmentSlotKey,
   FactionState,
+  FactionTechKey,
   ForgeOption,
   FriendSummary,
   InventoryItem,
@@ -45,7 +52,9 @@ import type {
   RoomState,
   RoomSummary,
   ShopItem,
-  SignInStatus
+  SignInStatus,
+  SoloBattleDifficulty,
+  WorldBossState
 } from "../../shared/events";
 import {
   addFriend,
@@ -65,20 +74,25 @@ import {
   adminTriggerDaily,
   adminTriggerFlashEvent,
   adminUpdateRewardConfig,
-  attackCastle,
+  buildCastleFacility,
   buyMarketItem,
   cancelMarketItem,
   cancelQueueAction,
   cancelQueuedActions,
   changeClass,
+  challengeWorldBoss,
   claimDailySignIn,
   claimFlashSignIn,
   craftItem,
   declareWar,
   equipItem,
+  equipManual,
+  equipSpecialSkill,
   enqueueAction,
   getAdminAnnouncements,
   getAdminState,
+  getAchievements,
+  getCharacterCatalog,
   getAnnouncements,
   getBattles,
   getFactions,
@@ -88,34 +102,75 @@ import {
   getNotifications,
   getShop,
   getSignInStatus,
-  grantTreasury,
+  getWorldBoss,
+  garrisonCastle,
+  joinFactionProject,
+  joinCastleSiege,
+  learnManual,
+  leaveGarrison,
+  leaveFactionProject,
   listMarketItem,
   login,
+  moveToCastle,
   purchaseItem,
   register,
   repairItem,
+  repairCastle,
   requestCooperation,
+  resolveCastleSiege,
   respondCooperation,
   selectFaction,
+  selectSecondaryCharacter,
+  startFactionTowerBattle,
+  startCastleSiege,
+  startSoloBattle,
   unequipItem,
+  unequipManual,
+  upgradeFactionTech,
   updateInventorySort
 } from "./lib/api";
 import { getSocket } from "./lib/socket";
 import { getStoredToken, setStoredToken } from "./lib/storage";
 
-type NavKey = "character" | "actions" | "battle" | "faction" | "inventory" | "forge" | "messages" | "friends" | "shop" | "admin";
+type NavKey = "character" | "actions" | "battle" | "faction" | "inventory" | "forge" | "achievements" | "messages" | "friends" | "shop" | "admin";
 type InventoryTab = "equipment" | "material" | "manual" | "other";
 type ShopTab = "npc" | "market";
 type ShopCategoryFilter = "all" | "weapon" | "offhand" | "armor" | "material" | "other";
 type MessageTab = "announcements" | "notifications" | "battles";
 type FactionTab = "map" | "diplomacy" | "treasury" | "members";
 type AdminTab = "actions" | "battle" | "items" | "system" | "factions";
+type AuthMode = "login" | "register";
 
 const classOptions: Array<{ value: CharacterClass; label: string }> = [
   { value: "warrior", label: "戰士" },
+  { value: "assassin", label: "刺客" },
   { value: "mage", label: "法師" },
-  { value: "priest", label: "祭司" }
+  { value: "priest", label: "補師" }
 ];
+
+const factionTechOptions: Array<{ key: FactionTechKey; label: string; detail: string }> = [
+  { key: "castle", label: "城堡", detail: "降低建設花費，縮短建設工程時間" },
+  { key: "defense", label: "防禦", detail: "提高修建量，降低被攻城時的城防損失" },
+  { key: "attack", label: "攻擊", detail: "提高攻城隊伍總戰力" },
+  { key: "support", label: "支援", detail: "縮短建設與修建工程時間" },
+  { key: "offense_speed", label: "進攻速度", detail: "縮短據點移動時間" }
+];
+
+function factionTechCost(level: number) {
+  return 120 * (level + 1);
+}
+
+function buildFacilityGold(castle: CastleState, castleTechLevel: number) {
+  return Math.max(40, 80 + castle.layer * 30 - castleTechLevel * 10);
+}
+
+function repairCastlePlan(castle: CastleState, defenseTechLevel: number) {
+  const repairAmount = Math.min(25 + defenseTechLevel * 5, castle.maxFortification - castle.fortification);
+  return {
+    repairAmount,
+    gold: Math.ceil(repairAmount * 2)
+  };
+}
 
 const navItems: Array<{ key: NavKey; label: string; icon: LucideIcon; hint: string }> = [
   { key: "character", label: "角色", icon: UserRound, hint: "狀態與裝備" },
@@ -124,10 +179,10 @@ const navItems: Array<{ key: NavKey; label: string; icon: LucideIcon; hint: stri
   { key: "faction", label: "陣營", icon: Castle, hint: "城池與外交" },
   { key: "inventory", label: "揹包", icon: Backpack, hint: "物品與穿戴" },
   { key: "forge", label: "鍛造", icon: Hammer, hint: "製作與修復" },
+  { key: "achievements", label: "成就", icon: Trophy, hint: "目標與進度" },
   { key: "messages", label: "消息", icon: MessageSquareText, hint: "公告與戰報" },
   { key: "friends", label: "好友", icon: UsersRound, hint: "社交與在線" },
-  { key: "shop", label: "商店", icon: Store, hint: "NPC 與市場" },
-  { key: "admin", label: "Admin", icon: ShieldCheck, hint: "管理工具" }
+  { key: "shop", label: "商店", icon: Store, hint: "NPC 與市場" }
 ];
 
 const initialRegister: RegisterPayload = {
@@ -186,6 +241,7 @@ function activityStatusFor(character: CharacterProfile, room?: RoomState | null,
   if (room?.phase === "battle" && room.members.some((member) => member.userId === userId)) {
     return { label: "狩獵中", tone: "combat" as ActivityStatusTone };
   }
+  if (character.movement) return { label: "移動中", tone: "moving" as ActivityStatusTone };
 
   const currentAction = activeQueueItem(character);
   if (!currentAction) return { label: "閒暇中", tone: "idle" as ActivityStatusTone };
@@ -198,7 +254,7 @@ function activityStatusFor(character: CharacterProfile, room?: RoomState | null,
 }
 
 function isIdle(character: CharacterProfile) {
-  return character.actionQueue.items.length === 0;
+  return character.actionQueue.items.length === 0 && !character.movement && !character.garrisonAssignment;
 }
 
 function formatDate(value?: string | null) {
@@ -284,8 +340,231 @@ function inventoryRowSummary(item: InventoryItem) {
   return item.effectSummary;
 }
 
+function statBonusSummary(statBonus?: Partial<CharacterProfile["stats"]>) {
+  if (!statBonus) return "無額外數值";
+  const labels: Array<[keyof CharacterProfile["stats"], string]> = [
+    ["attack", "攻"],
+    ["defense", "防"],
+    ["luck", "運"],
+    ["intelligence", "智"],
+    ["vitality", "體"],
+    ["spirit", "精"],
+    ["technique", "技"],
+    ["tenacity", "韌"]
+  ];
+  const pieces = labels.filter(([key]) => statBonus[key]).map(([key, label]) => `${label} +${statBonus[key]}`);
+  return pieces.join(" · ") || "無額外數值";
+}
+
 function itemIntelligence(item: InventoryItem) {
   return item.statBonus?.intelligence ?? 0;
+}
+
+function castleSpecialtyLabel(specialty: string) {
+  const labels: Record<string, string> = {
+    capital: "核心管理",
+    agriculture: "農業 / 採集",
+    mining: "礦脈採掘",
+    boss: "Boss 討伐",
+    trade: "商路交易"
+  };
+  return labels[specialty] || "未設定";
+}
+
+function mapNodePurposeLabel(purpose: CastleState["mapNodePurpose"]) {
+  const labels: Record<CastleState["mapNodePurpose"], string> = {
+    capital: "核心",
+    gathering: "採集點",
+    solo_combat: "野外戰鬥",
+    guild_boss: "公會 Boss",
+    mining: "礦脈",
+    trade: "商路"
+  };
+  return labels[purpose];
+}
+
+type StrategicMapNode = {
+  castle: CastleState;
+  x: number;
+  y: number;
+};
+
+type StrategicMapTerritory = {
+  factionId: string;
+  name: string;
+  color: string;
+  points: string;
+};
+
+function buildStrategicMapNodes(castles: CastleState[]): StrategicMapNode[] {
+  const ordered = [...castles].sort((left, right) => left.layer - right.layer || left.name.localeCompare(right.name));
+  const regionSlots = [
+    [
+      { x: 67, y: 66 },
+      { x: 57, y: 56 },
+      { x: 73, y: 52 },
+      { x: 83, y: 66 },
+      { x: 63, y: 82 }
+    ],
+    [
+      { x: 51, y: 24 },
+      { x: 40, y: 17 },
+      { x: 63, y: 20 },
+      { x: 48, y: 39 },
+      { x: 73, y: 34 }
+    ],
+    [
+      { x: 21, y: 60 },
+      { x: 14, y: 35 },
+      { x: 29, y: 43 },
+      { x: 24, y: 75 },
+      { x: 10, y: 86 }
+    ],
+    [
+      { x: 82, y: 27 },
+      { x: 76, y: 16 },
+      { x: 91, y: 23 },
+      { x: 78, y: 43 },
+      { x: 91, y: 56 }
+    ],
+    [
+      { x: 39, y: 78 },
+      { x: 31, y: 64 },
+      { x: 47, y: 66 },
+      { x: 42, y: 90 },
+      { x: 55, y: 80 }
+    ]
+  ];
+
+  return ordered.map((castle) => {
+    const region = regionSlots[castle.row % regionSlots.length];
+    const slot = region[castle.col % region.length];
+    return {
+      castle,
+      x: slot.x,
+      y: slot.y
+    };
+  });
+}
+
+function buildStrategicMapTerritories(factions: FactionState["factions"]): StrategicMapTerritory[] {
+  const shapes = [
+    "48,47 65,37 86,42 98,58 94,85 74,97 50,87 40,66",
+    "28,6 59,2 91,9 96,31 78,45 58,38 43,53 30,42 35,25",
+    "3,12 27,6 41,24 34,43 43,57 34,78 43,93 22,98 4,86 9,63 2,44 13,29",
+    "63,8 91,4 99,20 93,43 72,57 55,44 61,27",
+    "10,51 33,47 52,62 44,83 27,98 7,88 2,67"
+  ];
+
+  return factions.map((faction, index) => ({
+    factionId: faction.id,
+    name: faction.name,
+    color: faction.color,
+    points: shapes[index % shapes.length]
+  }));
+}
+
+function buildStrategicMapRoutes(nodes: StrategicMapNode[]) {
+  const routes: Array<{ id: string; from: StrategicMapNode; to: StrategicMapNode }> = [];
+  const nodesByLayer = new Map<number, StrategicMapNode[]>();
+  nodes.forEach((node) => {
+    nodesByLayer.set(node.castle.layer, [...(nodesByLayer.get(node.castle.layer) || []), node]);
+  });
+
+  nodes.forEach((node) => {
+    if (node.castle.layer === 0) return;
+    const previousLayer = nodesByLayer.get(node.castle.layer - 1) || [];
+    const sameOwner = previousLayer.filter((entry) => entry.castle.ownerFactionId === node.castle.ownerFactionId);
+    const candidates = sameOwner.length > 0 ? sameOwner : previousLayer;
+    const from = candidates.reduce<StrategicMapNode | null>((closest, candidate) => {
+      if (!closest) return candidate;
+      return Math.abs(candidate.y - node.y) < Math.abs(closest.y - node.y) ? candidate : closest;
+    }, null);
+    if (from) routes.push({ id: `${from.castle.id}-${node.castle.id}`, from, to: node });
+  });
+
+  return routes;
+}
+
+function soloDifficultyLabel(difficulty: SoloBattleDifficulty) {
+  const labels: Record<SoloBattleDifficulty, string> = {
+    easy: "簡單",
+    normal: "普通",
+    hard: "困難",
+    elite: "菁英"
+  };
+  return labels[difficulty];
+}
+
+function soloDifficultySummary(difficulty: SoloBattleDifficulty, layer: number) {
+  const configs: Record<SoloBattleDifficulty, { gold: number; exp: number; material: number; risk: string }> = {
+    easy: { gold: 24, exp: 18, material: 1, risk: "低風險" },
+    normal: { gold: 42, exp: 32, material: 1, risk: "穩定" },
+    hard: { gold: 72, exp: 54, material: 2, risk: "高壓" },
+    elite: { gold: 120, exp: 90, material: 3, risk: "危險" }
+  };
+  const config = configs[difficulty];
+  return `${soloDifficultyLabel(difficulty)} · ${config.risk} · 金幣 ${config.gold + layer * 8} · 戰鬥經驗 ${config.exp + layer * 6} · 材料 x${config.material}`;
+}
+
+function battleSceneName(castle: CastleState) {
+  const names: Record<CastleState["mapNodePurpose"], string> = {
+    capital: "城門訓練場",
+    gathering: "農野異獸區",
+    solo_combat: "荒野獸群",
+    guild_boss: "討伐營前哨",
+    mining: "礦坑晶化獸",
+    trade: "商路盜匪"
+  };
+  return names[castle.mapNodePurpose];
+}
+
+function battleSceneDetail(castle: CastleState) {
+  const details: Record<CastleState["mapNodePurpose"], string> = {
+    capital: "均衡怪物，適合測試角色狀態。",
+    gathering: "低壓戰鬥，金幣穩定，材料偏基礎。",
+    solo_combat: "純刷怪節點，戰鬥經驗較穩。",
+    guild_boss: "公會前哨戰，能推進爬塔準備進度。",
+    mining: "礦區怪物，材料偏鍛造礦石。",
+    trade: "商路襲擊，金幣收益較直觀。"
+  };
+  return details[castle.mapNodePurpose];
+}
+
+function battleLogTone(log: string) {
+  if (/角色技能|自動施放|幸運暴擊|技巧連擊|精準破防|隊友支援|危急閃避|Boss 反制|特殊事件/.test(log)) return "special";
+  if (/獎勵|獲得|公庫|勝利|倒下/.test(log)) return "reward";
+  if (/Boss|首領|反擊|撤退|失敗|攻擊/.test(log)) return "boss";
+  return "normal";
+}
+
+function isMojibakeText(text: string) {
+  return /[�\uE000-\uF8FF\uFFFD]|嚗|撌|蝚|摰|蝪|閮|銵|雿|暺|憭|瘨|||\\x[0-9a-f]{2}/i.test(text);
+}
+
+function cleanBattleLog(log: string) {
+  if (!isMojibakeText(log)) return log;
+  return "舊戰報文字已損壞；新版戰鬥紀錄會以正常中文顯示。";
+}
+
+function visibleBattleLogs(logs: string[]) {
+  let hasLegacyWarning = false;
+  return logs.flatMap((log) => {
+    if (!isMojibakeText(log)) return [log];
+    if (hasLegacyWarning) return [];
+    hasLegacyWarning = true;
+    return ["舊版戰報資料已損壞；無法還原原文，新產生的戰報會以正常中文逐行顯示。"];
+  });
+}
+
+function battleContextLabel(context: BattleRecordSummary["battleContext"], kind?: BattleRecordSummary["battleKind"]) {
+  const value = kind || context;
+  if (value === "adventure" || value === "solo") return "探險";
+  if (value === "guildBoss" || value === "factionBoss") return "公會 Boss";
+  if (value === "worldBoss") return "世界 Boss";
+  if (value === "castle") return "攻城";
+  if (value === "raid") return "房間 Boss";
+  return value;
 }
 
 function levelBar(label: string, level: number, exp: number) {
@@ -302,18 +581,127 @@ function levelBar(label: string, level: number, exp: number) {
   );
 }
 
+type AuthScreenProps = {
+  authMode: AuthMode;
+  feedback: string;
+  loginEmail: string;
+  loginPassword: string;
+  registerForm: RegisterPayload;
+  onAuthModeChange: (mode: AuthMode) => void;
+  onLoginEmailChange: (value: string) => void;
+  onLoginPasswordChange: (value: string) => void;
+  onRegisterChange: (patch: Partial<RegisterPayload>) => void;
+  onSubmit: () => void;
+};
+
+function AuthScreen({
+  authMode,
+  feedback,
+  loginEmail,
+  loginPassword,
+  registerForm,
+  onAuthModeChange,
+  onLoginEmailChange,
+  onLoginPasswordChange,
+  onRegisterChange,
+  onSubmit
+}: AuthScreenProps) {
+  return (
+    <div className="auth-shell">
+      <div className="auth-card">
+        <div className="auth-hero">
+          <div>
+            <p className="eyebrow">8 個屬性 / 陣營層次</p>
+            <h1>先登入或建立角色</h1>
+            <p className="muted">登入只負責帳號與角色建立；進入後才載入主畫面、陣營、戰鬥與管理流程。</p>
+          </div>
+          <div className="info-card" style={{ padding: 18 }}>
+            <h3>目前系統</h3>
+            <div className="tag-row">
+              <span className="tag">揹包裝備分離</span>
+              <span className="tag">8 個屬性</span>
+              <span className="tag">多礦石鍛造</span>
+              <span className="tag">陣營層次</span>
+              <span className="tag">商店玩家市場</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="auth-tabs">
+          <button className={authMode === "login" ? "is-active" : ""} onClick={() => onAuthModeChange("login")} type="button">
+            登入
+          </button>
+          <button className={authMode === "register" ? "is-active" : ""} onClick={() => onAuthModeChange("register")} type="button">
+            建立角色
+          </button>
+        </div>
+
+        {authMode === "login" ? (
+          <div className="form-grid">
+            <label className="field">
+              <span>Email</span>
+              <input value={loginEmail} onChange={(event) => onLoginEmailChange(event.target.value)} />
+            </label>
+            <label className="field">
+              <span>密碼</span>
+              <input type="password" value={loginPassword} onChange={(event) => onLoginPasswordChange(event.target.value)} />
+            </label>
+          </div>
+        ) : (
+          <div className="form-grid">
+            <label className="field">
+              <span>Email</span>
+              <input value={registerForm.email} onChange={(event) => onRegisterChange({ email: event.target.value })} />
+            </label>
+            <label className="field">
+              <span>密碼</span>
+              <input type="password" value={registerForm.password} onChange={(event) => onRegisterChange({ password: event.target.value })} />
+            </label>
+            <label className="field">
+              <span>顯示名稱</span>
+              <input value={registerForm.displayName} onChange={(event) => onRegisterChange({ displayName: event.target.value })} />
+            </label>
+            <label className="field">
+              <span>角色名稱</span>
+              <input value={registerForm.characterName} onChange={(event) => onRegisterChange({ characterName: event.target.value })} />
+            </label>
+            <label className="field">
+              <span>初始職業</span>
+              <select value={registerForm.className} onChange={(event) => onRegisterChange({ className: event.target.value as CharacterClass })}>
+                {classOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+
+        <div className="battle-actions">
+          <button className="primary-button" onClick={onSubmit} type="button">
+            {authMode === "login" ? "登入" : "建立角色"}
+          </button>
+          <span className="muted">狀態：{feedback}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const socket = useMemo(() => getSocket(), []);
   const [connected, setConnected] = useState(socket.connected);
   const [token, setToken] = useState(getStoredToken());
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [activeNav, setActiveNav] = useState<NavKey>("character");
   const [inventoryTab, setInventoryTab] = useState<InventoryTab>("equipment");
   const [shopTab, setShopTab] = useState<ShopTab>("npc");
   const [messageTab, setMessageTab] = useState<MessageTab>("announcements");
   const [factionTab, setFactionTab] = useState<FactionTab>("map");
   const [adminTab, setAdminTab] = useState<AdminTab>("actions");
-  const [selectedCastleFactionId, setSelectedCastleFactionId] = useState("");
+  const [selectedMapCastleId, setSelectedMapCastleId] = useState("");
+  const [mapZoom, setMapZoom] = useState(1);
   const [selectedInventoryItemId, setSelectedInventoryItemId] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<InventoryItem | null>(null);
   const [detailBattleRecord, setDetailBattleRecord] = useState<BattleRecordSummary | null>(null);
@@ -335,6 +723,7 @@ function App() {
   const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [lastBattleTick, setLastBattleTick] = useState<BattleTickEvent | null>(null);
   const [battleSummary, setBattleSummary] = useState<BattleSummary | null>(null);
+  const [battleOverlayDismissed, setBattleOverlayDismissed] = useState(false);
   const [battleHistory, setBattleHistory] = useState<BattleRecordSummary[]>([]);
   const [shopItems, setShopItems] = useState<ShopItem[]>([]);
   const [forgeOptions, setForgeOptions] = useState<ForgeOption[]>([]);
@@ -343,6 +732,9 @@ function App() {
   const [friends, setFriends] = useState<FriendSummary[]>([]);
   const [signInStatus, setSignInStatus] = useState<SignInStatus | null>(null);
   const [factionState, setFactionState] = useState<FactionState | null>(null);
+  const [worldBoss, setWorldBoss] = useState<WorldBossState | null>(null);
+  const [characterCatalog, setCharacterCatalog] = useState<CharacterCatalogPayload>({ secondaryCharacters: [], specialSkills: [] });
+  const [achievements, setAchievements] = useState<AchievementProgress[]>([]);
   const [adminState, setAdminState] = useState<AdminState | null>(null);
   const [adminAnnouncements, setAdminAnnouncements] = useState<Announcement[]>([]);
   const [feedback, setFeedback] = useState("準備中");
@@ -357,9 +749,8 @@ function App() {
   const [marketSellerFilter, setMarketSellerFilter] = useState("");
   const [selectedFactionId, setSelectedFactionId] = useState("");
   const [selectedFactionTarget, setSelectedFactionTarget] = useState("");
-  const [treasuryTargetName, setTreasuryTargetName] = useState("");
-  const [treasuryGold, setTreasuryGold] = useState("0");
-  const [treasuryMaterials, setTreasuryMaterials] = useState("0");
+  const [facilityDrafts, setFacilityDrafts] = useState<Record<string, string>>({});
+  const [soloDifficulty, setSoloDifficulty] = useState<Record<string, SoloBattleDifficulty>>({});
   const [forgeRecipeId, setForgeRecipeId] = useState("");
   const [forgeCustomName, setForgeCustomName] = useState("");
   const [forgeMaterialAmounts, setForgeMaterialAmounts] = useState<Record<string, string>>({});
@@ -394,7 +785,7 @@ function App() {
   const [, setNowTick] = useState(Date.now());
 
   const currentForgeOption = forgeOptions.find((entry) => entry.id === forgeRecipeId) || forgeOptions[0] || null;
-  const visibleNav = navItems.filter((entry) => entry.key !== "admin" || user?.role === "admin");
+  const visibleNav = navItems;
   const visibleListings = useMemo(
     () =>
       (factionState?.marketListings || []).filter((listing) => {
@@ -419,7 +810,12 @@ function App() {
   }, [character?.inventory]);
   const selectedInventoryItems = inventoryGroups[inventoryTab];
   const selectedInventoryItem = selectedInventoryItems.find((item) => item.id === selectedInventoryItemId) || null;
-  const selectedCastleFaction = factionState?.factions.find((faction) => faction.id === selectedCastleFactionId) || null;
+  const currentCastle = factionState?.castles.find((castle) => castle.id === character?.currentCastleId) || null;
+  const movementFromCastle = factionState?.castles.find((castle) => castle.id === character?.movement?.fromCastleId) || null;
+  const movementToCastle = factionState?.castles.find((castle) => castle.id === character?.movement?.toCastleId) || null;
+  const movementRouteLabel = character?.movement
+    ? `${movementFromCastle?.name || "未知據點"} → ${movementToCastle?.name || "未知據點"}`
+    : "";
   const equipmentInventoryGroups = useMemo(() => {
     const equipmentItems = inventoryGroups.equipment;
     const groups = equipmentGroupOrder
@@ -434,10 +830,58 @@ function App() {
   }, [inventoryGroups.equipment]);
   const visibleCastles = useMemo(() => {
     if (!factionState?.castles?.length) return [];
-    return selectedCastleFactionId ? factionState.castles.filter((castle) => castle.ownerFactionId === selectedCastleFactionId) : factionState.castles;
-  }, [factionState?.castles, selectedCastleFactionId]);
+    return [...factionState.castles].sort((left, right) => left.layer - right.layer || left.name.localeCompare(right.name));
+  }, [factionState?.castles]);
+  const selectedMapCastle =
+    visibleCastles.find((castle) => castle.id === selectedMapCastleId) ||
+    visibleCastles.find((castle) => castle.id === character?.movement?.toCastleId) ||
+    visibleCastles.find((castle) => castle.id === character?.currentCastleId) ||
+    visibleCastles[0] ||
+    null;
+  const strategicMapNodes = useMemo(() => buildStrategicMapNodes(visibleCastles), [visibleCastles]);
+  const strategicMapRoutes = useMemo(() => buildStrategicMapRoutes(strategicMapNodes), [strategicMapNodes]);
+  const strategicMapTerritories = useMemo(
+    () => buildStrategicMapTerritories(factionState?.factions || []),
+    [factionState?.factions]
+  );
+  const activeFactionProjects = useMemo(
+    () => (factionState?.projects || []).filter((project) => project.status === "active"),
+    [factionState?.projects]
+  );
+  const battleScenes = useMemo(
+    () =>
+      (factionState?.castles || [])
+        .filter((castle) => castle.ownerFactionId === character?.factionId)
+        .sort((left, right) => left.layer - right.layer || left.name.localeCompare(right.name)),
+    [character?.factionId, factionState?.castles]
+  );
+  const selectedSecondaryCharacters = useMemo(
+    () =>
+      (character?.secondaryCharacters || []).map((slot) => ({
+        slot,
+        definition: characterCatalog.secondaryCharacters.find((entry) => entry.id === slot.characterId) || null
+      })),
+    [character?.secondaryCharacters, characterCatalog.secondaryCharacters]
+  );
+  const classMasteryRows = useMemo(
+    () => classOptions.map((option) => character?.classMastery?.[option.value]).filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)),
+    [character?.classMastery]
+  );
+  const unlockedSpecialSkills = useMemo(() => {
+    if (!character) return [];
+    const skillIds = new Set<string>();
+    characterCatalog.specialSkills.forEach((skill) => {
+      if (skill.source === "class" && skill.requiredClass === character.className) skillIds.add(skill.id);
+    });
+    selectedSecondaryCharacters.forEach(({ slot }) => slot.unlockedSkillIds.forEach((skillId) => skillIds.add(skillId)));
+    character.learnedManuals.forEach((manual) => {
+      if (manual.unlockedSkillId) skillIds.add(manual.unlockedSkillId);
+    });
+    return characterCatalog.specialSkills.filter((skill) => skillIds.has(skill.id));
+  }, [character, characterCatalog.specialSkills, selectedSecondaryCharacters]);
+  const equippedSpecialSkill = unlockedSpecialSkills.find((skill) => skill.id === character?.specialSkillSlot) || null;
 
-  const battleOverlayVisible = roomState?.phase === "battle" || roomState?.phase === "ended";
+  const battleOverlayVisible = Boolean((roomState?.phase === "battle" || roomState?.phase === "ended") && !battleOverlayDismissed);
   const detailModalRoot = typeof document !== "undefined" ? document.body : null;
   const myActivityStatus = character ? activityStatusFor(character, roomState, user?.id) : { label: "閒暇中", tone: "idle" as ActivityStatusTone };
   const partyBlocker = roomState?.members.find((member) => !isIdle(member.character)) || null;
@@ -448,13 +892,6 @@ function App() {
     const timer = window.setInterval(() => setNowTick(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
-
-  useEffect(() => {
-    if (!factionState) return;
-    if (!selectedCastleFactionId) {
-      setSelectedCastleFactionId(factionState.myFactionId || factionState.factions[0]?.id || "");
-    }
-  }, [factionState, selectedCastleFactionId]);
 
   useEffect(() => {
     if (!selectedInventoryItems.length) {
@@ -496,6 +933,7 @@ function App() {
       setRoomState(state);
       if (!state || state.phase === "lobby") {
         setLastBattleTick(null);
+        setBattleOverlayDismissed(false);
       }
       if (state?.phase === "battle" || state?.phase === "ended") {
         setActiveNav("battle");
@@ -504,6 +942,9 @@ function App() {
     const onBattleTick = (event: BattleTickEvent) => {
       setLastBattleTick(event);
       setBattleSummary(null);
+      if (event.tick === 1) {
+        setBattleOverlayDismissed(false);
+      }
     };
     const onBattleEnded = (payload: { roomId: string; summary: BattleSummary }) => {
       setBattleSummary(payload.summary);
@@ -549,7 +990,6 @@ async function bootstrap(nextToken: string) {
       const me = await getMe(nextToken);
       setUser(me.user);
       setCharacter(me.character);
-      setAdminTargetName((current) => current || me.character.name);
       socket.emit("auth:ready", nextToken);
       await Promise.all([
         refreshBattles(nextToken),
@@ -559,8 +999,10 @@ async function bootstrap(nextToken: string) {
         refreshFriends(nextToken),
         refreshSignIn(nextToken),
         refreshFaction(nextToken),
+        refreshWorldBoss(nextToken),
         refreshForge(nextToken),
-        me.user.role === "admin" ? refreshAdmin(nextToken) : Promise.resolve()
+        refreshCharacterCatalog(nextToken),
+        refreshAchievements(nextToken)
       ]);
       setFeedback(me.completedActivities?.at(-1)?.message || "已同步最新資料");
     } catch (error) {
@@ -619,11 +1061,29 @@ async function bootstrap(nextToken: string) {
     setFactionState(await getFactions(nextToken));
   }
 
+  async function refreshWorldBoss(nextToken = token) {
+    if (!nextToken) return;
+    const result = await getWorldBoss(nextToken);
+    setWorldBoss(result.worldBoss);
+  }
+
   async function refreshForge(nextToken = token) {
     if (!nextToken) return;
     const result = await getForgeOptions(nextToken);
     setForgeOptions(result.options);
     setForgeRecipeId((current) => current || result.options[0]?.id || "");
+  }
+
+  async function refreshCharacterCatalog(nextToken = token) {
+    if (!nextToken) return;
+    setCharacterCatalog(await getCharacterCatalog(nextToken));
+  }
+
+  async function refreshAchievements(nextToken = token) {
+    if (!nextToken) return;
+    const result = await getAchievements(nextToken);
+    setAchievements(result.achievements);
+    setCharacter(result.character);
   }
 
   async function refreshAdmin(nextToken = token) {
@@ -649,6 +1109,7 @@ async function bootstrap(nextToken: string) {
     setRooms([]);
     setRoomState(null);
     setFactionState(null);
+    setWorldBoss(null);
     setAdminState(null);
     setAdminAnnouncements([]);
     socket.emit("room:leave");
@@ -668,7 +1129,11 @@ async function bootstrap(nextToken: string) {
   }
 
   async function handleQueue(actionType: ActionType, durationHours?: number) {
-    if (!token) return;
+    if (!token || !character) return;
+    if (!isIdle(character)) {
+      setFeedback("角色目前忙碌中，移動或行動完成前不能加入新行動。");
+      return;
+    }
     try {
       const result = await enqueueAction(token, { actionType, durationHours });
       setCharacter(result.character);
@@ -719,6 +1184,69 @@ async function bootstrap(nextToken: string) {
       setFeedback("裝備完成");
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : "裝備失敗");
+    }
+  }
+
+  async function handleSelectSecondary(slot: number, characterId: string) {
+    if (!token) return;
+    try {
+      const result = await selectSecondaryCharacter(token, { slot, characterId: characterId || null });
+      setCharacter(result);
+      setFeedback("次要角色已更新");
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "次要角色更新失敗");
+    }
+  }
+
+  async function handleChangeClass(className: CharacterClass) {
+    if (!token || className === character?.className) return;
+    try {
+      setCharacter(await changeClass(token, className));
+      setFeedback("主定位已更新");
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "主定位更新失敗");
+    }
+  }
+
+  async function handleEquipSpecialSkill(skillId: string) {
+    if (!token) return;
+    try {
+      const result = await equipSpecialSkill(token, { skillId: skillId || null });
+      setCharacter(result);
+      setFeedback(skillId ? "特殊技能已裝備" : "特殊技能已卸下");
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "特殊技能更新失敗");
+    }
+  }
+
+  async function handleLearnManual(itemId: string) {
+    if (!token) return;
+    try {
+      const result = await learnManual(token, { itemId });
+      setCharacter(result.character);
+      setFeedback("秘籍已學會");
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "秘籍學習失敗");
+    }
+  }
+
+  async function handleEquipManual(manualId: string) {
+    if (!token) return;
+    try {
+      setCharacter(await equipManual(token, { manualId }));
+      setFeedback("秘籍 Buff 已裝備");
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "秘籍裝備失敗");
+    }
+  }
+
+  async function handleUnequipManual(manualId: string) {
+    if (!token) return;
+    try {
+      setCharacter(await unequipManual(token, { manualId }));
+      setFeedback("秘籍 Buff 已卸下");
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "秘籍卸下失敗");
     }
   }
 
@@ -773,6 +1301,10 @@ async function bootstrap(nextToken: string) {
 
   async function handleForge() {
     if (!token || !character || !currentForgeOption) return;
+    if (!isIdle(character)) {
+      setFeedback("角色目前忙碌中，移動或行動完成前不能鍛造。");
+      return;
+    }
     try {
       const materialItemIds = character.inventory
         .filter((item) => item.category === "material")
@@ -842,20 +1374,95 @@ async function bootstrap(nextToken: string) {
     }
   }
 
-  async function handleGrantTreasury() {
-    if (!token || !treasuryTargetName.trim()) return;
-    const treasury = factionState?.selectedFaction?.treasury;
+  async function handleMoveCastle(castleId: string) {
+    if (!token || !character) return;
+    if (!isIdle(character)) {
+      setFeedback("角色目前忙碌中，行動完成前不能移動。");
+      return;
+    }
     try {
-      setFactionState(
-        await grantTreasury(token, {
-          targetCharacterName: treasuryTargetName.trim(),
-          gold: toClampedInt(treasuryGold, 0, treasury?.gold || 0, 0),
-          materials: toClampedInt(treasuryMaterials, 0, treasury?.materials || 0, 0)
-        })
-      );
-      setFeedback("公庫已發放");
+      const result = await moveToCastle(token, castleId);
+      setCharacter(result.character);
+      setFactionState(result.factionState);
+      setFeedback(result.message);
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : "公庫發放失敗");
+      setFeedback(error instanceof Error ? error.message : "移動失敗");
+    }
+  }
+
+  async function handleBuildFacility(castleId: string) {
+    if (!token || !character) return;
+    if (!isIdle(character)) {
+      setFeedback("角色目前忙碌中，移動或行動完成前不能建設。");
+      return;
+    }
+    const facilityName = facilityDrafts[castleId]?.trim();
+    if (!facilityName) {
+      setFeedback("請輸入要建設的設施名稱。");
+      return;
+    }
+    try {
+      const result = await buildCastleFacility(token, castleId, facilityName);
+      setCharacter(result.character);
+      setFactionState(result.factionState);
+      setFacilityDrafts((current) => ({ ...current, [castleId]: "" }));
+      setFeedback(result.message);
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "建設失敗");
+    }
+  }
+
+  async function handleRepairCastle(castleId: string) {
+    if (!token || !character) return;
+    if (!isIdle(character)) {
+      setFeedback("角色目前忙碌中，移動或行動完成前不能修建。");
+      return;
+    }
+    try {
+      const result = await repairCastle(token, castleId);
+      setCharacter(result.character);
+      setFactionState(result.factionState);
+      setFeedback(result.message);
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "修建失敗");
+    }
+  }
+
+  async function handleUpgradeTech(techKey: FactionTechKey) {
+    if (!token) return;
+    try {
+      setFactionState(await upgradeFactionTech(token, techKey));
+      setFeedback("公會科技已升級");
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "科技升級失敗");
+    }
+  }
+
+  async function handleJoinProject(projectId: string) {
+    if (!token || !character) return;
+    if (!isIdle(character)) {
+      setFeedback("角色目前忙碌中，移動或行動完成前不能協助工程。");
+      return;
+    }
+    try {
+      const result = await joinFactionProject(token, projectId);
+      setCharacter(result.character);
+      setFactionState(result.factionState);
+      setFeedback(result.message);
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "加入工程失敗");
+    }
+  }
+
+  async function handleLeaveProject(projectId: string) {
+    if (!token) return;
+    try {
+      const result = await leaveFactionProject(token, projectId);
+      setCharacter(result.character);
+      setFactionState(result.factionState);
+      setFeedback(result.message);
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "退出工程失敗");
     }
   }
 
@@ -994,13 +1601,107 @@ async function bootstrap(nextToken: string) {
       return;
     }
     try {
-      const result = await attackCastle(token, castleId);
-      setFactionState(result.factionState);
-      await refreshBattles();
+      setFactionState(await startCastleSiege(token, castleId));
       await refreshMe();
+      setFeedback("攻城戰已發起，戰場會依時間自動推進。");
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "發起攻城戰失敗");
+    }
+  }
+
+  async function handleGarrisonCastle(castleId: string) {
+    if (!token) return;
+    try {
+      const result = await garrisonCastle(token, castleId);
+      setCharacter(result.character);
+      setFactionState(result.factionState);
       setFeedback(result.message);
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : "攻城失敗");
+      setFeedback(error instanceof Error ? error.message : "駐防失敗");
+    }
+  }
+
+  async function handleLeaveGarrison(castleId: string) {
+    if (!token) return;
+    try {
+      const result = await leaveGarrison(token, castleId);
+      setCharacter(result.character);
+      setFactionState(result.factionState);
+      setFeedback(result.message);
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "退出駐防失敗");
+    }
+  }
+
+  async function handleJoinSiege(siegeId: string) {
+    if (!token) return;
+    try {
+      const result = await joinCastleSiege(token, siegeId);
+      setCharacter(result.character);
+      setFactionState(result.factionState);
+      setFeedback(result.message);
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "加入攻城戰失敗");
+    }
+  }
+
+  async function handleResolveSiege(siegeId: string) {
+    if (!token) return;
+    try {
+      setFactionState(await resolveCastleSiege(token, siegeId));
+      await refreshBattles();
+      await refreshMe();
+      setFeedback("攻城戰已更新。");
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "更新攻城戰失敗");
+    }
+  }
+
+  async function handleSoloBattle(castleId: string) {
+    if (!token) return;
+    try {
+      const result = await startSoloBattle(token, castleId, soloDifficulty[castleId] || "normal");
+      setCharacter(result.character);
+      await refreshBattles();
+      await refreshNotifications();
+      setDetailBattleRecord(result.battleRecord);
+      setActiveNav("battle");
+      setFeedback(result.message);
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "探險失敗");
+    }
+  }
+
+  async function handleFactionTowerBattle(castleId: string, mode: "skirmish" | "boss") {
+    if (!token) return;
+    try {
+      const result = await startFactionTowerBattle(token, { castleId, mode });
+      setCharacter(result.character);
+      setFactionState(result.factionState);
+      await refreshBattles();
+      await refreshNotifications();
+      setDetailBattleRecord(result.battleRecord);
+      setActiveNav("battle");
+      setFeedback(result.message);
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "公會 Boss 戰鬥失敗");
+    }
+  }
+
+  async function handleWorldBossChallenge() {
+    if (!token) return;
+    try {
+      const result = await challengeWorldBoss(token);
+      setCharacter(result.character);
+      setFactionState(result.factionState);
+      setWorldBoss(result.worldBoss);
+      await refreshBattles();
+      await refreshNotifications();
+      setDetailBattleRecord(result.battleRecord);
+      setActiveNav("battle");
+      setFeedback(result.message);
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "世界 Boss 挑戰失敗");
     }
   }
 
@@ -1010,6 +1711,7 @@ async function bootstrap(nextToken: string) {
       const result = await claimDailySignIn(token);
       setCharacter(result.character);
       await refreshSignIn();
+      await refreshAnnouncements();
       setFeedback(result.message);
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : "簽到失敗");
@@ -1022,6 +1724,7 @@ async function bootstrap(nextToken: string) {
       const result = await claimFlashSignIn(token);
       setCharacter(result.character);
       await refreshSignIn();
+      await refreshAnnouncements();
       setFeedback(result.message);
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : "突發簽到失敗");
@@ -1075,94 +1778,21 @@ async function bootstrap(nextToken: string) {
     socket.emit("room:start", roomState.roomId);
   }
 
-  function renderAuth() {
-    return (
-      <div className="auth-shell">
-        <div className="auth-card">
-          <div className="auth-hero">
-            <div>
-              <p className="eyebrow">七屬性 / 陣營改版</p>
-              <h1>先登入或建立角色</h1>
-              <p className="muted">
-                系統會自動把舊角色升級成七屬性，並接上新的揹包、鍛造、陣營與 Admin 流程。
-              </p>
-            </div>
-            <div className="info-card" style={{ padding: 18 }}>
-              <h3>這一輪已整合</h3>
-              <div className="tag-row">
-                <span className="tag">揹包裝備分離</span>
-                <span className="tag">七基底屬性</span>
-                <span className="tag">多礦石鍛造</span>
-                <span className="tag">5 陣營 / 25 城</span>
-                <span className="tag">商店玩家市場</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="auth-tabs">
-            <button className={authMode === "login" ? "is-active" : ""} onClick={() => setAuthMode("login")} type="button">
-              登入
-            </button>
-            <button className={authMode === "register" ? "is-active" : ""} onClick={() => setAuthMode("register")} type="button">
-              建立角色
-            </button>
-          </div>
-
-          {authMode === "login" ? (
-            <div className="form-grid">
-              <label className="field">
-                <span>Email</span>
-                <input value={loginEmail} onChange={(event) => setLoginEmail(event.target.value)} />
-              </label>
-              <label className="field">
-                <span>密碼</span>
-                <input type="password" value={loginPassword} onChange={(event) => setLoginPassword(event.target.value)} />
-              </label>
-            </div>
-          ) : (
-            <div className="form-grid">
-              <label className="field">
-                <span>Email</span>
-                <input value={registerForm.email} onChange={(event) => setRegisterForm((current) => ({ ...current, email: event.target.value }))} />
-              </label>
-              <label className="field">
-                <span>密碼</span>
-                <input type="password" value={registerForm.password} onChange={(event) => setRegisterForm((current) => ({ ...current, password: event.target.value }))} />
-              </label>
-              <label className="field">
-                <span>顯示名稱</span>
-                <input value={registerForm.displayName} onChange={(event) => setRegisterForm((current) => ({ ...current, displayName: event.target.value }))} />
-              </label>
-              <label className="field">
-                <span>角色名稱</span>
-                <input value={registerForm.characterName} onChange={(event) => setRegisterForm((current) => ({ ...current, characterName: event.target.value }))} />
-              </label>
-              <label className="field">
-                <span>初始職業</span>
-                <select value={registerForm.className} onChange={(event) => setRegisterForm((current) => ({ ...current, className: event.target.value as CharacterClass }))}>
-                  {classOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          )}
-
-          <div className="battle-actions">
-            <button className="primary-button" onClick={() => void handleAuthSubmit()} type="button">
-              {authMode === "login" ? "登入" : "建立角色"}
-            </button>
-            <span className="muted">狀態：{feedback}</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (!token || !user || !character) {
-    return renderAuth();
+    return (
+      <AuthScreen
+        authMode={authMode}
+        feedback={feedback}
+        loginEmail={loginEmail}
+        loginPassword={loginPassword}
+        registerForm={registerForm}
+        onAuthModeChange={setAuthMode}
+        onLoginEmailChange={setLoginEmail}
+        onLoginPasswordChange={setLoginPassword}
+        onRegisterChange={(patch) => setRegisterForm((current) => ({ ...current, ...patch }))}
+        onSubmit={() => void handleAuthSubmit()}
+      />
+    );
   }
 
   return (
@@ -1210,7 +1840,7 @@ async function bootstrap(nextToken: string) {
               <div>
                 <strong>{feedback}</strong>
                 <div className="muted" style={{ marginTop: 4 }}>
-                  今日隊列 {character.actionQueue.items.length} 項
+                  {character.movement ? `目前行動：移動中 · ${movementRouteLabel} · 抵達 ${formatDate(character.movement.endsAt)}` : `今日隊列 ${character.actionQueue.items.length} 項`}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -1246,6 +1876,75 @@ async function bootstrap(nextToken: string) {
                 {levelBar("鍛造等級", character.forgeLevel, character.forgeExp)}
               </div>
 
+              <div className="panel" style={{ padding: 16 }}>
+                <div className="panel-heading">
+                  <strong>定位與技能</strong>
+                  <span className="muted">主定位保留，另外可選 3 個次要角色</span>
+                </div>
+                <div className="form-grid two-col" style={{ marginTop: 14 }}>
+                  <label className="field">
+                    <span>主定位</span>
+                    <select value={character.className} onChange={(event) => void handleChangeClass(event.target.value as CharacterClass)}>
+                      {classOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="banner" style={{ padding: 10 }}>
+                    次要角色技能會在戰鬥中自動施放，不需要手動裝備。角色卡等級越高，技能種類與觸發率越高。
+                  </div>
+                </div>
+                <div className="member-grid role-card-grid" style={{ marginTop: 14 }}>
+                  {classMasteryRows.map((mastery) => (
+                    <div key={mastery.className} className="member-card" style={{ padding: 14 }}>
+                      <strong>{classOptions.find((option) => option.value === mastery.className)?.label || mastery.className}熟練度</strong>
+                      <div className="muted">Lv.{mastery.level} · EXP {mastery.exp} / {Math.max(40, mastery.level * 70)}</div>
+                      <div className="progress-bar"><div className="progress-fill" style={{ width: `${percent(mastery.exp, Math.max(40, mastery.level * 70))}%` }} /></div>
+                      <div className="muted">{mastery.className === character.className ? "目前主定位，行動與戰鬥會累積熟練度。" : "切換後使用這個職業自己的熟練等級。"}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="member-grid role-card-grid" style={{ marginTop: 14 }}>
+                  {selectedSecondaryCharacters.map(({ slot, definition }) => (
+                    <div key={slot.slot} className="member-card" style={{ padding: 14 }}>
+                      <label className="field">
+                        <span>次要角色 {slot.slot}</span>
+                        <select value={slot.characterId || ""} onChange={(event) => void handleSelectSecondary(slot.slot, event.target.value)}>
+                          <option value="">未選擇</option>
+                          {characterCatalog.secondaryCharacters.map((entry) => (
+                            <option key={entry.id} value={entry.id} disabled={character.secondaryCharacters.some((selected) => selected.slot !== slot.slot && selected.characterId === entry.id)}>
+                              {entry.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {definition ? (
+                        <>
+                          <strong>{definition.name} · {definition.origin}</strong>
+                          <div className="muted">Lv.{slot.level} · EXP {slot.exp} / {Math.max(35, slot.level * 55)}</div>
+                          <div className="progress-bar"><div className="progress-fill" style={{ width: `${percent(slot.exp, Math.max(35, slot.level * 55))}%` }} /></div>
+                          <div className="muted">{definition.role} · {definition.weapon}</div>
+                          <div className="muted">{definition.detail}</div>
+                          <div className="muted">
+                            適配 {classOptions.map((option) => `${option.label} x${definition.classAffinity?.[option.value] ?? 1}`).join(" · ")}
+                          </div>
+                          <div className="muted">偏好裝備 {definition.preferredEquipmentSlots?.map(slotLabel).join("、") || "無"}</div>
+                          <div className="tag-row">
+                            <span className="tag is-buff">{statBonusSummary(definition.statBonus)}</span>
+                            {slot.unlockedSkillIds.map((skillId) => {
+                              const skill = characterCatalog.specialSkills.find((entry) => entry.id === skillId);
+                              return skill ? <span key={skill.id} className="tag">{skill.name} Lv.{skill.unlockLevel || 1}</span> : null;
+                            })}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="muted">選一個角色取得數值加成、專屬武器概念與技能。</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div className="stat-cards" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
                 <div className="stat-card" style={{ padding: 16 }}>
                   <strong>資源</strong>
@@ -1257,13 +1956,29 @@ async function bootstrap(nextToken: string) {
                   <div className="progress-bar"><div className="progress-fill is-energy" style={{ width: `${percent(character.energy, character.maxEnergy)}%` }} /></div>
                 </div>
                 <div className="stat-card" style={{ padding: 16 }}>
-                  <strong>七屬性 + 韌性</strong>
+                  <strong>8 個屬性</strong>
                   <div className="muted" style={{ marginTop: 10 }}>
                     攻 {character.stats.attack} · 防 {character.stats.defense} · 運 {character.stats.luck}
                   </div>
                   <div className="muted">智 {character.stats.intelligence} · 體 {character.stats.vitality} · 精 {character.stats.spirit}</div>
                   <div className="muted">技 {character.stats.technique} · 韌 {character.stats.tenacity}</div>
+                  <div className="muted" style={{ marginTop: 8 }}>攻城：攻/智/技破防，體/韌降低精力損耗。</div>
+                  <div className="muted">守城：防/精/韌提高存活，運氣降低戰損。</div>
                 </div>
+                {currentCastle ? (
+                  <div className="stat-card" style={{ padding: 16 }}>
+                    <strong>目前位置</strong>
+                    <div className="muted" style={{ marginTop: 10 }}>{currentCastle.name}</div>
+                    <div className="muted">{currentCastle.layerName}</div>
+                    <div className="muted">距核心 {currentCastle.distanceFromCapital} 層 · {castleSpecialtyLabel(currentCastle.specialty)}</div>
+                    {character.movement ? (
+                      <div className="banner" style={{ padding: 10, marginTop: 10 }}>
+                        移動中：{movementRouteLabel}
+                        <div className="muted">抵達 {formatDate(character.movement.endsAt)}</div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div className="stat-card" style={{ padding: 16 }}>
                   <strong>簽到</strong>
                   <div className="battle-actions" style={{ marginTop: 10 }}>
@@ -1303,7 +2018,7 @@ async function bootstrap(nextToken: string) {
                   <div className="action-card" key={entry.type} style={{ padding: 16 }}>
                     <strong>{entry.title}</strong>
                     <div className="muted" style={{ marginTop: 6 }}>{entry.detail}</div>
-                    <button className="primary-button" style={{ marginTop: 14 }} onClick={() => void handleQueue(entry.type)} type="button">
+                    <button className="primary-button" style={{ marginTop: 14 }} onClick={() => void handleQueue(entry.type)} disabled={!isIdle(character)} type="button">
                       加入隊列
                     </button>
                   </div>
@@ -1311,7 +2026,7 @@ async function bootstrap(nextToken: string) {
                 <div className="action-card" style={{ padding: 16 }}>
                   <strong>恢復</strong>
                   <div className="muted" style={{ marginTop: 6 }}>安排一段休息時間，專心回復狀態。</div>
-                  <button className="primary-button" style={{ marginTop: 14 }} onClick={() => void handleQueue("rest")} type="button">
+                  <button className="primary-button" style={{ marginTop: 14 }} onClick={() => void handleQueue("rest")} disabled={!isIdle(character)} type="button">
                     加入隊列
                   </button>
                 </div>
@@ -1334,8 +2049,8 @@ async function bootstrap(nextToken: string) {
                   </label>
                 </div>
                 <div className="battle-actions" style={{ marginTop: 12 }}>
-                  <button className="primary-button" onClick={() => void handleQueue("mine_shallow", miningHours.mine_shallow)} type="button">淺層挖礦</button>
-                  <button className="secondary-button" onClick={() => void handleQueue("mine_deep", miningHours.mine_deep)} type="button">深層挖礦</button>
+                  <button className="primary-button" onClick={() => void handleQueue("mine_shallow", miningHours.mine_shallow)} disabled={!isIdle(character)} type="button">淺層挖礦</button>
+                  <button className="secondary-button" onClick={() => void handleQueue("mine_deep", miningHours.mine_deep)} disabled={!isIdle(character)} type="button">深層挖礦</button>
                 </div>
               </div>
 
@@ -1347,6 +2062,16 @@ async function bootstrap(nextToken: string) {
                   </button>
                 </div>
                 <div className="queue-list" style={{ marginTop: 12 }}>
+                  {character.movement ? (
+                    <div className="queue-card is-active" style={{ padding: 12, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                      <div>
+                        <strong>據點移動中</strong>
+                        <div className="muted">{movementRouteLabel}</div>
+                        <div className="muted">抵達 {formatDate(character.movement.endsAt)}</div>
+                      </div>
+                      <span className="mini-pill">進行中</span>
+                    </div>
+                  ) : null}
                   {character.actionQueue.items.length > 0 ? (
                     character.actionQueue.items.map((item, index) => (
                       <div className="queue-card" key={item.id} style={{ padding: 12, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
@@ -1363,9 +2088,9 @@ async function bootstrap(nextToken: string) {
                         )}
                       </div>
                     ))
-                  ) : (
+                  ) : !character.movement ? (
                     <div className="empty-card" style={{ padding: 14 }}>目前沒有隊列。</div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </section>
@@ -1391,6 +2116,98 @@ async function bootstrap(nextToken: string) {
                   <button className="secondary-button" onClick={() => joinParty()} type="button">加入隊伍</button>
                   {roomState ? <button className="ghost-button" onClick={leaveParty} type="button">離開隊伍</button> : null}
                 </div>
+              </div>
+
+              <div className="panel" style={{ padding: 16 }}>
+                <div className="panel-heading">
+                  <div>
+                    <strong>場景挑戰</strong>
+                    <div className="muted" style={{ marginTop: 6 }}>探險會產生多步事件；公會 Boss 會用逐回合戰報推進公會討伐。</div>
+                  </div>
+                  <span className="mini-pill">{isIdle(character) ? "可挑戰" : "角色忙碌中"}</span>
+                </div>
+                <div className="battle-scene-grid" style={{ marginTop: 14 }}>
+                  {battleScenes.map((castle) => {
+                    const difficulty = soloDifficulty[castle.id] || "normal";
+                    return (
+                      <div key={castle.id} className={`battle-scene-card scene-${castle.mapNodePurpose}`}>
+                        <div className="battle-scene-visual">
+                          <span className="battle-scene-icon"><Swords size={20} /></span>
+                          <div>
+                            <strong>{battleSceneName(castle)}</strong>
+                            <div className="muted">{castle.name} · {mapNodePurposeLabel(castle.mapNodePurpose)}</div>
+                          </div>
+                        </div>
+                        <div className="muted">{battleSceneDetail(castle)}</div>
+                        <div className="tag-row compact" style={{ justifyContent: "flex-start" }}>
+                          <span className="mini-pill">外層 {castle.layer}</span>
+                          <span className="mini-pill">{castleSpecialtyLabel(castle.specialty)}</span>
+                        </div>
+                        <label className="field compact">
+                          <span>個人難度</span>
+                          <select
+                            value={difficulty}
+                            onChange={(event) => setSoloDifficulty((current) => ({ ...current, [castle.id]: event.target.value as SoloBattleDifficulty }))}
+                          >
+                            <option value="easy">簡單</option>
+                            <option value="normal">普通</option>
+                            <option value="hard">困難</option>
+                            <option value="elite">菁英</option>
+                          </select>
+                        </label>
+                        <div className="muted">{soloDifficultySummary(difficulty, castle.layer)}</div>
+                        <div className="battle-actions">
+                          <button className="secondary-button" onClick={() => void handleSoloBattle(castle.id)} disabled={!isIdle(character)} type="button">
+                            開始探險
+                          </button>
+                          <button className="primary-button" onClick={() => void handleFactionTowerBattle(castle.id, "skirmish")} disabled={!isIdle(character)} type="button">
+                            公會 Boss
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {battleScenes.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>加入陣營後會顯示可挑戰場景。</div> : null}
+                </div>
+              </div>
+
+              <div className="panel" style={{ padding: 16 }}>
+                <div className="panel-heading">
+                  <div>
+                    <strong>世界 Boss 競賽</strong>
+                    <div className="muted" style={{ marginTop: 6 }}>所有公會挑戰同一個事件 Boss；每個公會進場都面對滿血 Boss，第一個勝利公會取得主要資源。</div>
+                  </div>
+                  <span className="mini-pill">{worldBoss?.winnerFactionId ? "已有勝利公會" : "競賽中"}</span>
+                </div>
+                {worldBoss ? (
+                  <div className="battle-scene-card scene-guild_boss" style={{ marginTop: 14 }}>
+                    <div className="battle-scene-visual">
+                      <span className="battle-scene-icon"><Trophy size={20} /></span>
+                      <div>
+                        <strong>{worldBoss.bossName}</strong>
+                        <div className="muted">HP {worldBoss.bossHp} · 攻擊 {worldBoss.bossAttack}</div>
+                      </div>
+                    </div>
+                    <div className="tag-row compact" style={{ justifyContent: "flex-start" }}>
+                      <span className="mini-pill">主要公庫獎勵 {worldBoss.rewardGold} 金幣</span>
+                      <span className="mini-pill">星砂 x{worldBoss.rewardMaterials}</span>
+                      <span className="mini-pill">挑戰 {worldBoss.attempts.length} 次</span>
+                    </div>
+                    <div className="muted">
+                      {worldBoss.winnerFactionId
+                        ? `勝利公會：${factionState?.factions.find((faction) => faction.id === worldBoss.winnerFactionId)?.name || worldBoss.winnerFactionId}`
+                        : "尚未有公會擊敗本輪世界 Boss。"}
+                    </div>
+                    <div className="battle-actions">
+                      <button className="primary-button" onClick={() => void handleWorldBossChallenge()} disabled={!isIdle(character) || !character.factionId} type="button">
+                        挑戰世界 Boss
+                      </button>
+                      <button className="ghost-button" onClick={() => void refreshWorldBoss()} type="button">重整狀態</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="empty-card" style={{ padding: 14, marginTop: 14 }}>讀取世界 Boss 中。</div>
+                )}
               </div>
 
               <div className="room-list">
@@ -1433,6 +2250,21 @@ async function bootstrap(nextToken: string) {
                 </div>
               ) : null}
 
+              {roomState && (roomState.phase === "battle" || roomState.phase === "ended") && battleOverlayDismissed ? (
+                <div className="banner" style={{ padding: 14 }}>
+                  <strong>{roomState.phase === "ended" ? "戰鬥已結束" : "戰鬥同步中"}</strong>
+                  <div className="muted" style={{ marginTop: 6 }}>
+                    {roomState.phase === "ended" && (battleSummary || roomState.battleSummary)
+                      ? `結果：${(battleSummary || roomState.battleSummary)?.winner === "players" ? "玩家勝利" : "Boss 獲勝"}`
+                      : "你已收起戰鬥畫面，戰鬥仍會在背景同步。"}
+                  </div>
+                  <div className="battle-actions" style={{ marginTop: 10 }}>
+                    <button className="primary-button" onClick={() => setBattleOverlayDismissed(false)} type="button">打開戰鬥畫面</button>
+                    {roomState.phase === "ended" ? <button className="secondary-button" onClick={leaveParty} type="button">離開隊伍</button> : null}
+                  </div>
+                </div>
+              ) : null}
+
               {battleOverlayVisible ? (
                 <div style={{ position: "fixed", inset: 20, background: "rgba(9, 12, 20, 0.82)", zIndex: 30, display: "grid", placeItems: "center" }}>
                   <div className="battle-stage" style={{ width: "min(980px, 100%)", maxHeight: "90vh", overflow: "auto", padding: 22 }}>
@@ -1442,7 +2274,7 @@ async function bootstrap(nextToken: string) {
                         <h2 style={{ marginBottom: 4 }}>{roomState?.boss?.name || "戰鬥中"}</h2>
                         <div className="muted">隊伍代碼 {roomState?.roomId}</div>
                       </div>
-                      <button className="ghost-button" onClick={() => setActiveNav("battle")} type="button">收起回到頁面</button>
+                      <button className="ghost-button" onClick={() => setBattleOverlayDismissed(true)} type="button">收起回到頁面</button>
                     </div>
                     {roomState?.boss ? (
                       <div className="boss-stage-card" style={{ padding: 16, marginBottom: 14 }}>
@@ -1462,14 +2294,28 @@ async function bootstrap(nextToken: string) {
                       ))}
                     </div>
                     <div className="history-list" style={{ marginTop: 14 }}>
-                      {(lastBattleTick?.recentLogs || roomState?.logs || []).slice(-8).map((log, index) => (
-                        <div className="history-card" key={`${log}-${index}`} style={{ padding: 10 }}>{log}</div>
-                      ))}
+                      {(lastBattleTick?.recentLogs || roomState?.logs || []).slice(-8).map((log, index) => {
+                        const cleanLog = cleanBattleLog(log);
+                        return (
+                          <div className={`history-card battle-log-card is-${battleLogTone(cleanLog)}`} key={`${log}-${index}`} style={{ padding: 10 }}>{cleanLog}</div>
+                        );
+                      })}
                     </div>
+                    {lastBattleTick?.specialEvents?.length ? (
+                      <div className="tag-row" style={{ marginTop: 14 }}>
+                        {lastBattleTick.specialEvents.slice(-5).map((event, index) => (
+                          <span key={`${event.kind}-${index}`} className="mini-pill">{event.label}</span>
+                        ))}
+                      </div>
+                    ) : null}
                     {battleSummary ? (
                       <div className="banner" style={{ padding: 14, marginTop: 14 }}>
                         <strong>{battleSummary.winner === "players" ? "玩家勝利" : "Boss 獲勝"}</strong>
                         <div className="muted">結束時間 {formatDate(battleSummary.endedAt)}</div>
+                        <div className="battle-actions" style={{ marginTop: 10 }}>
+                          <button className="secondary-button" onClick={() => setBattleOverlayDismissed(true)} type="button">查看頁面結果</button>
+                          <button className="ghost-button" onClick={leaveParty} type="button">離開隊伍</button>
+                        </div>
                       </div>
                     ) : null}
                   </div>
@@ -1500,7 +2346,7 @@ async function bootstrap(nextToken: string) {
                 <>
                   <div className="auth-tabs">
                     {([
-                      ["map", "地圖 / 城池"],
+                      ["map", "視覺地圖 / 城池"],
                       ["diplomacy", "外交"],
                       ["treasury", "公庫"],
                       ["members", "成員"]
@@ -1513,44 +2359,275 @@ async function bootstrap(nextToken: string) {
 
 {factionTab === "map" ? (
                     <div className="section-stack">
-                      <div className="selector-grid">
-                        {factionState?.factions.map((faction) => (
-                          <button
-                            key={faction.id}
-                            className={`selector-card ${selectedCastleFactionId === faction.id ? "is-active" : ""}`}
-                            onClick={() => setSelectedCastleFactionId(faction.id)}
-                            type="button"
-                          >
-                            <strong>{faction.name}</strong>
-                            <div className="muted" style={{ marginTop: 6 }}>{faction.memberCount} 名成員</div>
-                            <div className="muted">{faction.leaderDisplayName ? `領袖 ${faction.leaderDisplayName}` : "尚未指派領袖"}</div>
-                          </button>
-                        ))}
-                      </div>
-
                       <div className="panel" style={{ padding: 16 }}>
                         <div className="panel-heading">
-                          <strong>{selectedCastleFaction?.name || "城池分類"}</strong>
-                          <span className="muted">{visibleCastles.length} 座城池</span>
+                          <strong>天下城池地圖</strong>
+                          <span className="muted">{visibleCastles.length} 座城 · {factionState?.factions.length ?? 0} 個陣營</span>
                         </div>
-                        <div className="castle-grid" style={{ marginTop: 12, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-                          {visibleCastles.map((castle) => {
-                            const isMine = castle.ownerFactionId === character.factionId;
-                            return (
-                              <div key={castle.id} className="history-card" style={{ padding: 14 }}>
-                                <strong>{castle.name}</strong>
-                                <div className="muted" style={{ marginTop: 6 }}>城防 {castle.fortification} / {castle.maxFortification}</div>
-                                <div className="muted">Boss {castle.bossName}</div>
-                                {!isMine ? (
-                                  <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleAttackCastle(castle.id)} disabled={!canAttackCastle} type="button">
-                                    攻打城堡
+                        <div className="muted" style={{ marginTop: 8 }}>
+                          所有陣營共用同一張戰略地圖；點城池後在右側查看城防、設施、Boss 與可執行操作。
+                        </div>
+                        <div className="map-legend-row" style={{ marginTop: 12 }}>
+                          {factionState?.factions.map((faction) => (
+                            <span key={faction.id} className={`map-legend-item ${faction.id === character.factionId ? "is-mine" : ""}`}>
+                              {faction.name} · {faction.memberCount} 人
+                            </span>
+                          ))}
+                        </div>
+                        <div className="map-toolbar" style={{ marginTop: 12 }}>
+                          <button className="secondary-button" onClick={() => setMapZoom((value) => Math.max(0.7, Number((value - 0.1).toFixed(1))))} type="button">
+                            縮小
+                          </button>
+                          <input
+                            aria-label="地圖縮放"
+                            max="1.6"
+                            min="0.7"
+                            onChange={(event) => setMapZoom(Number(event.target.value))}
+                            step="0.1"
+                            type="range"
+                            value={mapZoom}
+                          />
+                          <button className="secondary-button" onClick={() => setMapZoom((value) => Math.min(1.6, Number((value + 0.1).toFixed(1))))} type="button">
+                            放大
+                          </button>
+                          <button className="ghost-button" onClick={() => setMapZoom(1)} type="button">
+                            重設 {Math.round(mapZoom * 100)}%
+                          </button>
+                        </div>
+                        {character.movement ? (
+                          <div className="banner" style={{ padding: 12, marginTop: 12 }}>
+                            <strong>移動中</strong>
+                            <div className="muted">{movementRouteLabel}</div>
+                            <div className="muted">抵達時間 {formatDate(character.movement.endsAt)}</div>
+                          </div>
+                        ) : null}
+                        {activeFactionProjects.length > 0 ? (
+                          <div className="history-list" style={{ marginTop: 12 }}>
+                            {activeFactionProjects.map((project) => {
+                              const joined = project.contributorUserIds.includes(user.id);
+                              return (
+                                <div key={project.id} className="history-card" style={{ padding: 12 }}>
+                                  <strong>{project.label}</strong>
+                                  <div className="muted">結束 {formatDate(project.endsAt)} · 協力 {project.contributorUserIds.length} 人</div>
+                                  <div className="battle-actions" style={{ marginTop: 10 }}>
+                                    {joined ? (
+                                      <button className="secondary-button" onClick={() => void handleLeaveProject(project.id)} type="button">退出工程</button>
+                                    ) : (
+                                      <button className="primary-button" onClick={() => void handleJoinProject(project.id)} type="button">協助工程</button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                        <div className="world-map-layout" style={{ marginTop: 12 }}>
+                          <div className="faction-map-board">
+                            <div className="strategic-map-canvas" style={{ "--map-zoom": mapZoom } as CSSProperties}>
+                              <div className="map-region-label map-region-label-core">王城</div>
+                              <div className="map-region-label map-region-label-pass">關隘</div>
+                              <div className="map-region-label map-region-label-front">邊境</div>
+                              <button className="map-challenge-node" onClick={() => setActiveNav("battle")} type="button">
+                                <span><Swords size={20} /></span>
+                                <strong>場景挑戰</strong>
+                                <small>個人 / 公會戰鬥</small>
+                              </button>
+                              <svg className="strategic-map-territories" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                                {strategicMapTerritories.map((territory) => (
+                                  <polygon
+                                    key={territory.factionId}
+                                    points={territory.points}
+                                    style={{ "--territory-color": territory.color } as CSSProperties}
+                                  />
+                                ))}
+                              </svg>
+                              <svg className="strategic-map-routes" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                                {strategicMapRoutes.map((route) => (
+                                  <line
+                                    key={route.id}
+                                    x1={route.from.x}
+                                    y1={route.from.y}
+                                    x2={route.to.x}
+                                    y2={route.to.y}
+                                  />
+                                ))}
+                              </svg>
+                              {strategicMapNodes.map(({ castle, x, y }) => {
+                                const ownerFaction = factionState?.factions.find((faction) => faction.id === castle.ownerFactionId);
+                                const isMine = castle.ownerFactionId === character.factionId;
+                                const isCurrentLocation = castle.id === character.currentCastleId;
+                                const isMovementDestination = castle.id === character.movement?.toCastleId;
+                                const isMovementOrigin = castle.id === character.movement?.fromCastleId;
+                                const isSelected = castle.id === selectedMapCastle?.id;
+                                const project = activeFactionProjects.find((entry) => entry.castleId === castle.id && entry.status === "active");
+                                const showLabel = castle.isCapital || isCurrentLocation || isMovementDestination || isSelected;
+                                return (
+                                  <button
+                                    key={castle.id}
+                                    aria-label={`${castle.name}，${ownerFaction?.name || "未歸屬"}，${castle.layerName}`}
+                                    className={`castle-node ${castle.isCapital ? "is-capital" : ""} ${showLabel ? "has-label" : ""} ${isSelected ? "is-selected" : ""} ${isCurrentLocation ? "is-current" : ""} ${isMovementDestination ? "is-destination" : ""} ${isMine ? "is-owned" : "is-enemy"}`}
+                                    onClick={() => setSelectedMapCastleId(castle.id)}
+                                    style={{ left: `${x}%`, top: `${y}%`, "--faction-color": ownerFaction?.color || "#d6ad5d" } as CSSProperties}
+                                    title={`${castle.name}｜${ownerFaction?.name || "未歸屬"}｜${mapNodePurposeLabel(castle.mapNodePurpose)}`}
+                                    type="button"
+                                  >
+                                    <span className="map-node-marker">
+                                      <Castle size={castle.isCapital ? 26 : 18} />
+                                    </span>
+                                    <span className="castle-node-label">
+                                      <strong>{castle.name}</strong>
+                                      <small>{ownerFaction?.name || "未歸屬"} · {mapNodePurposeLabel(castle.mapNodePurpose)}</small>
+                                    </span>
+                                    <span className="castle-node-badges">
+                                      {isCurrentLocation ? <span className="mini-pill">目前</span> : null}
+                                      {isMovementOrigin && !isCurrentLocation ? <span className="mini-pill">出發</span> : null}
+                                      {isMovementDestination ? <span className="mini-pill">目的</span> : null}
+                                      {project ? <span className="mini-pill">工程</span> : null}
+                                    </span>
                                   </button>
-                                ) : (
-                                  <span className="mini-pill" style={{ marginTop: 12 }}>我方領地</span>
-                                )}
-                              </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {selectedMapCastle ? (() => {
+                            const castle = selectedMapCastle;
+                            const ownerFaction = factionState?.factions.find((faction) => faction.id === castle.ownerFactionId);
+                            const isMine = castle.ownerFactionId === character.factionId;
+                            const isCurrentLocation = castle.id === character.currentCastleId;
+                            const isMovementDestination = castle.id === character.movement?.toCastleId;
+                            const isMovementOrigin = castle.id === character.movement?.fromCastleId;
+                            const layerDistance = Math.max(1, Math.abs((currentCastle?.distanceFromCapital ?? 0) - castle.distanceFromCapital));
+                            const buildGold = buildFacilityGold(castle, factionState?.selectedFaction?.tech.castle ?? 0);
+                            const repairPlan = repairCastlePlan(castle, factionState?.selectedFaction?.tech.defense ?? 0);
+                            const project = activeFactionProjects.find((entry) => entry.castleId === castle.id && entry.status === "active");
+                            const garrisons = factionState?.garrisons.filter((entry) => entry.castleId === castle.id) || [];
+                            const activeSiege = factionState?.sieges.find((entry) => entry.castleId === castle.id && entry.status === "active");
+                            const isGarrisonedHere = character.garrisonAssignment?.castleId === castle.id;
+                            const isInActiveSiege = activeSiege?.participants.some((participant) => participant.userId === character.userId);
+                            return (
+                              <aside className="castle-detail-panel">
+                                <div className="castle-detail-header">
+                                  <div>
+                                    <strong>{castle.name}</strong>
+                                    <div className="muted">{ownerFaction?.name || "未歸屬"} · {castle.layerName}</div>
+                                  </div>
+                                  <span className={`mini-pill ${isMine ? "is-friendly" : ""}`}>{isMine ? "我方城池" : "敵方城池"}</span>
+                                </div>
+                                <div className="tag-row">
+                                  <span className="mini-pill">{mapNodePurposeLabel(castle.mapNodePurpose)}</span>
+                                  <span className="mini-pill">{castleSpecialtyLabel(castle.specialty)}</span>
+                                  {isCurrentLocation ? <span className="mini-pill">目前位置</span> : null}
+                                  {isMovementOrigin && !isCurrentLocation ? <span className="mini-pill">出發地</span> : null}
+                                  {isMovementDestination ? <span className="mini-pill">目的地</span> : null}
+                                  {project ? <span className="mini-pill">工程中 · {project.contributorUserIds.length} 人</span> : null}
+                                </div>
+                                {character.movement ? (
+                                  <div className="banner" style={{ padding: 10 }}>
+                                    移動路線：{movementRouteLabel}
+                                    <div className="muted">抵達 {formatDate(character.movement.endsAt)}</div>
+                                  </div>
+                                ) : null}
+                                <div className="castle-detail-grid">
+                                  <span>距核心</span><strong>{castle.distanceFromCapital} 層</strong>
+                                  <span>城防</span><strong>{castle.fortification}/{castle.maxFortification}</strong>
+                                  <span>駐防</span><strong>{garrisons.length}/{castle.garrisonSlots}</strong>
+                                  <span>自動防禦</span><strong>{castle.autoDefensePower}</strong>
+                                  <span>地形優勢</span><strong>{castle.terrainAdvantage}</strong>
+                                  <span>抗攻城</span><strong>{castle.siegeResistance}</strong>
+                                  <span>建設槽</span><strong>{castle.facilities.length}/{castle.buildSlots}</strong>
+                                  <span>設施</span><strong>{castle.facilities.length > 0 ? castle.facilities.join("、") : "尚未建設"}</strong>
+                                </div>
+                                {activeSiege ? (
+                                  <div className="castle-boss-strip">
+                                    <strong>攻城戰進行中</strong>
+                                    <span>攻方 {factionState?.factions.find((faction) => faction.id === activeSiege.attackerFactionId)?.name || activeSiege.attackerFactionId} · 守方 {factionState?.factions.find((faction) => faction.id === activeSiege.defenderFactionId)?.name || activeSiege.defenderFactionId}</span>
+                                    <span>城防 {activeSiege.fortificationCurrent}/{activeSiege.fortificationStart} · 第 {activeSiege.lastResolvedTick} 輪 · 結束 {formatDate(activeSiege.endsAt)}</span>
+                                    {activeSiege.logs.slice(0, 3).map((log) => <span key={`${activeSiege.id}-${log.tick}`}>第 {log.tick} 輪：{log.message}</span>)}
+                                    <div className="battle-actions">
+                                      {!isInActiveSiege && isIdle(character) ? (
+                                        <button className="secondary-button" onClick={() => void handleJoinSiege(activeSiege.id)} type="button">加入戰場</button>
+                                      ) : null}
+                                      <button className="ghost-button" onClick={() => void handleResolveSiege(activeSiege.id)} type="button">更新戰況</button>
+                                    </div>
+                                  </div>
+                                ) : null}
+                                <div className="muted">{castle.layerBenefit}</div>
+                                <div className="castle-boss-strip">
+                                  <strong>{castle.bossName}</strong>
+                                  <span>技能：{castle.bossSkills.join("、")}</span>
+                                  <span>獎勵：{castle.rewardSummary}</span>
+                                </div>
+                                {isMine && castle.mapNodePurpose === "guild_boss" ? (
+                                  <div className="castle-boss-strip">
+                                    <strong>公會爬層 Lv.{factionState?.selectedFaction?.tower.currentLayer ?? 1}</strong>
+                                    <span>最高通關 {factionState?.selectedFaction?.tower.highestClearedLayer ?? 0} 層 · 進度 {factionState?.selectedFaction?.tower.progress ?? 0}%</span>
+                                    <div className="progress-bar">
+                                      <div className="progress-fill is-energy" style={{ width: `${factionState?.selectedFaction?.tower.progress ?? 0}%` }} />
+                                    </div>
+                                    <span>當層 Boss：{factionState?.selectedFaction?.tower.bossName ?? "未設定"} · HP {factionState?.selectedFaction?.tower.bossHp ?? "-"}</span>
+                                    <span>{factionState?.selectedFaction?.tower.rewardSummary}</span>
+                                    <div className="battle-actions">
+                                      <button className="primary-button" onClick={() => void handleFactionTowerBattle(castle.id, "boss")} disabled={!isIdle(character)} type="button">
+                                        挑戰爬層 Boss
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : null}
+                                <div className="battle-actions">
+                                  {!isMine ? (
+                                    <button className="primary-button" onClick={() => void handleAttackCastle(castle.id)} disabled={!canAttackCastle || Boolean(activeSiege)} type="button">
+                                      發起攻城戰
+                                    </button>
+                                  ) : !isCurrentLocation ? (
+                                    <button className="primary-button" onClick={() => void handleMoveCastle(castle.id)} disabled={Boolean(character.movement)} type="button">
+                                      移動至此（{layerDistance * 30} 分）
+                                    </button>
+                                  ) : !isIdle(character) ? (
+                                    <span className="mini-pill">忙碌中，暫不可操作</span>
+                                  ) : (
+                                    <span className="mini-pill">目前所在城池 · 可建設 / 修建</span>
+                                  )}
+                                </div>
+                                {isMine && isCurrentLocation ? (
+                                  <div className="castle-node-actions">
+                                    <div className="battle-actions">
+                                      {isGarrisonedHere ? (
+                                        <button className="secondary-button" onClick={() => void handleLeaveGarrison(castle.id)} disabled={Boolean(activeSiege)} type="button">
+                                          退出駐防
+                                        </button>
+                                      ) : (
+                                        <button className="secondary-button" onClick={() => void handleGarrisonCastle(castle.id)} disabled={!isIdle(character) || garrisons.length >= castle.garrisonSlots} type="button">
+                                          駐防此城
+                                        </button>
+                                      )}
+                                    </div>
+                                    <label className="field">
+                                      <span>建設設施（公庫 {buildGold} 金幣）</span>
+                                      <input
+                                        value={facilityDrafts[castle.id] || ""}
+                                        onChange={(event) => setFacilityDrafts((current) => ({ ...current, [castle.id]: event.target.value }))}
+                                        placeholder={castle.specialty === "boss" ? "討伐營" : castle.specialty === "mining" ? "礦坑" : castle.specialty === "trade" ? "市集" : "農田"}
+                                      />
+                                    </label>
+                                    <div className="battle-actions">
+                                      <button className="secondary-button" onClick={() => void handleBuildFacility(castle.id)} disabled={!isIdle(character) || castle.facilities.length >= castle.buildSlots} type="button">
+                                        發起建設工程
+                                      </button>
+                                      <button className="secondary-button" onClick={() => void handleRepairCastle(castle.id)} disabled={!isIdle(character) || repairPlan.repairAmount <= 0} type="button">
+                                        防守 / 修建城防 +{repairPlan.repairAmount}（{repairPlan.gold} 金幣）
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : null}
+                              </aside>
                             );
-                          })}
+                          })() : (
+                            <aside className="castle-detail-panel">
+                              <strong>選擇城池</strong>
+                              <div className="muted">點地圖上的城池查看詳情。</div>
+                            </aside>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1592,36 +2669,34 @@ async function bootstrap(nextToken: string) {
 
                   {factionTab === "treasury" ? (
                     <div className="panel" style={{ padding: 16 }}>
-                      <div className="muted">公庫金幣 {factionState?.selectedFaction?.treasury.gold ?? 0} · 公庫素材 {factionState?.selectedFaction?.treasury.materials ?? 0}</div>
-                      <div className="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", marginTop: 12 }}>
-                        <label className="field">
-                          <span>目標角色名稱</span>
-                          <input value={treasuryTargetName} onChange={(event) => setTreasuryTargetName(event.target.value)} />
-                        </label>
-                        <label className="field">
-                          <span>金幣</span>
-                          <input
-                            type="number"
-                            min={0}
-                            max={factionState?.selectedFaction?.treasury.gold || 0}
-                            step={1}
-                            value={treasuryGold}
-                            onChange={(event) => setTreasuryGold(clampedInputValue(event.target.value, 0, factionState?.selectedFaction?.treasury.gold || 0))}
-                          />
-                        </label>
-                        <label className="field">
-                          <span>素材</span>
-                          <input
-                            type="number"
-                            min={0}
-                            max={factionState?.selectedFaction?.treasury.materials || 0}
-                            step={1}
-                            value={treasuryMaterials}
-                            onChange={(event) => setTreasuryMaterials(clampedInputValue(event.target.value, 0, factionState?.selectedFaction?.treasury.materials || 0))}
-                          />
-                        </label>
+                      <strong>公庫</strong>
+                      <div className="muted" style={{ marginTop: 6 }}>
+                        公庫金幣 {factionState?.selectedFaction?.treasury.gold ?? 0}
                       </div>
-                      <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleGrantTreasury()} type="button">發放公庫</button>
+                      <div className="muted" style={{ marginTop: 6 }}>公庫不發放給個人，金幣用於據點工程與公會科技。</div>
+                      <div className="selector-grid" style={{ marginTop: 12 }}>
+                        {factionTechOptions.map((option) => {
+                          const level = factionState?.selectedFaction?.tech[option.key] ?? 0;
+                          const cost = factionTechCost(level);
+                          const treasuryGold = factionState?.selectedFaction?.treasury.gold ?? 0;
+                          return (
+                            <div key={option.key} className="selector-card">
+                              <strong>{option.label} Lv.{level}</strong>
+                              <div className="muted" style={{ marginTop: 6 }}>{option.detail}</div>
+                              <div className="muted" style={{ marginTop: 6 }}>升級花費 {cost} 公庫金幣</div>
+                              <button
+                                className="primary-button"
+                                style={{ marginTop: 10 }}
+                                onClick={() => void handleUpgradeTech(option.key)}
+                                disabled={treasuryGold < cost}
+                                type="button"
+                              >
+                                升級
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   ) : null}
 
@@ -1738,6 +2813,35 @@ async function bootstrap(nextToken: string) {
                 </div>
               ) : (
                 <div className="panel" style={{ padding: 16 }}>
+                  {inventoryTab === "manual" ? (
+                    <div className="section-stack" style={{ marginBottom: 16 }}>
+                      <div className="panel-heading">
+                        <strong><ScrollText size={17} /> 秘籍槽</strong>
+                        <span className="muted">{character.equippedManuals.length} / 3</span>
+                      </div>
+                      <div className="member-grid">
+                        {character.learnedManuals.map((manual) => {
+                          const equipped = character.equippedManuals.includes(manual.manualId);
+                          return (
+                            <div key={manual.manualId} className="member-card" style={{ padding: 14 }}>
+                              <strong>{manual.name}</strong>
+                              <div className="muted">{manual.effectSummary}</div>
+                              <div className="muted">{statBonusSummary(manual.statBonus)}</div>
+                              <button
+                                className={equipped ? "secondary-button" : "primary-button"}
+                                onClick={() => void (equipped ? handleUnequipManual(manual.manualId) : handleEquipManual(manual.manualId))}
+                                disabled={!equipped && character.equippedManuals.length >= 3}
+                                type="button"
+                              >
+                                {equipped ? "卸下 Buff" : "裝備 Buff"}
+                              </button>
+                            </div>
+                          );
+                        })}
+                        {character.learnedManuals.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>尚未學會任何秘籍。</div> : null}
+                      </div>
+                    </div>
+                  ) : null}
                   <div className="table-list">
                     {selectedInventoryItems.map((item) => (
                       <div
@@ -1754,6 +2858,7 @@ async function bootstrap(nextToken: string) {
                         </div>
                         <div className="table-actions">
                           <button className="ghost-button" onClick={() => setDetailItem(item)} type="button">詳情</button>
+                          {item.category === "manual" ? <button className="primary-button" onClick={() => void handleLearnManual(item.id)} type="button">學習</button> : null}
                           {item.category === "material" ? <button className="secondary-button" onClick={() => void handleListMarket(item)} type="button">上架</button> : null}
                         </div>
                       </div>
@@ -1811,7 +2916,37 @@ async function bootstrap(nextToken: string) {
                 {inventoryGroups.material.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>先去挖礦取得材料。</div> : null}
               </div>
 
-              <button className="primary-button" onClick={() => void handleForge()} type="button">開始鍛造</button>
+              <button className="primary-button" onClick={() => void handleForge()} disabled={!isIdle(character)} type="button">開始鍛造</button>
+            </section>
+          ) : null}
+
+          {activeNav === "achievements" ? (
+            <section className="section-stack">
+              <div className="panel" style={{ padding: 16 }}>
+                <div className="panel-heading">
+                  <strong>成就</strong>
+                  <button className="ghost-button" onClick={() => void refreshAchievements()} type="button">刷新</button>
+                </div>
+                <div className="muted" style={{ marginTop: 8 }}>目前先建立成就頁與進度框架，具體內容之後可繼續擴充。</div>
+              </div>
+              <div className="history-list">
+                {achievements.map((achievement) => (
+                  <div key={achievement.id} className="history-card table-row">
+                    <div className="table-main">
+                      <strong>{achievement.title}</strong>
+                      <div className="muted">{achievement.description}</div>
+                      <div className="progress-bar" style={{ marginTop: 10 }}>
+                        <div className="progress-fill" style={{ width: `${percent(achievement.progress, achievement.target)}%` }} />
+                      </div>
+                      <div className="muted" style={{ marginTop: 6 }}>
+                        {achievement.progress} / {achievement.target} · {achievement.completed ? "已完成" : "進行中"}
+                      </div>
+                    </div>
+                    <span className={`mini-pill ${achievement.completed ? "is-live" : ""}`}>{achievement.rewardSummary || "獎勵待定"}</span>
+                  </div>
+                ))}
+                {achievements.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>成就內容尚未建立。</div> : null}
+              </div>
             </section>
           ) : null}
 
@@ -1859,7 +2994,7 @@ async function bootstrap(nextToken: string) {
                     <div key={battle.id} className="history-card table-row">
                       <div className="table-main">
                         <strong>{battle.bossName}</strong>
-                        <div className="muted">結果 {battle.winner === "players" ? "勝利" : "失敗"} · 共 {battle.totalTicks} 回合</div>
+                        <div className="muted">{battleContextLabel(battle.battleContext, battle.battleKind)} · 結果 {battle.winner === "players" ? "勝利" : "失敗"} · 共 {battle.totalTicks} 回合</div>
                         <div className="muted">{formatDate(battle.createdAt)}</div>
                       </div>
                       <div className="table-actions">
@@ -2122,7 +3257,7 @@ async function bootstrap(nextToken: string) {
                   </div>
                   <div className="battle-actions" style={{ marginTop: 12 }}>
                     <button className="primary-button" onClick={() => void handleAdminAction(() => adminAssignLeader(token, { factionId: adminFactionId, targetCharacterName: adminTargetName }), "已指派新領袖") } type="button">指派領袖</button>
-                    <button className="secondary-button" onClick={() => void handleAdminAction(() => adminAdjustTreasury(token, { factionId: adminFactionId, gold: 9999, materials: 9999 }), "已補充公庫") } type="button">補充公庫</button>
+                    <button className="secondary-button" onClick={() => void handleAdminAction(() => adminAdjustTreasury(token, { factionId: adminFactionId, gold: 9999 }), "已補充公庫") } type="button">補充公庫</button>
                     <button className="ghost-button" onClick={() => void handleAdminAction(() => adminSetCastleOwner(token, { castleId: adminCastleId, ownerFactionId: adminOwnerFactionId }), "已調整城池擁有權") } type="button">變更城池</button>
                     <button className="ghost-button" onClick={() => void handleAdminAction(() => adminResetDiplomacy(token), "已重設外交") } type="button">重設外交</button>
                   </div>
@@ -2171,7 +3306,7 @@ async function bootstrap(nextToken: string) {
                   <button className="ghost-button" onClick={() => setDetailBattleRecord(null)} type="button">關閉</button>
                 </div>
                 <div className="detail-list">
-                  <div><strong>戰鬥摘要</strong><div className="muted">總回合 {detailBattleRecord.totalTicks} · 戰鬥時長 {Math.round(detailBattleRecord.durationMs / 1000)} 秒 · 類型 {detailBattleRecord.battleContext}</div></div>
+                  <div><strong>戰鬥摘要</strong><div className="muted">總回合 {detailBattleRecord.totalTicks} · 戰鬥時長 {Math.round(detailBattleRecord.durationMs / 1000)} 秒 · 類型 {battleContextLabel(detailBattleRecord.battleContext, detailBattleRecord.battleKind)}</div></div>
                   <div>
                     <strong>參戰者</strong>
                     <div className="history-list" style={{ marginTop: 10 }}>
@@ -2186,9 +3321,12 @@ async function bootstrap(nextToken: string) {
                   <div>
                     <strong>完整戰鬥紀錄</strong>
                     <div className="history-list" style={{ marginTop: 10 }}>
-                      {detailBattleRecord.logs.map((log, index) => (
-                        <div key={`${detailBattleRecord.id}-${index}`} className="history-card" style={{ padding: 10 }}>{log}</div>
-                      ))}
+                      {visibleBattleLogs(detailBattleRecord.logs).map((log, index) => {
+                        const cleanLog = cleanBattleLog(log);
+                        return (
+                          <div key={`${detailBattleRecord.id}-${index}`} className={`history-card battle-log-card is-${battleLogTone(cleanLog)}`} style={{ padding: 10 }}>{cleanLog}</div>
+                        );
+                      })}
                       {detailBattleRecord.logs.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>目前沒有保存戰鬥紀錄。</div> : null}
                     </div>
                   </div>

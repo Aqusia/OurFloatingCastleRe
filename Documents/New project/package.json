@@ -3,13 +3,38 @@
   "private": true,
   "version": "0.1.0",
   "workspaces": [
+    "admin-client",
     "client",
     "server"
   ],
   "scripts": {
+    "dev:admin": "npm --workspace admin-client run dev",
     "dev:client": "npm --workspace client run dev",
     "dev:server": "npm --workspace server run dev",
-    "build": "npm --workspace client run build && npm --workspace server run build",
-    "install:all": "npm install --workspaces"
+    "build": "npm --workspace client run build && npm --workspace admin-client run build && npm --workspace server run build",
+    "start": "tsx server/src/index.ts",
+    "install:all": "npm install --workspaces",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc -p client/tsconfig.json --noEmit && tsc -p admin-client/tsconfig.json --noEmit && tsc -p server/tsconfig.json --noEmit",
+    "ci": "npm run lint && npm run typecheck && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@vitest/coverage-v8": "^2.1.9",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^15.15.0",
+    "prettier": "^3.8.3",
+    "tsx": "^4.22.4",
+    "typescript-eslint": "^8.60.1",
+    "vitest": "^2.1.9"
   }
 }

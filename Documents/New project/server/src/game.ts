@@ -2,6 +2,7 @@ import type {
   AuthUser,
   BattleRecordSummary,
   BattleSummary,
+  BattleSpecialEvent,
   BattleTickEvent,
   BattleWinner,
   BattleContext,
@@ -10,14 +11,19 @@ import type {
   LoadoutSummary,
   RoomMemberState,
   RoomState,
-  RoomSummary
+  RoomSummary,
+  SpecialSkillDefinition
 } from "../../shared/events";
+import { rollAttackSpecialEvents, rollBossCounterEvent, rollDangerDodge } from "./combatEngine";
 import { recordBattle, syncBattleResult, updateCharacter } from "./persistence/localStore";
 import {
   bossBaseAttack,
   bossBaseHp,
+  buildSkillLogLines,
   capLogs,
   cloneCharacter,
+  gameplaySecondaryCharacterCatalog,
+  gameplaySpecialSkillCatalog,
   maxEnergyForCharacter,
   maxHpForCharacter,
   maxMpForCharacter,
@@ -307,10 +313,114 @@ export function startBattle(roomId: string, userId: string) {
 
 type BattleActionResult = {
   message: string;
+  events: BattleSpecialEvent[];
+  logs?: string[];
 };
 
 function livingMembers(room: RoomInternal) {
   return room.members.filter((member) => member.currentHp > 0);
+}
+
+function applyAttackSpecials(member: RoomMemberState, room: RoomInternal, baseDamage: number): BattleSpecialEvent[] {
+  const boss = room.boss!;
+  const allies = livingMembers(room);
+  const lowestAlly = [...allies].sort((a, b) => a.currentHp / a.maxHp - b.currentHp / b.maxHp)[0];
+  const result = rollAttackSpecialEvents({
+    actorUserId: member.userId,
+    actorName: member.displayName,
+    bossName: boss.name,
+    stats: member.character.stats,
+    baseDamage,
+    lowestAllyName: lowestAlly?.displayName || null,
+    lowestAllyHpRatio: lowestAlly ? lowestAlly.currentHp / lowestAlly.maxHp : null
+  });
+
+  if (result.extraDamage > 0) {
+    boss.hp = Math.max(0, boss.hp - result.extraDamage);
+    member.battleStats.damageDealt += result.extraDamage;
+  }
+  if (result.supportHealing > 0 && lowestAlly) {
+    lowestAlly.currentHp = Math.min(lowestAlly.maxHp, lowestAlly.currentHp + result.supportHealing);
+    member.battleStats.healingDone += result.supportHealing;
+  }
+  return result.events;
+}
+
+function secondaryPreferenceMultiplier(member: RoomMemberState, preferredSlots?: Array<keyof CharacterProfile["equipmentSlots"]>) {
+  if (!preferredSlots?.length) return 1;
+  return preferredSlots.some((slot) => Boolean(member.character.equipmentSlots[slot])) ? 1.18 : 1;
+}
+
+function rollSecondaryCharacterSkills(member: RoomMemberState, room: RoomInternal): BattleActionResult {
+  const boss = room.boss!;
+  const events: BattleSpecialEvent[] = [];
+  const messages: string[] = [];
+  const definitions = gameplaySecondaryCharacterCatalog();
+  const skills = gameplaySpecialSkillCatalog();
+  const allies = livingMembers(room);
+  const lowestAlly = [...allies].sort((a, b) => a.currentHp / a.maxHp - b.currentHp / b.maxHp)[0] || null;
+
+  for (const slot of member.character.secondaryCharacters) {
+    if (!slot.characterId || (slot.cooldownUntilTick || 0) > room.tick || boss.hp <= 0) continue;
+    const definition = definitions.find((entry) => entry.id === slot.characterId);
+    if (!definition) continue;
+    const unlocked = (slot.unlockedSkillIds?.length ? slot.unlockedSkillIds : definition.unlockedSkillIds).filter((skillId) => {
+      const skill = skills.find((entry) => entry.id === skillId);
+      return skill && (skill.unlockLevel || 1) <= slot.level;
+    });
+    if (!unlocked.length) continue;
+    const availableSkills = unlocked
+      .map((skillId) => skills.find((entry) => entry.id === skillId))
+      .filter((skill): skill is SpecialSkillDefinition => Boolean(skill));
+    const skill = randomFrom(availableSkills);
+    const affinity = definition.classAffinity?.[member.character.className] ?? 1;
+    const equipmentMultiplier = secondaryPreferenceMultiplier(member, definition.preferredEquipmentSlots);
+    const chance = Math.min(0.86, (skill.baseChance || 0.38) + 0.18 + (slot.level - 1) * 0.025 + (affinity - 1) * 0.14 + (equipmentMultiplier - 1) * 0.08);
+    if (Math.random() >= chance) continue;
+
+    const levelMultiplier = 1 + (slot.level - 1) * 0.12;
+    const damageBase =
+      member.character.stats.attack +
+      member.character.stats.technique +
+      Math.floor(member.character.stats.intelligence * 0.7) +
+      Math.floor(member.character.stats.luck * 0.5);
+    const damage = Math.max(8, Math.round((10 + damageBase) * levelMultiplier * affinity * equipmentMultiplier));
+    boss.hp = Math.max(0, boss.hp - damage);
+    member.battleStats.damageDealt += damage;
+
+    let healing = 0;
+    if ((skill.id.includes("healing") || skill.id.includes("rosario")) && lowestAlly) {
+      healing = Math.max(5, Math.round((member.character.stats.spirit + slot.level * 3) * affinity));
+      lowestAlly.currentHp = Math.min(lowestAlly.maxHp, lowestAlly.currentHp + healing);
+      member.battleStats.healingDone += healing;
+    }
+    const bossAttackModifier = skill.id.includes("infinity") || skill.id.includes("parry") ? 0.92 : undefined;
+    slot.lastTriggeredSkillId = skill.id;
+    slot.cooldownUntilTick = room.tick + (skill.cooldownTurns || 2);
+    const logLines = buildSkillLogLines({
+      actorName: member.displayName,
+      characterName: definition.name,
+      skill,
+      targetName: boss.name,
+      damage,
+      healing,
+      healingTargetName: lowestAlly?.displayName
+    });
+    messages.push(...logLines);
+    events.push({
+      kind: "secondary_skill",
+      actorUserId: member.userId,
+      label: skill.name,
+      message: logLines.join("\n"),
+      impact: {
+        damage,
+        ...(healing ? { healing } : {}),
+        ...(bossAttackModifier ? { bossAttackModifier } : {})
+      }
+    });
+  }
+
+  return { message: messages.join(" "), events, logs: messages };
 }
 
 function chooseRoleAction(member: RoomMemberState, room: RoomInternal): BattleActionResult {
@@ -326,7 +436,8 @@ function chooseRoleAction(member: RoomMemberState, room: RoomInternal): BattleAc
       lowestAlly.currentHp = Math.min(lowestAlly.maxHp, lowestAlly.currentHp + heal);
       member.battleStats.healingDone += heal;
       return {
-        message: `${member.displayName} 施放恢復術，替 ${lowestAlly.displayName} 回復了 ${heal} 點生命。`
+        message: `${member.displayName} 施放恢復術，替 ${lowestAlly.displayName} 回復了 ${heal} 點生命。`,
+        events: applyAttackSpecials(member, room, Math.max(6, Math.round(heal / 2)))
       };
     }
   }
@@ -334,7 +445,8 @@ function chooseRoleAction(member: RoomMemberState, room: RoomInternal): BattleAc
   if (role === "tank" && Math.random() < 0.4) {
     member.defending = true;
     return {
-      message: `${member.displayName} 進入防禦姿態，準備承受下一次攻擊。`
+      message: `${member.displayName} 進入防禦姿態，準備承受下一次攻擊。`,
+      events: []
     };
   }
 
@@ -344,7 +456,19 @@ function chooseRoleAction(member: RoomMemberState, room: RoomInternal): BattleAc
     boss.hp = Math.max(0, boss.hp - damage);
     member.battleStats.damageDealt += damage;
     return {
-      message: `${member.displayName} 釋放魔力彈，對 ${boss.name} 造成 ${damage} 點傷害。`
+      message: `${member.displayName} 釋放魔力彈，對 ${boss.name} 造成 ${damage} 點傷害。`,
+      events: applyAttackSpecials(member, room, damage)
+    };
+  }
+
+  if (member.character.className === "assassin" && member.currentEnergy >= 8 && Math.random() < 0.58) {
+    const damage = 14 + member.character.stats.attack + member.character.stats.technique * 2 + Math.floor(member.character.stats.luck / 2);
+    member.currentEnergy = Math.max(0, member.currentEnergy - 8);
+    boss.hp = Math.max(0, boss.hp - damage);
+    member.battleStats.damageDealt += damage;
+    return {
+      message: `${member.displayName} 以影步切入 ${boss.name}，連斬造成 ${damage} 點傷害。`,
+      events: applyAttackSpecials(member, room, damage)
     };
   }
 
@@ -354,7 +478,8 @@ function chooseRoleAction(member: RoomMemberState, room: RoomInternal): BattleAc
     boss.hp = Math.max(0, boss.hp - damage);
     member.battleStats.damageDealt += damage;
     return {
-      message: `${member.displayName} 以聖光衝擊 ${boss.name}，造成 ${damage} 點傷害。`
+      message: `${member.displayName} 以聖光衝擊 ${boss.name}，造成 ${damage} 點傷害。`,
+      events: applyAttackSpecials(member, room, damage)
     };
   }
 
@@ -366,15 +491,16 @@ function chooseRoleAction(member: RoomMemberState, room: RoomInternal): BattleAc
   boss.hp = Math.max(0, boss.hp - damage);
   member.battleStats.damageDealt += damage;
   return {
-    message: `${member.displayName} 發動攻擊，對 ${boss.name} 造成 ${damage} 點傷害。`
+    message: `${member.displayName} 發動攻擊，對 ${boss.name} 造成 ${damage} 點傷害。`,
+    events: applyAttackSpecials(member, room, damage)
   };
 }
 
-function bossAttack(room: RoomInternal) {
+function bossAttack(room: RoomInternal, attackModifier = 1) {
   const boss = room.boss!;
   const targets = livingMembers(room);
   if (targets.length === 0) {
-    return `${boss.name} 找不到還站著的對手。`;
+    return { message: `${boss.name} 找不到還站著的對手。`, events: [] as BattleSpecialEvent[] };
   }
 
   const weightedTargets = targets.flatMap((member) => {
@@ -384,13 +510,23 @@ function bossAttack(room: RoomInternal) {
   });
 
   const target = randomFrom(weightedTargets);
-  const rawDamage = boss.attackPower + Math.floor(Math.random() * 8);
+  const rawDamage = Math.round((boss.attackPower + Math.floor(Math.random() * 8)) * attackModifier);
   const mitigated = Math.max(1, rawDamage - Math.floor(target.character.stats.defense / 3));
-  const damage = target.defending ? Math.ceil(mitigated / 2) : mitigated;
+  const dodge = rollDangerDodge({
+    actorUserId: target.userId,
+    actorName: target.displayName,
+    stats: target.character.stats,
+    hpRatio: target.currentHp / target.maxHp,
+    incomingDamage: mitigated
+  });
+  const damage = Math.max(1, (target.defending ? Math.ceil(mitigated / 2) : mitigated) - dodge.damageReduction);
   target.currentHp = Math.max(0, target.currentHp - damage);
   target.battleStats.damageTaken += damage;
   target.defending = false;
-  return `${boss.name} 攻擊 ${target.displayName}，造成 ${damage} 點傷害。`;
+  return {
+    message: `${boss.name} 攻擊 ${target.displayName}，造成 ${damage} 點傷害。`,
+    events: dodge.event ? [dodge.event] : []
+  };
 }
 
 async function finalizeBattle(room: RoomInternal, winner: BattleWinner) {
@@ -456,16 +592,46 @@ export async function runBattleTick(roomId: string) {
 
   room.tick += 1;
   const recentLogs: string[] = [];
+  const specialEvents: BattleSpecialEvent[] = [];
 
   for (const member of livingMembers(room)) {
     if (room.boss.hp <= 0) {
       break;
     }
-    recentLogs.push(chooseRoleAction(member, room).message);
+    const action = chooseRoleAction(member, room);
+    recentLogs.push(action.message);
+    specialEvents.push(...action.events);
+    recentLogs.push(...action.events.map((event) => event.message));
+    const secondaryAction = rollSecondaryCharacterSkills(member, room);
+    specialEvents.push(...secondaryAction.events);
+    recentLogs.push(...(secondaryAction.logs || secondaryAction.events.flatMap((event) => event.message.split("\n"))));
   }
 
   if (room.boss.hp > 0) {
-    recentLogs.push(bossAttack(room));
+    const bossCounter = rollBossCounterEvent({
+      bossName: room.boss.name,
+      tick: room.tick,
+      livingCount: livingMembers(room).length,
+      attackPower: room.boss.attackPower
+    });
+    if (bossCounter) {
+      specialEvents.push(bossCounter);
+      recentLogs.push(bossCounter.message);
+      const pressureDamage = bossCounter.impact.damage || 0;
+      if (pressureDamage > 0) {
+        for (const member of livingMembers(room)) {
+          const damage = Math.max(1, pressureDamage - Math.floor(member.character.stats.tenacity / 5));
+          member.currentHp = Math.max(0, member.currentHp - damage);
+          member.battleStats.damageTaken += damage;
+        }
+        recentLogs.push(`${room.boss.name} 的反制對全隊造成 ${pressureDamage} 點基礎壓力。`);
+      }
+    }
+    const bossAttackModifier = specialEvents.reduce((modifier, event) => modifier * (event.impact.bossAttackModifier || 1), 1);
+    const attack = bossAttack(room, bossAttackModifier);
+    recentLogs.push(attack.message);
+    specialEvents.push(...attack.events);
+    recentLogs.push(...attack.events.map((event) => event.message));
   }
 
   room.logs = capLogs([...room.logs, ...recentLogs]);
@@ -484,7 +650,8 @@ export async function runBattleTick(roomId: string) {
     tick: room.tick,
     boss: room.boss,
     members: room.members,
-    recentLogs
+    recentLogs,
+    specialEvents
   };
 
   return {

@@ -11,7 +11,7 @@ export type ProfileRecord = {
   updated_at: string;
 };
 
-export type CharacterClassName = "warrior" | "mage" | "priest";
+export type CharacterClassName = "warrior" | "assassin" | "mage" | "priest";
 
 export type CharacterRecord = {
   id: string;

@@ -5,3 +5,13 @@ dist/
 *.log
 server/data/
 .codex-ui-*.png
+.codex-logs/
+
+# Local env
+.env
+.env.local
+.env.*.local
+
+# Test / coverage
+coverage/
+**/*.tsbuildinfo

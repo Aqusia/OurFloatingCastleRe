@@ -11,7 +11,7 @@ create table if not exists characters (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references profiles(id) on delete cascade,
   name text not null,
-  class_name text not null check (class_name in ('warrior', 'mage', 'priest')),
+  class_name text not null check (class_name in ('warrior', 'assassin', 'mage', 'priest')),
   class_changed_on date not null,
   level integer not null default 1,
   experience integer not null default 0,
