@@ -1,5 +1,94 @@
 # Changelog
 
+## 2026-06-11（第四輪）
+
+### 亂碼修復 / 場景難度 / 探險遭遇
+
+- 修正本地 store 正規化與後續產生訊息的亂碼來源：職業標籤、公告、成就、通知、物品、城池、陣營、工程、外交、admin 操作與戰報文字都會清成正常中文
+- 內建陣營名稱與描述改由 faction id 強制回正，避免舊存檔中壞掉的陣營名繼續顯示在監控 / 地圖 / 工程訊息
+- 戰鬥頁的場景挑戰改成橫向拖曳卡片；玩家只選場景，不能手動選簡單 / 普通 / 困難 / 菁英
+- 探險難度改由場景用途與外層推導：採集偏簡單，首都普通，商路 / 野外普通到困難，礦區困難到菁英，公會 Boss 點菁英
+- 探險刷怪改成場景專屬 3-6 步遭遇，包含補給事件、礦區晶化怪、商路伏擊、公會前哨守衛等，戰報會逐步記錄遭遇與擊倒
+- 修正 admin 戰鬥測試與公告 / 角色目標錯誤訊息，避免後台監控顯示壞模板字串
+- 驗證：server build、client build 通過；本地 store 經 `/api/me` 觸發遷移後已清除可見亂碼資料
+
+### 相關檔案
+
+- `shared/events.ts`
+- `server/src/persistence/localStore.ts`
+- `client/src/App.tsx`
+- `client/src/lib/api.ts`
+- `client/src/index.css`
+- `docs/game-design.md`
+- `docs/repository-guide.md`
+- `docs/changelog.md`
+
+## 2026-06-11（第三輪）
+
+### 本地啟動修正
+
+- 主遊戲與管理後台 Vite dev server 明確綁定 `127.0.0.1`，避免 Windows / Node 將 `localhost` 解析到 IPv6 `::1` 時，README 的 `127.0.0.1` 連結拒絕連線
+- 驗證：`http://127.0.0.1:5173/` 回 `200 OK`、`http://127.0.0.1:3001/api/health` 回 `{"ok":true}`；client / admin-client build 通過
+
+### 相關檔案
+
+- `client/vite.config.ts`
+- `admin-client/vite.config.ts`
+
+## 2026-06-11（第二輪）
+
+### 介面地圖 / 鍛造配方 / 攻城工程
+
+- 戰略地圖改為放射狀城市規劃佈局：5 陣營各佔一個扇區，首都內環、外層沿主幹道向外，加虛線同心環道與置中的王城 / 關隘 / 邊境層次標籤（`buildStrategicMapNodes` / `buildStrategicMapTerritories` 重寫）
+- 左側導覽分為「個人 / 征戰 / 經濟 / 社交」四組；揹包頁新增名稱與效果關鍵字搜尋
+- 新增 Minecraft 式鍛造配方系統：`ForgeRecipe` 型別 + `gameConfig.forgeRecipes`（Admin 可覆寫）；材料組合完全一致時命中配方，產出固定強力裝備（預設 8 配方）；`/forge/options` 回傳配方清單，鍛造頁新增配方圖鑑與材料齊全提示
+- 攻城戰新增自動砲臺獨立壓制：每輪對每名攻方造成傷害，火力隨城牆耐久衰減；無人駐守時保底傷害，攻方打不穿會被持續磨血磨精力
+- 城牆被動維修：`CastleState.wallRepairAt` 錨點，無攻城時基礎 2/小時 + 每名駐軍 4/小時 自動回復城牆耐久
+- 前端城池詳情改顯示「城牆耐久」與「自動砲臺火力」，維修中會標示
+- 新增 `啟動遊戲.bat` 一鍵啟動（repo 根目錄）
+- 實測：配方命中（鐵礦 x5 + 皮革 x2 → 鐵壁戰盔）、無人駐守砲臺壓制、駐軍維修回血均通過；lint / typecheck / test（17）/ build 全綠
+
+### 相關檔案
+
+- `shared/events.ts`
+- `server/src/utils.ts`
+- `server/src/persistence/localStore.ts`
+- `server/src/routes.ts`
+- `client/src/App.tsx`
+- `client/src/lib/api.ts`
+- `client/src/index.css`
+
+## 2026-06-11
+
+### 戰鬥系統重做：SAO 式連擊鏈 + 8 屬性定位 + 成長曲線
+
+- 新增 `resolveComboAttack` 連擊鏈引擎 (`server/src/combatEngine.ts`)：
+  - 連擊上限＝戰鬥等級（16 級＝最多 16 連，硬上限 20）
+  - 技巧決定連擊接續率與落空率；運氣決定逐擊暴擊率與暴擊倍率
+  - 每一擊隨機抽取職業專屬招式名（4 職業各 10 招 + 2 終結技），同一輪不重複
+  - 連擊達 4 段以上收尾時觸發「終結技」：爆發傷害並壓低 Boss 下一輪攻勢
+  - 第 2 擊起每擊消耗 1 點行動資源（法師吃 MP、其他職業吃精力），資源耗盡連擊中斷
+- 8 屬性全部有明確定位：攻擊（物理職單擊傷害）、智慧（法師傷害＋破防觸發）、精神（補師傷害／回魔／治療）、技巧（連擊接續＋命中）、運氣（暴擊＋金幣繳獲）、防禦（百分比減傷，遞減收益）、韌性（固定減傷＋反制抗壓）、體力（HP／精力池＝連擊續航）
+- 移除舊「幸運暴擊／技巧連擊」追加事件（已由逐擊暴擊與連擊鏈取代）；保留精準破防（改為技巧＋智慧觸發）與隊友支援
+- 成長曲線重做：`nextLevelRequirement` 從線性 (level×100) 改為 `70 + level^1.5×40`；敵方 HP／攻擊與獎勵（金幣／經驗）依戰鬥等級縮放，模擬驗證各等級擊殺回合數穩定在 3–4 回合
+- 房間戰鬥 (`game.ts`)、探險／公會 Boss／世界 Boss (`localStore.ts` `runInstantBattle`) 全部改用連擊鏈引擎；Boss 對玩家傷害改用 `mitigateIncomingDamage`（防禦百分比＋韌性固定減傷）
+- 戰報逐擊成行；前端戰鬥 log 新增連擊／暴擊／終結技分色；房間戰鬥畫面新增 COMBO 計數彈出與逐擊傷害浮動動畫 (`ComboBurst`)
+- `BattleSpecialEvent` 擴充 `combo_chain` / `combo_finisher` 事件與 `comboHits` 逐擊明細 (`shared/events.ts`)
+- 修正升級通知亂碼（本能升級／戰鬥升級）
+- 測試更新為 17 個（連擊上限、資源中斷、終結技、減傷公式等）
+- 注意：成長曲線改動與舊存檔數值不相容，建議刪除 `server/server/data/store.json` 重置
+
+### 相關檔案
+
+- `server/src/combatEngine.ts`
+- `server/src/game.ts`
+- `server/src/persistence/localStore.ts`
+- `server/src/utils.ts`
+- `server/tests/combatEngine.test.ts`
+- `shared/events.ts`
+- `client/src/App.tsx`
+- `client/src/index.css`
+
 ## 2026-06-04
 
 ### 工程基建：Lint / Test / CI / Docker / Prod start

@@ -29,6 +29,7 @@ import type {
   FactionState,
   FactionTechKey,
   ForgeOption,
+  ForgeRecipe,
   FriendAddPayload,
   FriendSummary,
   InventoryResult,
@@ -47,7 +48,6 @@ import type {
   RepairPayload,
   ShopItem,
   SignInStatus,
-  SoloBattleDifficulty,
   SoloBattleResult,
   FactionTowerBattleResult,
   SelectSecondaryCharacterPayload,
@@ -265,7 +265,7 @@ export function unequipManual(token: string, payload: UnequipManualPayload) {
 }
 
 export function getForgeOptions(token: string) {
-  return request<{ options: ForgeOption[] }>("/forge/options", {}, token);
+  return request<{ options: ForgeOption[]; recipes: ForgeRecipe[] }>("/forge/options", {}, token);
 }
 
 export function craftItem(token: string, payload: CraftPayload) {
@@ -520,12 +520,12 @@ export function attackCastle(token: string, castleId: string) {
   );
 }
 
-export function startSoloBattle(token: string, mapNodeId: string, difficulty: SoloBattleDifficulty) {
+export function startSoloBattle(token: string, mapNodeId: string) {
   return request<SoloBattleResult>(
     "/battles/adventure/start",
     {
       method: "POST",
-      body: JSON.stringify({ mapNodeId, difficulty })
+      body: JSON.stringify({ mapNodeId })
     },
     token
   );

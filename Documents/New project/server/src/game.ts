@@ -14,7 +14,14 @@ import type {
   RoomSummary,
   SpecialSkillDefinition
 } from "../../shared/events";
-import { rollAttackSpecialEvents, rollBossCounterEvent, rollDangerDodge } from "./combatEngine";
+import {
+  comboBaseDamageFor,
+  mitigateIncomingDamage,
+  resolveComboAttack,
+  rollAttackSpecialEvents,
+  rollBossCounterEvent,
+  rollDangerDodge
+} from "./combatEngine";
 import { recordBattle, syncBattleResult, updateCharacter } from "./persistence/localStore";
 import {
   bossBaseAttack,
@@ -70,14 +77,21 @@ function toMember(user: AuthUser, character: CharacterProfile, socketId: string,
   };
 }
 
-function createBoss(memberCount: number, battleContext: BattleContext = "raid"): BossState {
+function createBoss(memberCount: number, battleContext: BattleContext = "raid", averageLevel = 1): BossState {
+  const hp = bossBaseHp(memberCount, battleContext, averageLevel);
   return {
     id: randomId("boss"),
     name: battleContext === "raid" ? "裂岩巨像" : battleContext === "castle" ? "守城統領" : "陣營領主",
-    hp: bossBaseHp(memberCount, battleContext),
-    maxHp: bossBaseHp(memberCount, battleContext),
-    attackPower: bossBaseAttack(memberCount, battleContext)
+    hp,
+    maxHp: hp,
+    attackPower: bossBaseAttack(memberCount, battleContext, averageLevel)
   };
+}
+
+function averageBattleLevel(members: Array<{ character: CharacterProfile }>) {
+  if (!members.length) return 1;
+  const total = members.reduce((sum, member) => sum + Math.max(1, member.character.battleLevel || 1), 0);
+  return total / members.length;
 }
 
 function ensureRoom(roomId: string) {
@@ -303,7 +317,7 @@ export function startBattle(roomId: string, userId: string) {
   room.tick = 0;
   room.battleSummary = null;
   prepareRoomMembers(room);
-  room.boss = createBoss(room.members.length, room.battleConfig?.battleContext || "raid");
+  room.boss = createBoss(room.members.length, room.battleConfig?.battleContext || "raid", averageBattleLevel(room.members));
   if (room.battleConfig?.bossName) {
     room.boss.name = room.battleConfig.bossName;
   }
@@ -423,11 +437,26 @@ function rollSecondaryCharacterSkills(member: RoomMemberState, room: RoomInterna
   return { message: messages.join(" "), events, logs: messages };
 }
 
+function comboBaseDamage(member: RoomMemberState) {
+  const role = member.character.loadout.preferredRole;
+  const roleBonus = role === "dps" ? 4 : role === "balanced" ? 2 : 0;
+  return comboBaseDamageFor(
+    member.character.className,
+    member.character.stats,
+    Math.max(1, member.character.battleLevel || 1),
+    roleBonus
+  );
+}
+
 function chooseRoleAction(member: RoomMemberState, room: RoomInternal): BattleActionResult {
   const role = member.character.loadout.preferredRole;
   const boss = room.boss!;
   const allies = livingMembers(room);
   const lowestAlly = [...allies].sort((a, b) => a.currentHp / a.maxHp - b.currentHp / b.maxHp)[0];
+
+  // 精神回魔、體力回精力：讓資源型屬性支撐連擊持久度
+  member.currentMp = Math.min(member.maxMp, member.currentMp + Math.floor(member.character.stats.spirit / 6));
+  member.currentEnergy = Math.min(member.maxEnergy, member.currentEnergy + Math.floor(member.character.stats.vitality / 8));
 
   if ((role === "healer" || member.character.className === "priest") && lowestAlly && member.currentMp >= 10) {
     if (lowestAlly.currentHp / lowestAlly.maxHp < 0.72) {
@@ -442,7 +471,7 @@ function chooseRoleAction(member: RoomMemberState, room: RoomInternal): BattleAc
     }
   }
 
-  if (role === "tank" && Math.random() < 0.4) {
+  if (role === "tank" && Math.random() < 0.35) {
     member.defending = true;
     return {
       message: `${member.displayName} 進入防禦姿態，準備承受下一次攻擊。`,
@@ -450,49 +479,30 @@ function chooseRoleAction(member: RoomMemberState, room: RoomInternal): BattleAc
     };
   }
 
-  if (member.character.className === "mage" && member.currentMp >= 8 && Math.random() < 0.55) {
-    const damage = 16 + member.character.stats.intelligence * 2 + member.character.stats.technique;
-    member.currentMp = Math.max(0, member.currentMp - 8);
-    boss.hp = Math.max(0, boss.hp - damage);
-    member.battleStats.damageDealt += damage;
-    return {
-      message: `${member.displayName} 釋放魔力彈，對 ${boss.name} 造成 ${damage} 點傷害。`,
-      events: applyAttackSpecials(member, room, damage)
-    };
-  }
+  const usesMp = member.character.className === "mage";
+  const combo = resolveComboAttack({
+    actorUserId: member.userId,
+    actorName: member.displayName,
+    className: member.character.className,
+    targetName: boss.name,
+    stats: member.character.stats,
+    battleLevel: Math.max(1, member.character.battleLevel || 1),
+    baseDamage: comboBaseDamage(member),
+    availableResource: usesMp ? member.currentMp : member.currentEnergy
+  });
 
-  if (member.character.className === "assassin" && member.currentEnergy >= 8 && Math.random() < 0.58) {
-    const damage = 14 + member.character.stats.attack + member.character.stats.technique * 2 + Math.floor(member.character.stats.luck / 2);
-    member.currentEnergy = Math.max(0, member.currentEnergy - 8);
-    boss.hp = Math.max(0, boss.hp - damage);
-    member.battleStats.damageDealt += damage;
-    return {
-      message: `${member.displayName} 以影步切入 ${boss.name}，連斬造成 ${damage} 點傷害。`,
-      events: applyAttackSpecials(member, room, damage)
-    };
+  if (usesMp) {
+    member.currentMp = Math.max(0, member.currentMp - combo.resourceSpent);
+  } else {
+    member.currentEnergy = Math.max(0, member.currentEnergy - combo.resourceSpent);
   }
+  boss.hp = Math.max(0, boss.hp - combo.totalDamage);
+  member.battleStats.damageDealt += combo.totalDamage;
 
-  if (member.character.className === "priest" && member.currentMp >= 6 && Math.random() < 0.35) {
-    const damage = 10 + member.character.stats.spirit + member.character.stats.intelligence;
-    member.currentMp = Math.max(0, member.currentMp - 6);
-    boss.hp = Math.max(0, boss.hp - damage);
-    member.battleStats.damageDealt += damage;
-    return {
-      message: `${member.displayName} 以聖光衝擊 ${boss.name}，造成 ${damage} 點傷害。`,
-      events: applyAttackSpecials(member, room, damage)
-    };
-  }
-
-  const damage =
-    10 +
-    member.character.stats.attack +
-    Math.floor(member.character.level / 2) +
-    (role === "dps" ? 6 : role === "balanced" ? 2 : 0);
-  boss.hp = Math.max(0, boss.hp - damage);
-  member.battleStats.damageDealt += damage;
   return {
-    message: `${member.displayName} 發動攻擊，對 ${boss.name} 造成 ${damage} 點傷害。`,
-    events: applyAttackSpecials(member, room, damage)
+    message: combo.logs[0] || `${member.displayName} 發動攻擊，對 ${boss.name} 造成 ${combo.totalDamage} 點傷害。`,
+    events: [...combo.events, ...applyAttackSpecials(member, room, combo.totalDamage)],
+    logs: combo.logs
   };
 }
 
@@ -511,7 +521,7 @@ function bossAttack(room: RoomInternal, attackModifier = 1) {
 
   const target = randomFrom(weightedTargets);
   const rawDamage = Math.round((boss.attackPower + Math.floor(Math.random() * 8)) * attackModifier);
-  const mitigated = Math.max(1, rawDamage - Math.floor(target.character.stats.defense / 3));
+  const mitigated = mitigateIncomingDamage(rawDamage, target.character.stats);
   const dodge = rollDangerDodge({
     actorUserId: target.userId,
     actorName: target.displayName,
@@ -599,9 +609,13 @@ export async function runBattleTick(roomId: string) {
       break;
     }
     const action = chooseRoleAction(member, room);
-    recentLogs.push(action.message);
+    recentLogs.push(...(action.logs?.length ? action.logs : [action.message]));
     specialEvents.push(...action.events);
-    recentLogs.push(...action.events.map((event) => event.message));
+    recentLogs.push(
+      ...action.events
+        .filter((event) => event.kind !== "combo_chain" && event.kind !== "combo_finisher")
+        .map((event) => event.message)
+    );
     const secondaryAction = rollSecondaryCharacterSkills(member, room);
     specialEvents.push(...secondaryAction.events);
     recentLogs.push(...(secondaryAction.logs || secondaryAction.events.flatMap((event) => event.message.split("\n"))));

@@ -391,6 +391,21 @@ button:disabled {
   gap: 10px;
 }
 
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nav-group-label {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  padding: 6px 10px 0;
+}
+
+
 .nav-button {
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr);
@@ -579,18 +594,33 @@ button:disabled {
 }
 
 .map-region-label-core {
-  left: 5%;
-  top: 12%;
+  left: 50%;
+  top: 36%;
+  transform: translateX(-50%);
+  writing-mode: horizontal-tb;
 }
 
 .map-region-label-pass {
-  left: 46%;
-  top: 9%;
+  left: 50%;
+  top: 20%;
+  transform: translateX(-50%);
+  writing-mode: horizontal-tb;
 }
 
 .map-region-label-front {
-  right: 6%;
-  bottom: 10%;
+  left: 50%;
+  top: 3%;
+  right: auto;
+  bottom: auto;
+  transform: translateX(-50%);
+  writing-mode: horizontal-tb;
+}
+
+.map-ring-road {
+  fill: none;
+  stroke: rgba(214, 173, 93, 0.18);
+  stroke-width: 0.35;
+  stroke-dasharray: 1.4 1.6;
 }
 
 .strategic-map-territories,
@@ -921,6 +951,26 @@ button:disabled {
   gap: 14px;
 }
 
+.battle-scene-rail {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding: 2px 4px 12px;
+  cursor: grab;
+  scroll-snap-type: x proximity;
+  scrollbar-color: rgba(139, 180, 157, 0.65) rgba(17, 22, 22, 0.9);
+  user-select: none;
+}
+
+.battle-scene-rail:active {
+  cursor: grabbing;
+}
+
+.battle-scene-rail .battle-scene-card {
+  flex: 0 0 min(310px, 82vw);
+  scroll-snap-align: start;
+}
+
 .battle-scene-card {
   display: grid;
   gap: 12px;
@@ -1014,6 +1064,154 @@ button:disabled {
 
 .battle-log-card.is-reward {
   border-left-color: var(--green);
+}
+
+.battle-log-card.is-combo {
+  border-left-color: #7fb8ff;
+  background:
+    linear-gradient(90deg, rgba(127, 184, 255, 0.12), transparent 55%),
+    var(--panel);
+  animation: skillLogIn 200ms ease-out both;
+}
+
+.battle-log-card.is-crit {
+  border-left-color: #ffb061;
+  background:
+    linear-gradient(90deg, rgba(255, 176, 97, 0.18), transparent 55%),
+    var(--panel);
+  font-weight: 600;
+  animation: critLogIn 260ms ease-out both;
+}
+
+.battle-log-card.is-finisher {
+  border-left-color: #ff7f7f;
+  background:
+    linear-gradient(90deg, rgba(255, 127, 127, 0.2), rgba(214, 173, 93, 0.12) 60%, transparent),
+    var(--panel);
+  font-weight: 700;
+  animation: critLogIn 300ms ease-out both;
+}
+
+@keyframes critLogIn {
+  from {
+    opacity: 0;
+    transform: translateX(-6px) scale(1.04);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* SAO 式連擊演出 */
+.combo-burst {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(127, 184, 255, 0.35);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 12% 50%, rgba(127, 184, 255, 0.16), transparent 60%),
+    var(--panel);
+  overflow: hidden;
+}
+
+.combo-burst.is-finisher {
+  border-color: rgba(255, 176, 97, 0.55);
+  background:
+    radial-gradient(circle at 12% 50%, rgba(255, 176, 97, 0.2), transparent 60%),
+    var(--panel);
+}
+
+.combo-counter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 86px;
+  animation: comboPop 360ms cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+
+.combo-count {
+  font-size: 38px;
+  font-weight: 800;
+  line-height: 1;
+  color: #7fb8ff;
+  text-shadow: 0 0 14px rgba(127, 184, 255, 0.5);
+}
+
+.combo-burst.is-finisher .combo-count {
+  color: #ffb061;
+  text-shadow: 0 0 16px rgba(255, 176, 97, 0.6);
+}
+
+.combo-label {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+.combo-hits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+}
+
+.damage-float {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(127, 184, 255, 0.12);
+  border: 1px solid rgba(127, 184, 255, 0.3);
+  animation: damageFloatIn 420ms ease-out both;
+}
+
+.damage-float.is-crit {
+  color: #ffb061;
+  background: rgba(255, 176, 97, 0.14);
+  border-color: rgba(255, 176, 97, 0.45);
+}
+
+.damage-float.is-finisher {
+  color: #ff9b9b;
+  background: rgba(255, 127, 127, 0.16);
+  border-color: rgba(255, 127, 127, 0.5);
+  font-weight: 800;
+}
+
+@keyframes comboPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  60% {
+    transform: scale(1.18);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes damageFloatIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.8);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(-3px) scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @keyframes skillLogIn {
@@ -1562,4 +1760,36 @@ button:disabled {
 
 .castle-grid {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+/* 鍛造配方圖鑑 */
+.recipe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.recipe-card {
+  border: 1px solid rgba(214, 173, 93, 0.25);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--panel);
+}
+
+.recipe-card.is-ready {
+  border-color: rgba(139, 200, 157, 0.6);
+  box-shadow: 0 0 12px rgba(139, 200, 157, 0.12);
+}
+
+.recipe-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.recipe-lore {
+  margin-top: 4px;
+  font-style: italic;
+  opacity: 0.75;
 }

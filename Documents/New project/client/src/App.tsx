@@ -1,5 +1,5 @@
-﻿import { useEffect, useMemo, useState } from "react";
-import type { CSSProperties } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, PointerEvent } from "react";
 import { createPortal } from "react-dom";
 import {
   Backpack,
@@ -31,6 +31,7 @@ import type {
   AuthUser,
   AchievementProgress,
   BattleRecordSummary,
+  BattleSpecialEvent,
   BattleSummary,
   BattleTickEvent,
   CastleState,
@@ -41,6 +42,7 @@ import type {
   FactionState,
   FactionTechKey,
   ForgeOption,
+  ForgeRecipe,
   FriendSummary,
   InventoryItem,
   InventorySortPayload,
@@ -172,17 +174,17 @@ function repairCastlePlan(castle: CastleState, defenseTechLevel: number) {
   };
 }
 
-const navItems: Array<{ key: NavKey; label: string; icon: LucideIcon; hint: string }> = [
-  { key: "character", label: "角色", icon: UserRound, hint: "狀態與裝備" },
-  { key: "actions", label: "行動", icon: Dumbbell, hint: "訓練與隊列" },
-  { key: "battle", label: "戰鬥", icon: Swords, hint: "房間與討伐" },
-  { key: "faction", label: "陣營", icon: Castle, hint: "城池與外交" },
-  { key: "inventory", label: "揹包", icon: Backpack, hint: "物品與穿戴" },
-  { key: "forge", label: "鍛造", icon: Hammer, hint: "製作與修復" },
-  { key: "achievements", label: "成就", icon: Trophy, hint: "目標與進度" },
-  { key: "messages", label: "消息", icon: MessageSquareText, hint: "公告與戰報" },
-  { key: "friends", label: "好友", icon: UsersRound, hint: "社交與在線" },
-  { key: "shop", label: "商店", icon: Store, hint: "NPC 與市場" }
+const navItems: Array<{ key: NavKey; label: string; icon: LucideIcon; hint: string; group: string }> = [
+  { key: "character", label: "角色", icon: UserRound, hint: "狀態與裝備", group: "個人" },
+  { key: "actions", label: "行動", icon: Dumbbell, hint: "訓練與隊列", group: "個人" },
+  { key: "inventory", label: "揹包", icon: Backpack, hint: "物品與穿戴", group: "個人" },
+  { key: "achievements", label: "成就", icon: Trophy, hint: "目標與進度", group: "個人" },
+  { key: "battle", label: "戰鬥", icon: Swords, hint: "房間與討伐", group: "征戰" },
+  { key: "faction", label: "陣營", icon: Castle, hint: "城池與外交", group: "征戰" },
+  { key: "forge", label: "鍛造", icon: Hammer, hint: "製作與修復", group: "經濟" },
+  { key: "shop", label: "商店", icon: Store, hint: "NPC 與市場", group: "經濟" },
+  { key: "messages", label: "消息", icon: MessageSquareText, hint: "公告與戰報", group: "社交" },
+  { key: "friends", label: "好友", icon: UsersRound, hint: "社交與在線", group: "社交" }
 ];
 
 const initialRegister: RegisterPayload = {
@@ -383,6 +385,17 @@ function mapNodePurposeLabel(purpose: CastleState["mapNodePurpose"]) {
   return labels[purpose];
 }
 
+const materialLabels: Record<MaterialType, string> = {
+  iron_ore: "鐵礦",
+  copper_ore: "銅礦",
+  silver_ore: "銀礦",
+  obsidian_ore: "黑曜礦",
+  stardust: "星砂",
+  leather: "皮革",
+  cloth: "布料",
+  bone: "骨材"
+};
+
 type StrategicMapNode = {
   castle: CastleState;
   x: number;
@@ -396,72 +409,43 @@ type StrategicMapTerritory = {
   points: string;
 };
 
-function buildStrategicMapNodes(castles: CastleState[]): StrategicMapNode[] {
-  const ordered = [...castles].sort((left, right) => left.layer - right.layer || left.name.localeCompare(right.name));
-  const regionSlots = [
-    [
-      { x: 67, y: 66 },
-      { x: 57, y: 56 },
-      { x: 73, y: 52 },
-      { x: 83, y: 66 },
-      { x: 63, y: 82 }
-    ],
-    [
-      { x: 51, y: 24 },
-      { x: 40, y: 17 },
-      { x: 63, y: 20 },
-      { x: 48, y: 39 },
-      { x: 73, y: 34 }
-    ],
-    [
-      { x: 21, y: 60 },
-      { x: 14, y: 35 },
-      { x: 29, y: 43 },
-      { x: 24, y: 75 },
-      { x: 10, y: 86 }
-    ],
-    [
-      { x: 82, y: 27 },
-      { x: 76, y: 16 },
-      { x: 91, y: 23 },
-      { x: 78, y: 43 },
-      { x: 91, y: 56 }
-    ],
-    [
-      { x: 39, y: 78 },
-      { x: 31, y: 64 },
-      { x: 47, y: 66 },
-      { x: 42, y: 90 },
-      { x: 55, y: 80 }
-    ]
-  ];
+function polarPoint(angleDeg: number, radius: number) {
+  const rad = (angleDeg * Math.PI) / 180;
+  return { x: 50 + Math.cos(rad) * radius, y: 50 + Math.sin(rad) * radius };
+}
 
+// 城市規劃式放射狀佈局：世界中心向外 5 個扇區（每陣營一個方位），
+// 首都在內環，外層一~四沿主幹道向外延伸，環道串起同層城池。
+const MAP_LAYER_RADII = [13, 21.5, 29.5, 37, 44];
+const MAP_LAYER_ANGLE_OFFSETS = [0, -13, 11, -9, 13];
+
+function buildStrategicMapNodes(castles: CastleState[]): StrategicMapNode[] {
+  const ordered = [...castles].sort((left, right) => left.row - right.row || left.layer - right.layer);
   return ordered.map((castle) => {
-    const region = regionSlots[castle.row % regionSlots.length];
-    const slot = region[castle.col % region.length];
+    const sectorAngle = -90 + castle.row * 72;
+    const angle = sectorAngle + (MAP_LAYER_ANGLE_OFFSETS[castle.col % MAP_LAYER_ANGLE_OFFSETS.length] || 0);
+    const radius = MAP_LAYER_RADII[castle.col % MAP_LAYER_RADII.length] || 44;
+    const point = polarPoint(angle, radius);
     return {
       castle,
-      x: slot.x,
-      y: slot.y
+      x: Number(point.x.toFixed(1)),
+      y: Number(point.y.toFixed(1))
     };
   });
 }
 
 function buildStrategicMapTerritories(factions: FactionState["factions"]): StrategicMapTerritory[] {
-  const shapes = [
-    "48,47 65,37 86,42 98,58 94,85 74,97 50,87 40,66",
-    "28,6 59,2 91,9 96,31 78,45 58,38 43,53 30,42 35,25",
-    "3,12 27,6 41,24 34,43 43,57 34,78 43,93 22,98 4,86 9,63 2,44 13,29",
-    "63,8 91,4 99,20 93,43 72,57 55,44 61,27",
-    "10,51 33,47 52,62 44,83 27,98 7,88 2,67"
-  ];
-
-  return factions.map((faction, index) => ({
-    factionId: faction.id,
-    name: faction.name,
-    color: faction.color,
-    points: shapes[index % shapes.length]
-  }));
+  return factions.map((faction, index) => {
+    const center = -90 + index * 72;
+    const arcPoints = [-33, -16.5, 0, 16.5, 33].map((delta) => polarPoint(center + delta, 49));
+    const points = ["50,50", ...arcPoints.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`)].join(" ");
+    return {
+      factionId: faction.id,
+      name: faction.name,
+      color: faction.color,
+      points
+    };
+  });
 }
 
 function buildStrategicMapRoutes(nodes: StrategicMapNode[]) {
@@ -507,6 +491,14 @@ function soloDifficultySummary(difficulty: SoloBattleDifficulty, layer: number) 
   return `${soloDifficultyLabel(difficulty)} · ${config.risk} · 金幣 ${config.gold + layer * 8} · 戰鬥經驗 ${config.exp + layer * 6} · 材料 x${config.material}`;
 }
 
+function sceneDifficulty(castle: CastleState): SoloBattleDifficulty {
+  if (castle.mapNodePurpose === "guild_boss") return "elite";
+  if (castle.mapNodePurpose === "mining") return castle.layer >= 3 ? "elite" : "hard";
+  if (castle.mapNodePurpose === "trade" || castle.mapNodePurpose === "solo_combat") return castle.layer >= 3 ? "hard" : "normal";
+  if (castle.mapNodePurpose === "capital") return "normal";
+  return castle.layer >= 2 ? "normal" : "easy";
+}
+
 function battleSceneName(castle: CastleState) {
   const names: Record<CastleState["mapNodePurpose"], string> = {
     capital: "城門訓練場",
@@ -521,21 +513,59 @@ function battleSceneName(castle: CastleState) {
 
 function battleSceneDetail(castle: CastleState) {
   const details: Record<CastleState["mapNodePurpose"], string> = {
-    capital: "均衡怪物，適合測試角色狀態。",
-    gathering: "低壓戰鬥，金幣穩定，材料偏基礎。",
-    solo_combat: "純刷怪節點，戰鬥經驗較穩。",
-    guild_boss: "公會前哨戰，能推進爬塔準備進度。",
-    mining: "礦區怪物，材料偏鍛造礦石。",
-    trade: "商路襲擊，金幣收益較直觀。"
+    capital: "城門巡防與訓練怪混合，難度穩定。",
+    gathering: "農野、小型獸群與補給事件，低壓刷怪。",
+    solo_combat: "荒野連續遭遇，戰鬥經驗較穩。",
+    guild_boss: "公會前哨戰，會遇到菁英守衛與爬塔準備事件。",
+    mining: "礦區晶化怪與坍方事件，材料偏鍛造礦石。",
+    trade: "商路盜匪與伏擊事件，金幣收益較直觀。"
   };
   return details[castle.mapNodePurpose];
 }
 
 function battleLogTone(log: string) {
+  if (/終結技|連擊收尾/.test(log)) return "finisher";
+  if (/暴擊/.test(log)) return "crit";
+  if (/連擊 x|第 \d+ 擊|連擊中斷/.test(log)) return "combo";
   if (/角色技能|自動施放|幸運暴擊|技巧連擊|精準破防|隊友支援|危急閃避|Boss 反制|特殊事件/.test(log)) return "special";
   if (/獎勵|獲得|公庫|勝利|倒下/.test(log)) return "reward";
   if (/Boss|首領|反擊|撤退|失敗|攻擊/.test(log)) return "boss";
   return "normal";
+}
+
+function latestComboEvent(events?: BattleSpecialEvent[] | null) {
+  if (!events?.length) return null;
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index];
+    if ((event.kind === "combo_chain" || event.kind === "combo_finisher") && event.impact.comboHits?.length) {
+      return event;
+    }
+  }
+  return null;
+}
+
+function ComboBurst({ event }: { event: BattleSpecialEvent }) {
+  const hits = event.impact.comboHits || [];
+  const finisher = event.kind === "combo_finisher";
+  return (
+    <div className={`combo-burst ${finisher ? "is-finisher" : ""}`}>
+      <div className="combo-counter">
+        <span className="combo-count">{event.impact.comboLength}</span>
+        <span className="combo-label">COMBO{finisher ? " FINISH!" : ""}</span>
+      </div>
+      <div className="combo-hits">
+        {hits.map((hit, index) => (
+          <span
+            className={`damage-float ${hit.crit ? "is-crit" : ""} ${hit.finisher ? "is-finisher" : ""}`}
+            key={`${hit.index}-${index}`}
+            style={{ animationDelay: `${index * 0.12}s` }}
+          >
+            {hit.moveName} {hit.damage}{hit.crit ? "!" : ""}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function isMojibakeText(text: string) {
@@ -696,6 +726,7 @@ function App() {
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [activeNav, setActiveNav] = useState<NavKey>("character");
   const [inventoryTab, setInventoryTab] = useState<InventoryTab>("equipment");
+  const [inventorySearch, setInventorySearch] = useState("");
   const [shopTab, setShopTab] = useState<ShopTab>("npc");
   const [messageTab, setMessageTab] = useState<MessageTab>("announcements");
   const [factionTab, setFactionTab] = useState<FactionTab>("map");
@@ -705,6 +736,8 @@ function App() {
   const [selectedInventoryItemId, setSelectedInventoryItemId] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<InventoryItem | null>(null);
   const [detailBattleRecord, setDetailBattleRecord] = useState<BattleRecordSummary | null>(null);
+  const sceneRailRef = useRef<HTMLDivElement | null>(null);
+  const sceneDragRef = useRef({ active: false, dragged: false, startX: 0, scrollLeft: 0 });
   const [collapsedEquipmentGroups, setCollapsedEquipmentGroups] = useState<Record<string, boolean>>({
     weapon: true,
     offhand: false,
@@ -727,6 +760,7 @@ function App() {
   const [battleHistory, setBattleHistory] = useState<BattleRecordSummary[]>([]);
   const [shopItems, setShopItems] = useState<ShopItem[]>([]);
   const [forgeOptions, setForgeOptions] = useState<ForgeOption[]>([]);
+  const [forgeRecipesList, setForgeRecipesList] = useState<ForgeRecipe[]>([]);
   const [notifications, setNotifications] = useState<NotificationEntry[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [friends, setFriends] = useState<FriendSummary[]>([]);
@@ -750,7 +784,6 @@ function App() {
   const [selectedFactionId, setSelectedFactionId] = useState("");
   const [selectedFactionTarget, setSelectedFactionTarget] = useState("");
   const [facilityDrafts, setFacilityDrafts] = useState<Record<string, string>>({});
-  const [soloDifficulty, setSoloDifficulty] = useState<Record<string, SoloBattleDifficulty>>({});
   const [forgeRecipeId, setForgeRecipeId] = useState("");
   const [forgeCustomName, setForgeCustomName] = useState("");
   const [forgeMaterialAmounts, setForgeMaterialAmounts] = useState<Record<string, string>>({});
@@ -800,14 +833,17 @@ function App() {
     [shopItems, shopCategoryFilter]
   );
   const inventoryGroups = useMemo(() => {
-    const items = character?.inventory || [];
+    const keyword = inventorySearch.trim().toLowerCase();
+    const matches = (item: InventoryItem) =>
+      !keyword || item.name.toLowerCase().includes(keyword) || (item.effectSummary || "").toLowerCase().includes(keyword);
+    const items = (character?.inventory || []).filter(matches);
     return {
       equipment: items.filter((item) => item.category === "equipment"),
       material: items.filter((item) => item.category === "material"),
       manual: items.filter((item) => item.category === "manual"),
       other: items.filter((item) => !["equipment", "material", "manual"].includes(item.category))
     };
-  }, [character?.inventory]);
+  }, [character?.inventory, inventorySearch]);
   const selectedInventoryItems = inventoryGroups[inventoryTab];
   const selectedInventoryItem = selectedInventoryItems.find((item) => item.id === selectedInventoryItemId) || null;
   const currentCastle = factionState?.castles.find((castle) => castle.id === character?.currentCastleId) || null;
@@ -887,6 +923,38 @@ function App() {
   const partyBlocker = roomState?.members.find((member) => !isIdle(member.character)) || null;
   const canLeadPartyAction = Boolean(roomState && user && roomState.hostId === user.id && roomState.phase === "lobby" && !partyBlocker);
   const canAttackCastle = character ? (!roomState ? isIdle(character) : canLeadPartyAction) : false;
+
+  function handleSceneRailPointerDown(event: PointerEvent<HTMLDivElement>) {
+    const rail = sceneRailRef.current;
+    if (!rail) return;
+    sceneDragRef.current = {
+      active: true,
+      dragged: false,
+      startX: event.clientX,
+      scrollLeft: rail.scrollLeft
+    };
+    rail.setPointerCapture(event.pointerId);
+  }
+
+  function handleSceneRailPointerMove(event: PointerEvent<HTMLDivElement>) {
+    const rail = sceneRailRef.current;
+    const drag = sceneDragRef.current;
+    if (!rail || !drag.active) return;
+    const delta = event.clientX - drag.startX;
+    if (Math.abs(delta) > 6) drag.dragged = true;
+    rail.scrollLeft = drag.scrollLeft - delta;
+  }
+
+  function handleSceneRailPointerEnd(event: PointerEvent<HTMLDivElement>) {
+    const rail = sceneRailRef.current;
+    if (rail?.hasPointerCapture(event.pointerId)) {
+      rail.releasePointerCapture(event.pointerId);
+    }
+    window.setTimeout(() => {
+      sceneDragRef.current.active = false;
+      sceneDragRef.current.dragged = false;
+    }, 0);
+  }
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowTick(Date.now()), 1000);
@@ -1071,6 +1139,7 @@ async function bootstrap(nextToken: string) {
     if (!nextToken) return;
     const result = await getForgeOptions(nextToken);
     setForgeOptions(result.options);
+    setForgeRecipesList(result.recipes || []);
     setForgeRecipeId((current) => current || result.options[0]?.id || "");
   }
 
@@ -1660,7 +1729,7 @@ async function bootstrap(nextToken: string) {
   async function handleSoloBattle(castleId: string) {
     if (!token) return;
     try {
-      const result = await startSoloBattle(token, castleId, soloDifficulty[castleId] || "normal");
+      const result = await startSoloBattle(token, castleId);
       setCharacter(result.character);
       await refreshBattles();
       await refreshNotifications();
@@ -1814,18 +1883,23 @@ async function bootstrap(nextToken: string) {
               <span className={`status-pill compact status-${myActivityStatus.tone}`}>狀態 {myActivityStatus.label}</span>
             </div>
             <div className="nav-stack">
-              {visibleNav.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button key={item.key} className={`nav-button ${activeNav === item.key ? "is-active" : ""}`} onClick={() => setActiveNav(item.key)} type="button">
-                    <span className="nav-icon"><Icon size={18} /></span>
-                    <span className="nav-copy">
-                      <strong>{item.label}</strong>
-                      <small>{item.hint}</small>
-                    </span>
-                  </button>
-                );
-              })}
+              {Array.from(new Set(visibleNav.map((item) => item.group))).map((groupName) => (
+                <div className="nav-group" key={groupName}>
+                  <div className="nav-group-label">{groupName}</div>
+                  {visibleNav.filter((item) => item.group === groupName).map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <button key={item.key} className={`nav-button ${activeNav === item.key ? "is-active" : ""}`} onClick={() => setActiveNav(item.key)} type="button">
+                        <span className="nav-icon"><Icon size={18} /></span>
+                        <span className="nav-copy">
+                          <strong>{item.label}</strong>
+                          <small>{item.hint}</small>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
             <button className="ghost-button" onClick={logout} type="button">
               <LogOut size={16} />
@@ -2126,9 +2200,17 @@ async function bootstrap(nextToken: string) {
                   </div>
                   <span className="mini-pill">{isIdle(character) ? "可挑戰" : "角色忙碌中"}</span>
                 </div>
-                <div className="battle-scene-grid" style={{ marginTop: 14 }}>
+                <div
+                  className="battle-scene-grid battle-scene-rail"
+                  onPointerCancel={handleSceneRailPointerEnd}
+                  onPointerDown={handleSceneRailPointerDown}
+                  onPointerMove={handleSceneRailPointerMove}
+                  onPointerUp={handleSceneRailPointerEnd}
+                  ref={sceneRailRef}
+                  style={{ marginTop: 14 }}
+                >
                   {battleScenes.map((castle) => {
-                    const difficulty = soloDifficulty[castle.id] || "normal";
+                    const difficulty = sceneDifficulty(castle);
                     return (
                       <div key={castle.id} className={`battle-scene-card scene-${castle.mapNodePurpose}`}>
                         <div className="battle-scene-visual">
@@ -2140,27 +2222,32 @@ async function bootstrap(nextToken: string) {
                         </div>
                         <div className="muted">{battleSceneDetail(castle)}</div>
                         <div className="tag-row compact" style={{ justifyContent: "flex-start" }}>
+                          <span className="mini-pill">場景難度：{soloDifficultyLabel(difficulty)}</span>
                           <span className="mini-pill">外層 {castle.layer}</span>
                           <span className="mini-pill">{castleSpecialtyLabel(castle.specialty)}</span>
                         </div>
-                        <label className="field compact">
-                          <span>個人難度</span>
-                          <select
-                            value={difficulty}
-                            onChange={(event) => setSoloDifficulty((current) => ({ ...current, [castle.id]: event.target.value as SoloBattleDifficulty }))}
-                          >
-                            <option value="easy">簡單</option>
-                            <option value="normal">普通</option>
-                            <option value="hard">困難</option>
-                            <option value="elite">菁英</option>
-                          </select>
-                        </label>
                         <div className="muted">{soloDifficultySummary(difficulty, castle.layer)}</div>
                         <div className="battle-actions">
-                          <button className="secondary-button" onClick={() => void handleSoloBattle(castle.id)} disabled={!isIdle(character)} type="button">
+                          <button
+                            className="secondary-button"
+                            onClick={() => {
+                              if (sceneDragRef.current.dragged) return;
+                              void handleSoloBattle(castle.id);
+                            }}
+                            disabled={!isIdle(character)}
+                            type="button"
+                          >
                             開始探險
                           </button>
-                          <button className="primary-button" onClick={() => void handleFactionTowerBattle(castle.id, "skirmish")} disabled={!isIdle(character)} type="button">
+                          <button
+                            className="primary-button"
+                            onClick={() => {
+                              if (sceneDragRef.current.dragged) return;
+                              void handleFactionTowerBattle(castle.id, "skirmish");
+                            }}
+                            disabled={!isIdle(character)}
+                            type="button"
+                          >
                             公會 Boss
                           </button>
                         </div>
@@ -2284,6 +2371,10 @@ async function bootstrap(nextToken: string) {
                         </div>
                       </div>
                     ) : null}
+                    {(() => {
+                      const comboEvent = latestComboEvent(lastBattleTick?.specialEvents);
+                      return comboEvent ? <ComboBurst event={comboEvent} key={`combo-${lastBattleTick?.tick}`} /> : null;
+                    })()}
                     <div className="member-grid">
                       {(lastBattleTick?.members || roomState?.members || []).map((member) => (
                         <div key={member.userId} className="member-card" style={{ padding: 12 }}>
@@ -2442,6 +2533,9 @@ async function bootstrap(nextToken: string) {
                                 ))}
                               </svg>
                               <svg className="strategic-map-routes" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                                {[21.5, 29.5, 37, 44].map((radius) => (
+                                  <circle className="map-ring-road" cx="50" cy="50" key={`ring-${radius}`} r={radius} />
+                                ))}
                                 {strategicMapRoutes.map((route) => (
                                   <line
                                     key={route.id}
@@ -2530,9 +2624,9 @@ async function bootstrap(nextToken: string) {
                                 ) : null}
                                 <div className="castle-detail-grid">
                                   <span>距核心</span><strong>{castle.distanceFromCapital} 層</strong>
-                                  <span>城防</span><strong>{castle.fortification}/{castle.maxFortification}</strong>
+                                  <span>城牆耐久</span><strong>{castle.fortification}/{castle.maxFortification}{castle.fortification < castle.maxFortification && garrisons.length > 0 && !activeSiege ? "（守軍維修中）" : ""}</strong>
                                   <span>駐防</span><strong>{garrisons.length}/{castle.garrisonSlots}</strong>
-                                  <span>自動防禦</span><strong>{castle.autoDefensePower}</strong>
+                                  <span>自動砲臺火力</span><strong>{castle.autoDefensePower}</strong>
                                   <span>地形優勢</span><strong>{castle.terrainAdvantage}</strong>
                                   <span>抗攻城</span><strong>{castle.siegeResistance}</strong>
                                   <span>建設槽</span><strong>{castle.facilities.length}/{castle.buildSlots}</strong>
@@ -2718,6 +2812,16 @@ async function bootstrap(nextToken: string) {
 
           {activeNav === "inventory" ? (
             <section className="section-stack">
+              <div className="panel" style={{ padding: 12 }}>
+                <label className="field" style={{ margin: 0 }}>
+                  <span>搜尋物品</span>
+                  <input
+                    onChange={(event) => setInventorySearch(event.target.value)}
+                    placeholder="輸入名稱或效果關鍵字，例如 鐵礦、防禦"
+                    value={inventorySearch}
+                  />
+                </label>
+              </div>
               <div className="selector-grid">
                 {inventoryTabs.map((tab) => (
                   <button
@@ -2917,6 +3021,39 @@ async function bootstrap(nextToken: string) {
               </div>
 
               <button className="primary-button" onClick={() => void handleForge()} disabled={!isIdle(character)} type="button">開始鍛造</button>
+
+              <div className="panel" style={{ padding: 16 }}>
+                <div className="panel-heading">
+                  <strong>特殊配方圖鑑</strong>
+                  <span className="muted">材料種類與數量完全一致才會命中</span>
+                </div>
+                <div className="muted" style={{ marginTop: 6 }}>
+                  命中配方會打造出固定的強力裝備（投入的其他材料組合則走一般品質鍛造）。
+                </div>
+                <div className="recipe-grid" style={{ marginTop: 12 }}>
+                  {forgeRecipesList.map((recipe) => {
+                    const ingredients = Object.entries(recipe.ingredients) as Array<[MaterialType, number]>;
+                    const canAfford = ingredients.every(([type, qty]) =>
+                      (inventoryGroups.material.find((item) => item.materialType === type)?.quantity || 0) >= (qty || 0)
+                    );
+                    return (
+                      <div className={`recipe-card ${canAfford ? "is-ready" : ""}`} key={recipe.id}>
+                        <div className="recipe-card-head">
+                          <strong>{recipe.name}</strong>
+                          <span className={`mini-pill ${canAfford ? "is-live" : ""}`}>{canAfford ? "材料齊全" : "材料不足"}</span>
+                        </div>
+                        <div className="tag-row" style={{ marginTop: 8 }}>
+                          {ingredients.map(([type, qty]) => (
+                            <span className="mini-pill" key={type}>{materialLabels[type] || type} x{qty}</span>
+                          ))}
+                        </div>
+                        <div className="muted" style={{ marginTop: 8 }}>{recipe.effectSummary}</div>
+                        {recipe.lore ? <div className="muted recipe-lore">{recipe.lore}</div> : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </section>
           ) : null}
 

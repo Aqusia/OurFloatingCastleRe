@@ -131,7 +131,7 @@
 8. 駐防走 `/factions/castles/:castleId/garrison` 與 `/garrison/leave`，角色會寫入 `garrisonAssignment` 並視為忙碌
 9. 攻城戰走 `/factions/castles/:castleId/siege/start`、`/factions/sieges/:siegeId/join`、`/factions/sieges/:siegeId/resolve`
 10. 攻城戰狀態存於 local store 的 `sieges`；讀取陣營狀態或操作戰場時會依 elapsed ticks 補跑回合
-11. 個人戰鬥走 `/battles/solo/start`，公會爬層走 `/factions/battles/tower/start`
+11. 個人探險走 `/battles/adventure/start`，舊 `/battles/solo/start` 保留為 alias；前端只送 `mapNodeId`，難度由場景用途與外層在 server 推導
 12. 即時房間戰鬥的特殊事件判定在 `server/src/combatEngine.ts`，房間戰鬥、個人戰鬥與公會戰鬥共用
 13. 次要角色自動技能在 `server/src/game.ts` 的房間戰鬥 tick 中判定；個人 / 公會即時結算戰鬥在 `server/src/persistence/localStore.ts` 內同步套用
 
@@ -151,7 +151,7 @@
 2. 公會 Boss 入口是 `/factions/battles/guild-boss/start`，舊 `/factions/battles/tower/start` 保留為 alias。
 3. 世界 Boss 狀態與挑戰分別是 `/factions/world-boss`、`/factions/world-boss/challenge`。
 4. 三類戰鬥都由 `server/src/persistence/localStore.ts` 產生 `BattleRecordSummary`，新資料使用 `battleKind` 標示 `adventure / guildBoss / worldBoss`。
-5. 前端戰鬥頁在 `client/src/App.tsx` 顯示三類入口，戰報詳情會把舊 context 轉成可讀中文標籤。
+5. 前端戰鬥頁在 `client/src/App.tsx` 顯示三類入口；場景挑戰卡可橫向拖曳，探險難度不由玩家手動選擇。
 
 ## 哪些檔案是高影響區
 

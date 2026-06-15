@@ -96,6 +96,7 @@ import {
   listFactionMarket,
   listFactions,
   listForgeOptions,
+  listForgeRecipes,
   listFriends,
   listAnnouncements,
   listNotifications,
@@ -306,7 +307,7 @@ export function createApiRouter() {
   });
 
   router.get("/forge/options", requireAuth(), async (_request: AuthedRequest, response) => {
-    response.json({ options: await listForgeOptions() });
+    response.json({ options: await listForgeOptions(), recipes: await listForgeRecipes() });
   });
 
   router.post("/forge/craft", requireAuth(), async (request: AuthedRequest, response) => {

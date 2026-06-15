@@ -53,6 +53,7 @@ import type {
   FactionTowerBattleResult,
   FactionTowerProgress,
   ForgeOption,
+  ForgeRecipe,
   FriendSummary,
   GameConfig,
   InventoryItem,
@@ -78,6 +79,7 @@ import type {
   SiegeParticipant,
   ShopItem,
   SignInStatus,
+  SoloBattleDifficulty,
   SoloBattlePayload,
   SoloBattleResult,
   SpecialSkillDefinition,
@@ -88,7 +90,14 @@ import type {
   WorldBossState,
   WorldBossStateResult
 } from "../../../shared/events";
-import { rollAttackSpecialEvents, rollBossCounterEvent, rollDangerDodge } from "../combatEngine";
+import {
+  comboBaseDamageFor,
+  mitigateIncomingDamage,
+  resolveComboAttack,
+  rollAttackSpecialEvents,
+  rollBossCounterEvent,
+  rollDangerDodge
+} from "../combatEngine";
 import {
   actionDurationLabel,
   actionDurationMs,
@@ -102,6 +111,10 @@ import {
   classMigrationBase,
   cloneCharacter,
   createForgedEquipment,
+  createRecipeEquipment,
+  defaultForgeRecipes,
+  forgeRecipes,
+  matchForgeRecipe,
   createMaterialItem,
   equipmentSlotLabel,
   forgeOptions,
@@ -219,16 +232,16 @@ const initialData: StoreData = {
   marketListings: [],
   announcements: [],
   classConfigs: [
-    { className: "warrior", label: "?啣ㄚ", active: true },
-    { className: "assassin", label: "?箏恥", active: true },
-    { className: "mage", label: "瘜葦", active: true },
-    { className: "priest", label: "鋆葦", active: true }
+    { className: "warrior", label: "戰士", active: true },
+    { className: "assassin", label: "刺客", active: true },
+    { className: "mage", label: "法師", active: true },
+    { className: "priest", label: "補師", active: true }
   ],
   gameConfig: defaultGameConfig(),
   worldBoss: defaultWorldBoss(),
   forcedFlashEventEndsAt: null,
   dailyRewardConfig: {
-    title: "瘥?",
+    title: "每日補給",
     active: true,
     startAt: null,
     endAt: null,
@@ -242,7 +255,7 @@ const initialData: StoreData = {
     }
   },
   flashEventConfig: {
-    title: "蝒?",
+    title: "限時補給",
     active: false,
     startAt: null,
     endAt: null,
@@ -262,6 +275,33 @@ const initialData: StoreData = {
 
 let cachedData: StoreData | null = null;
 let storageNeedsMigration = false;
+
+function isCorruptedText(value: unknown) {
+  return typeof value === "string" && /[�\uE000-\uF8FF\uFFFD]|嚗|撌|蝚|摰|蝪|閮|銵|雿|暺|憭|瘨||/.test(value);
+}
+
+function cleanText(value: unknown, fallback: string) {
+  if (typeof value !== "string" || !value.trim() || isCorruptedText(value)) {
+    if (value !== fallback) storageNeedsMigration = true;
+    return fallback;
+  }
+  return value;
+}
+
+const classLabels: Record<CharacterClass, string> = {
+  warrior: "戰士",
+  assassin: "刺客",
+  mage: "法師",
+  priest: "補師"
+};
+
+const factionDefaults: Record<string, { name: string; description: string }> = {
+  faction_ember: { name: "炎燼", description: "攻勢與鍛造導向。" },
+  faction_tide: { name: "潮汐", description: "支援與資源調度導向。" },
+  faction_gale: { name: "翠風", description: "速度與偵查導向。" },
+  faction_stone: { name: "岩盾", description: "防守與城防工程導向。" },
+  faction_lumen: { name: "曦光", description: "治療與外交協作導向。" }
+};
 
 function normalizeGameConfig(rawConfig: any): GameConfig {
   const fallback = defaultGameConfig();
@@ -337,6 +377,19 @@ function normalizeGameConfig(rawConfig: any): GameConfig {
     soloDifficulties,
     shopItems: Array.isArray(rawConfig?.shopItems) && rawConfig.shopItems.length ? rawConfig.shopItems.map(normalizeShopItemConfig) : fallback.shopItems,
     forgeOptions: Array.isArray(rawConfig?.forgeOptions) && rawConfig.forgeOptions.length ? rawConfig.forgeOptions.map(normalizeForgeOptionConfig) : fallback.forgeOptions,
+    forgeRecipes:
+      Array.isArray(rawConfig?.forgeRecipes) && rawConfig.forgeRecipes.length
+        ? rawConfig.forgeRecipes
+            .map((recipe: any) => ({
+              ...recipe,
+              id: String(recipe?.id || "").trim(),
+              name: String(recipe?.name || "").trim(),
+              ingredients: recipe?.ingredients && typeof recipe.ingredients === "object" ? recipe.ingredients : {},
+              statBonus: recipe?.statBonus && typeof recipe.statBonus === "object" ? recipe.statBonus : {},
+              durability: clampedInt(recipe?.durability, 10, 999, 120)
+            }))
+            .filter((recipe: any) => recipe.id && recipe.name && Object.keys(recipe.ingredients).length)
+        : defaultForgeRecipes(),
     siegeRules: {
       durationMinutes: clampedInt(rawSiege.durationMinutes, 1, 240, siegeFallback.durationMinutes),
       tickIntervalSeconds: clampedInt(rawSiege.tickIntervalSeconds, 10, 600, siegeFallback.tickIntervalSeconds),
@@ -393,13 +446,13 @@ function starterAchievements(character: Pick<CharacterProfile, "instinctLevel">)
   return [
     {
       id: "level_5",
-      title: "? 5 蝑?",
-      description: "閫蝑?? 5??",
+      title: "達到 5 級",
+      description: "角色等級達到 5 級。",
       progress: Math.min(level, 5),
       target: 5,
       completed: level >= 5,
       completedAt: level >= 5 ? nowIso() : null,
-      rewardSummary: "敺?"
+      rewardSummary: "待領取"
     }
   ];
 }
@@ -589,13 +642,13 @@ function defaultFactionTech(): Record<FactionTechKey, number> {
   };
 }
 
-function defaultFactionTower(factionName = "?祆?"): FactionTowerProgress {
+function defaultFactionTower(factionName = "公會"): FactionTowerProgress {
   return {
     currentLayer: 1,
     highestClearedLayer: 0,
-    bossName: `${factionName}閰衣?摰?`,
+    bossName: `${factionName} 第 1 層守將`,
     bossHp: 260,
-    rewardSummary: "?砍澈?馳??脣漲?犖?圈洛蝬?",
+    rewardSummary: "公庫金幣、個人素材與戰鬥經驗",
     progress: 0
   };
 }
@@ -687,7 +740,7 @@ function normalizeRewardTemplate(rawReward: any, fallback: RewardTemplate): Rewa
 
 function normalizeRewardSchedule(rawConfig: any, fallback: RewardScheduleConfig): RewardScheduleConfig {
   return {
-    title: String(rawConfig?.title || fallback.title),
+    title: cleanText(rawConfig?.title, fallback.title),
     active: rawConfig?.active ?? fallback.active,
     startAt: rawConfig?.startAt || fallback.startAt || null,
     endAt: rawConfig?.endAt || fallback.endAt || null,
@@ -724,9 +777,9 @@ function mapLegacyStats(rawStats: any, className: CharacterClass) {
 function inferEquipmentSlot(item: any): EquipmentSlotKey | null {
   if (item?.category !== "equipment") return null;
   const text = `${item.name || ""} ${item.effectSummary || ""}`.toLowerCase();
-  if (text.includes("helmet") || text.includes("?剔?")) return "helmet";
-  if (text.includes("armor") || text.includes("?")) return "armor";
-  if (text.includes("kneepad") || text.includes("霅瑁?")) return "kneepad";
+  if (text.includes("helmet") || text.includes("頭盔")) return "helmet";
+  if (text.includes("armor") || text.includes("護甲") || text.includes("盔甲")) return "armor";
+  if (text.includes("kneepad") || text.includes("護膝")) return "kneepad";
   if (text.includes("offhand") || text.includes("副手")) return "offhand";
   return "weapon";
 }
@@ -775,9 +828,9 @@ function normalizeItem(rawItem: any): InventoryItem {
   if (!rawItem) {
     return {
       id: randomId("item"),
-      name: "?芰?拙?",
+      name: "未知物品",
       category: "loot",
-      effectSummary: "?⊥?颲刻????",
+      effectSummary: "舊資料缺少物品資訊。",
       rarity: "common",
       craftSource: null,
       isBroken: false,
@@ -818,9 +871,9 @@ function normalizeItem(rawItem: any): InventoryItem {
 
   return {
     id: rawItem.id || randomId("item"),
-    name: rawItem.name || "?芰?拙?",
+    name: cleanText(rawItem.name, "未知物品"),
     category: rawItem.category || "loot",
-    effectSummary: rawItem.effectSummary || "?∟牧??",
+    effectSummary: cleanText(rawItem.effectSummary, "無特殊效果"),
     equipmentSlot: rawItem.equipmentSlot || inferEquipmentSlot(rawItem),
     rarity: rawItem.rarity || "common",
     craftSource: rawItem.craftSource || null,
@@ -944,7 +997,7 @@ function buildAdminCustomWeapon(payload: NonNullable<AdminGrantItemPayload["cust
     rarity: payload.rarity || "rare",
     qualityTier: payload.qualityTier || "fine",
     craftSource: "admin_custom",
-    effectSummary: payload.effectSummary || "?梁恣?撱箇??閮???",
+    effectSummary: payload.effectSummary || "管理員自訂裝備",
     attackBonus,
     defenseBonus,
     luckBonus,
@@ -972,20 +1025,20 @@ function buildGrantedItem(grant: { recipeId?: string; shopItemId?: string; custo
   }
   if (grant.recipeId) {
     const option = forgeOptions().find((entry) => entry.id === grant.recipeId);
-    if (!option) throw new Error("?曆??圈??芋??");
+    if (!option) throw new Error("找不到鍛造配方。");
     return normalizeItem({ ...option, id: randomId("item"), category: "equipment" });
   }
   if (grant.shopItemId) {
     const shopItem = staticShopItems().find((entry) => entry.id === grant.shopItemId);
-    if (!shopItem) throw new Error("?曆??啣?摨??");
+    if (!shopItem) throw new Error("找不到商店物品。");
     return normalizeItem({ ...shopItem, id: randomId("item"), qualityTier: "standard" });
   }
-  throw new Error("隢?摰??潮??拙?");
+  throw new Error("請選擇要發放的物品。");
 }
 
 function summarizeRewardTemplate(reward: RewardTemplate) {
   const parts: string[] = [];
-  if (reward.gold) parts.push(`?馳 ${reward.gold}`);
+  if (reward.gold) parts.push(`金幣 ${reward.gold}`);
   for (const resource of reward.materials || []) {
     parts.push(`${materialName(resource.materialType)} x${resource.quantity}`);
   }
@@ -1007,7 +1060,7 @@ function grantRewardTemplate(character: CharacterProfile, reward: RewardTemplate
     mergeInventoryStack(character, item);
     grantedItems.push(item);
   }
-  appendNotification(character, "sign_in", notificationTitle, `雿??? ${summarizeRewardTemplate(reward)}?`);
+  appendNotification(character, "sign_in", notificationTitle, `獲得 ${summarizeRewardTemplate(reward)}。`);
   return grantedItems;
 }
 
@@ -1015,7 +1068,7 @@ function appendRewardAnnouncement(data: StoreData, title: string, reward: Reward
   data.announcements.unshift({
     id: randomId("announcement"),
     title,
-    body: `?舫????蛛?${summarizeRewardTemplate(reward)}?`,
+    body: `補給發放：${summarizeRewardTemplate(reward)}。`,
     active: true,
     createdAt: nowIso()
   });
@@ -1034,7 +1087,7 @@ function spendRepairMaterials(character: CharacterProfile, amount: number) {
     }
   }
   if (remaining > 0) {
-    throw new Error("??銝雲");
+    throw new Error("修復材料不足。");
   }
 }
 
@@ -1129,7 +1182,7 @@ function normalizeCharacter(rawCharacter: any): CharacterProfile {
           startedAt: String(rawCharacter.garrisonAssignment.startedAt || nowIso())
         }
       : null,
-    name: rawCharacter.name || "???",
+    name: cleanText(rawCharacter.name, "未命名角色"),
     className,
     classChangedOn: rawCharacter.classChangedOn || taipeiDayKey(),
     level: instinctLevel,
@@ -1150,11 +1203,15 @@ function normalizeCharacter(rawCharacter: any): CharacterProfile {
     maxEnergy: 1,
     stats,
     equipmentSlots,
-    title: rawCharacter.title || starterTitle(className),
+    title: cleanText(rawCharacter.title, starterTitle(className)),
     inventory: Array.isArray(rawCharacter.inventory) ? rawCharacter.inventory.map(normalizeItem) : [],
     statusEffects:
       Array.isArray(rawCharacter.statusEffects) && rawCharacter.statusEffects.length > 0
-        ? rawCharacter.statusEffects
+        ? rawCharacter.statusEffects.map((effect: any) => ({
+            ...effect,
+            name: cleanText(effect?.name, "狀態效果"),
+            description: cleanText(effect?.description, "舊狀態描述已損壞。")
+          }))
         : starterStatusEffects(),
     subRoleSlots:
       Array.isArray(rawCharacter.subRoleSlots) && rawCharacter.subRoleSlots.length === 3
@@ -1169,7 +1226,13 @@ function normalizeCharacter(rawCharacter: any): CharacterProfile {
     jobImage: rawCharacter.jobImage ?? null,
     loadout: rawCharacter.loadout || classDefaultLoadout(className),
     actionQueue: rawCharacter.actionQueue || createEmptyQueue(),
-    notifications: Array.isArray(rawCharacter.notifications) ? rawCharacter.notifications : []
+    notifications: Array.isArray(rawCharacter.notifications)
+      ? rawCharacter.notifications.map((notification: any) => ({
+          ...notification,
+          title: cleanText(notification?.title, "系統通知"),
+          body: cleanText(notification?.body, "舊通知內容已損壞，新通知會正常顯示。")
+        }))
+      : []
   };
 
   const rawQueueItems = Array.isArray(character.actionQueue.items) ? character.actionQueue.items : [];
@@ -1213,25 +1276,21 @@ function normalizeCastle(rawCastle: any): CastleState {
   const layerNames = ["首都", "外城一：農礦帶", "外城二：討伐帶", "外城三：礦脈帶", "外城四：商路前線"];
   const purposeByLayer: CastleState["mapNodePurpose"][] = ["capital", "gathering", "guild_boss", "mining", "trade"];
   const benefitByLayer = [
-    "?祆?蝞∠?????澈????",
-    "颲脫平?⊿??嚗??蝎曉??Ｗ儔頛翰",
-    "Boss 閮??嚗??Boss?撅方?閮???",
-    "蝷西??嚗???????瘛勗惜蝷?",
-    "?楝??嚗摰嗅??氬漱???餃??"
+    "公會管理、科技、倉庫與城防",
+    "農業採集區：採集與精力恢復較快",
+    "Boss 討伐區：公會 Boss、爬層與討伐營",
+    "礦脈區：材料、鍛造素材與深層礦",
+    "商路前線：玩家市場、交易與攻城前哨"
   ];
-  const defaultRewardSummary = layer === 0 ? "憭折??砍澈?馳????拙?璈?" : "?砍澈?馳???祆?拙?";
-  const rewardSummary = String(rawCastle.rewardSummary || defaultRewardSummary)
-    .replace("憭折??砍澈?馳????", "首都資源")
-    .replace("?砍澈?馳????", "城池資源")
-    .replace("Boss 蝝??擛亦?撽??砍澈鞈?", "Boss ?犖蝝??擛亦?撽??砍澈?馳")
-    .replace("?砍澈鞈?", "?砍澈?馳");
+  const defaultRewardSummary = layer === 0 ? "大量公庫金幣與稀有戰利品機率" : "公庫金幣與一般戰利品";
+  const rewardSummary = cleanText(rawCastle.rewardSummary, defaultRewardSummary);
   if (rewardSummary !== rawCastle.rewardSummary) {
     storageNeedsMigration = true;
   }
   return {
     ...rawCastle,
     layer,
-    layerName: rawCastle.layerName || layerNames[layer] || `憭惜 ${layer}`,
+    layerName: rawCastle.layerName || layerNames[layer] || `外城 ${layer}`,
     specialty: rawCastle.specialty || specialtyByLayer[layer] || "trade",
     distanceFromCapital: Number(rawCastle.distanceFromCapital ?? layer),
     buildSlots: Number(rawCastle.buildSlots ?? (layer === 0 ? 4 : layer <= 2 ? 3 : 2)),
@@ -1242,10 +1301,11 @@ function normalizeCastle(rawCastle: any): CastleState {
     autoDefensePower: clampedInt(rawCastle.autoDefensePower, 0, 99999, layer === 0 ? 95 : 45 + layer * 12),
     garrisonSlots: clampedInt(rawCastle.garrisonSlots, 0, 99, layer === 0 ? 8 : 3 + Math.max(0, 4 - layer)),
     siegeResistance: clampedInt(rawCastle.siegeResistance, 0, 9999, layer === 0 ? 24 : 10 + layer * 2),
-    bossSkills: Array.isArray(rawCastle.bossSkills) ? rawCastle.bossSkills : layer === 0 ? ["蝯梢??誘", "憯???", "憯急除?"] : ["??", "?脩戌憪踵?"],
+    bossSkills: Array.isArray(rawCastle.bossSkills) ? rawCastle.bossSkills : layer === 0 ? ["統領號令", "壁壘反擊", "士氣重整"] : ["重擊", "防禦姿態"],
     rewardSummary,
     mapNodePurpose: rawCastle.mapNodePurpose || purposeByLayer[layer] || "trade",
-    layerBenefit: rawCastle.layerBenefit || benefitByLayer[layer] || "????"
+    wallRepairAt: rawCastle.wallRepairAt || null,
+    layerBenefit: rawCastle.layerBenefit || benefitByLayer[layer] || "前線據點"
   };
 }
 
@@ -1275,11 +1335,11 @@ function toPublicCharacter(character: CharacterProfile): CharacterProfile {
 
 function seedFactionStore(): StoredFaction[] {
   return [
-    { id: "faction_ember", name: "?", color: "#e85d4f", description: "???餃???", leaderUserId: null, allyIds: [], warTargetIds: [], treasury: { gold: 0, materials: 0 }, tech: defaultFactionTech(), tower: defaultFactionTower("?"), memberCount: 0, leaderDisplayName: null },
-    { id: "faction_tide", name: "瞏格?", color: "#4f9fe8", description: "隤踹漲?????", leaderUserId: null, allyIds: [], warTargetIds: [], treasury: { gold: 0, materials: 0 }, tech: defaultFactionTech(), tower: defaultFactionTower("瞏格?"), memberCount: 0, leaderDisplayName: null },
-    { id: "faction_gale", name: "?暸◢", color: "#62c67f", description: "璈?蝒必???", leaderUserId: null, allyIds: [], warTargetIds: [], treasury: { gold: 0, materials: 0 }, tech: defaultFactionTech(), tower: defaultFactionTower("?暸◢"), memberCount: 0, leaderDisplayName: null },
-    { id: "faction_stone", name: "蝤", color: "#b58952", description: "?脣??????", leaderUserId: null, allyIds: [], warTargetIds: [], treasury: { gold: 0, materials: 0 }, tech: defaultFactionTech(), tower: defaultFactionTower("蝤"), memberCount: 0, leaderDisplayName: null },
-    { id: "faction_lumen", name: "?冽", color: "#d7bb4f", description: "?舀?游????", leaderUserId: null, allyIds: [], warTargetIds: [], treasury: { gold: 0, materials: 0 }, tech: defaultFactionTech(), tower: defaultFactionTower("?冽"), memberCount: 0, leaderDisplayName: null }
+    { id: "faction_ember", name: "炎燼", color: "#e85d4f", description: "攻勢與鍛造導向。", leaderUserId: null, allyIds: [], warTargetIds: [], treasury: { gold: 0, materials: 0 }, tech: defaultFactionTech(), tower: defaultFactionTower("炎燼"), memberCount: 0, leaderDisplayName: null },
+    { id: "faction_tide", name: "潮汐", color: "#4f9fe8", description: "支援與資源調度導向。", leaderUserId: null, allyIds: [], warTargetIds: [], treasury: { gold: 0, materials: 0 }, tech: defaultFactionTech(), tower: defaultFactionTower("潮汐"), memberCount: 0, leaderDisplayName: null },
+    { id: "faction_gale", name: "翠風", color: "#62c67f", description: "速度與偵查導向。", leaderUserId: null, allyIds: [], warTargetIds: [], treasury: { gold: 0, materials: 0 }, tech: defaultFactionTech(), tower: defaultFactionTower("翠風"), memberCount: 0, leaderDisplayName: null },
+    { id: "faction_stone", name: "岩盾", color: "#b58952", description: "防守與城防工程導向。", leaderUserId: null, allyIds: [], warTargetIds: [], treasury: { gold: 0, materials: 0 }, tech: defaultFactionTech(), tower: defaultFactionTower("岩盾"), memberCount: 0, leaderDisplayName: null },
+    { id: "faction_lumen", name: "曦光", color: "#d7bb4f", description: "治療與外交協作導向。", leaderUserId: null, allyIds: [], warTargetIds: [], treasury: { gold: 0, materials: 0 }, tech: defaultFactionTech(), tower: defaultFactionTower("曦光"), memberCount: 0, leaderDisplayName: null }
   ].map(({ memberCount: _memberCount, leaderDisplayName: _leaderDisplayName, ...rest }) => rest);
 }
 
@@ -1334,15 +1394,32 @@ function hydrateFactions(data: StoreData) {
   if (!Array.isArray(data.castles) || data.castles.length === 0) {
     data.castles = seedCastles();
   }
-  data.factions = data.factions.map((faction: any) => ({
-    ...faction,
-    treasury: {
-      gold: clampedInt(faction.treasury?.gold, 0, GAME_LIMITS.goldBalance, 0),
-      materials: clampedInt(faction.treasury?.materials, 0, GAME_LIMITS.resourceQuantity, 0)
-    },
-    tech: normalizeFactionTech(faction.tech),
-    tower: normalizeFactionTower(faction.tower, faction.name)
-  }));
+  data.factions = data.factions.map((faction: any) => {
+    const builtInDefaults = factionDefaults[faction.id];
+    const defaults = builtInDefaults || { name: "未命名陣營", description: "尚未設定陣營描述。" };
+    const name = builtInDefaults ? defaults.name : cleanText(faction.name, defaults.name);
+    if (builtInDefaults && faction.name !== defaults.name) storageNeedsMigration = true;
+    const tower = normalizeFactionTower(faction.tower, name);
+    if (isCorruptedText(tower.bossName) || (builtInDefaults && !tower.bossName.includes(name))) {
+      tower.bossName = `${name} 第 ${tower.currentLayer} 層守將`;
+      storageNeedsMigration = true;
+    }
+    if (isCorruptedText(tower.rewardSummary)) {
+      tower.rewardSummary = "公庫金幣、個人素材與戰鬥經驗";
+      storageNeedsMigration = true;
+    }
+    return {
+      ...faction,
+      name,
+      description: builtInDefaults ? defaults.description : cleanText(faction.description, defaults.description),
+      treasury: {
+        gold: clampedInt(faction.treasury?.gold, 0, GAME_LIMITS.goldBalance, 0),
+        materials: clampedInt(faction.treasury?.materials, 0, GAME_LIMITS.resourceQuantity, 0)
+      },
+      tech: normalizeFactionTech(faction.tech),
+      tower
+    };
+  });
   data.castles = data.castles.map(normalizeCastle);
   data.sieges = Array.isArray(data.sieges) ? data.sieges.map(normalizeSiege).filter((siege) => siege.castleId) : [];
   data.factionProjects = Array.isArray(data.factionProjects)
@@ -1413,7 +1490,13 @@ async function ensureLoaded() {
         sellerCharacterName: listing.sellerCharacterName || listing.sellerDisplayName
       }))
     : [];
-  cachedData.announcements = Array.isArray(cachedData.announcements) ? cachedData.announcements : [];
+  cachedData.announcements = Array.isArray(cachedData.announcements)
+    ? cachedData.announcements.map((announcement: any) => ({
+        ...announcement,
+        title: cleanText(announcement?.title, "系統公告"),
+        body: cleanText(announcement?.body, "舊公告內容已損壞，新的公告會正常顯示。")
+      }))
+    : [];
   cachedData.classConfigs =
     Array.isArray(cachedData.classConfigs) && cachedData.classConfigs.length > 0
       ? cachedData.classConfigs
@@ -1424,9 +1507,10 @@ async function ensureLoaded() {
       storageNeedsMigration = true;
     }
   }
-  cachedData.classConfigs = cachedData.classConfigs.map((entry) =>
-    entry.className === "priest" ? { ...entry, label: "鋆葦" } : entry
-  );
+  cachedData.classConfigs = cachedData.classConfigs.map((entry) => ({
+    ...entry,
+    label: classLabels[entry.className] || cleanText(entry.label, "未命名職業")
+  }));
   cachedData.forcedFlashEventEndsAt = cachedData.forcedFlashEventEndsAt || null;
   cachedData.dailyRewardConfig = normalizeRewardSchedule(cachedData.dailyRewardConfig, initialData.dailyRewardConfig);
   cachedData.flashEventConfig = normalizeRewardSchedule(cachedData.flashEventConfig, initialData.flashEventConfig);
@@ -1461,7 +1545,7 @@ async function findCharacterForUpdate(userId: string) {
   const character = data.characters.find((entry) => entry.userId === userId);
   const user = data.users.find((entry) => entry.id === userId);
   if (!character || !user) {
-    throw new Error("?曆??啗??脰???");
+    throw new Error("找不到角色資料。");
   }
   return { data, character, user };
 }
@@ -1560,7 +1644,7 @@ function awardInstinctExperience(character: CharacterProfile, gained: number) {
     character.hp = character.maxHp;
     character.mp = character.maxMp;
     character.energy = character.maxEnergy;
-    appendNotification(character, "system", "?祈??", `${character.name} ??賜?蝝?? ${character.instinctLevel}?`);
+    appendNotification(character, "system", "本能升級", `${character.name} 的本能等級提升到 ${character.instinctLevel}`);
   }
   syncProgressionLevel(character);
 }
@@ -1570,7 +1654,7 @@ function awardBattleExperience(character: CharacterProfile, gained: number) {
   while (character.battleExp >= nextLevelRequirement(character.battleLevel)) {
     character.battleExp -= nextLevelRequirement(character.battleLevel);
     character.battleLevel += 1;
-    appendNotification(character, "battle", "?圈洛??", `${character.name} ?擛亦?蝝?? ${character.battleLevel}?`);
+    appendNotification(character, "battle", "戰鬥升級", `${character.name} 的戰鬥等級提升到 ${character.battleLevel}`);
   }
 }
 
@@ -1639,10 +1723,10 @@ function queueActionInternal(
 ) {
   const queuedMs = character.actionQueue.items.reduce((total, item) => total + item.durationMs, 0);
   if (queuedMs + options.durationMs > 24 * 60 * 60 * 1000) {
-    throw new Error("??蝮賡銝頞?銝憭?");
+    throw new Error("行動佇列不能超過 24 小時。");
   }
   if (character.energy < options.hiddenCost) {
-    throw new Error("?桀?蝎曉?銝雲嚗??賣??仿?銵?");
+    throw new Error("精力不足，無法加入行動佇列。");
   }
 
   character.energy = clamp(character.energy - options.hiddenCost, 0, character.maxEnergy);
@@ -1668,7 +1752,7 @@ function queueActionInternal(
 
   character.actionQueue.items.push(queuedAction);
   syncQueueStatuses(character);
-  appendNotification(character, "system", "???", `${queuedAction.label} 撌脫??仿??`);
+  appendNotification(character, "system", "行動佇列", `${queuedAction.label} 已加入行動佇列。`);
   return queuedAction;
 }
 
@@ -1722,6 +1806,36 @@ function processWorldProgress(data: StoreData) {
   const now = Date.now();
   let changed = false;
 
+  // 城牆被動維修：沒有攻城戰時，駐防守軍會逐步修復城牆（基礎 2/小時 + 每名駐軍 4/小時）
+  for (const castle of data.castles) {
+    const underSiege = data.sieges.some((siege) => siege.status === "active" && siege.castleId === castle.id);
+    if (underSiege) {
+      castle.wallRepairAt = nowIso();
+      continue;
+    }
+    if (castle.fortification >= castle.maxFortification) {
+      if (castle.wallRepairAt) {
+        castle.wallRepairAt = null;
+        changed = true;
+      }
+      continue;
+    }
+    if (!castle.wallRepairAt) {
+      castle.wallRepairAt = nowIso();
+      changed = true;
+      continue;
+    }
+    const garrisonCount = data.characters.filter((entry) => entry.garrisonAssignment?.castleId === castle.id).length;
+    const repairPerHour = 2 + garrisonCount * 4;
+    const elapsedHours = (now - new Date(castle.wallRepairAt).getTime()) / 3600000;
+    const repaired = Math.floor(elapsedHours * repairPerHour);
+    if (repaired > 0) {
+      castle.fortification = clamp(castle.fortification + repaired, 0, castle.maxFortification);
+      castle.wallRepairAt = nowIso();
+      changed = true;
+    }
+  }
+
   for (const character of data.characters) {
     if (!character.movement) continue;
     if (character.movement.fromCastleId === character.movement.toCastleId) {
@@ -1759,7 +1873,7 @@ function processWorldProgress(data: StoreData) {
     project.status = "completed";
     for (const userId of project.contributorUserIds) {
       const contributor = data.characters.find((entry) => entry.userId === userId);
-      if (contributor) appendNotification(contributor, "faction", "撌亦?摰?", `${project.label} 撌脣??`);
+      if (contributor) appendNotification(contributor, "faction", "工程完成", `${project.label} 已完成。`);
     }
     changed = true;
   }
@@ -1769,7 +1883,7 @@ function processWorldProgress(data: StoreData) {
 
 function getFactionById(data: StoreData, factionId: string) {
   const faction = data.factions.find((entry) => entry.id === factionId);
-  if (!faction) throw new Error("?曆??圈??");
+  if (!faction) throw new Error("找不到陣營。");
   return faction;
 }
 
@@ -1865,7 +1979,7 @@ function damageEquippedForBattle(character: CharacterProfile, tookDamage: boolea
 function completeAction(data: StoreData, character: CharacterProfile, item: StoredQueuedAction, isOnline: boolean): ActivityResult {
   const multiplier = item.onlineBonusEligible && isOnline ? 1.2 : 1;
   const rewards: ActivityResult["rewards"] = {};
-  let message = `${character.name} 摰?鈭?${item.label}?`;
+  let message = `${character.name} 完成了 ${item.label}。`;
   let notificationBody = message;
   let activityType: ActivityResult["type"] = "training";
 
@@ -1875,14 +1989,14 @@ function completeAction(data: StoreData, character: CharacterProfile, item: Stor
 
   const statLabel = (key: CharacterStatKey) =>
     ({
-      attack: "?餅?",
-      defense: "?脩戌",
-      luck: "?除",
-      intelligence: "?箸",
-      vitality: "擃?",
-      spirit: "蝎曄?",
-      technique: "?撌?",
-      tenacity: "??"
+      attack: "攻擊",
+      defense: "防禦",
+      luck: "運氣",
+      intelligence: "智慧",
+      vitality: "體力",
+      spirit: "精神",
+      technique: "技巧",
+      tenacity: "韌性"
     })[key];
 
   if (item.actionType === "fishing") {
@@ -1898,7 +2012,7 @@ function completeAction(data: StoreData, character: CharacterProfile, item: Stor
     rewards.gold = roundReward(10, multiplier);
     character.gold += rewards.gold;
     awardInstinctExperience(character, rewards.instinctExp);
-    message = `${character.name} ?券擳葉??鈭?撌扯?蝎曄??`;
+    message = `${character.name} 完成釣魚訓練，技巧與精神提升。`;
     notificationBody = `${message}\n獲得 ${rewards.gold} 金幣、${rewards.experience} 經驗、${rewards.instinctExp} 本能經驗。\n提升：${(rewards.statKeys || []).map(statLabel).join("、")}`;
   } else if (item.actionType === "jump_rope") {
     updateCharacterStat(character, "vitality", 1);
@@ -1915,7 +2029,7 @@ function completeAction(data: StoreData, character: CharacterProfile, item: Stor
     rewards.experience = roundReward(12, multiplier);
     rewards.instinctExp = Math.max(1, Math.round(rewards.experience * 0.4));
     awardInstinctExperience(character, rewards.instinctExp);
-    message = `${character.name} 摰?頝喟鼎閮毀嚗?憟????賣????`;
+    message = `${character.name} 完成跳繩訓練，體能節奏變得更穩。`;
     notificationBody = `${message}\n獲得 ${rewards.experience} 經驗、${rewards.instinctExp} 本能經驗。\n提升：${(rewards.statKeys || []).map(statLabel).join("、")}`;
   } else if (item.actionType === "reading") {
     updateCharacterStat(character, "intelligence", 1);
@@ -1924,7 +2038,7 @@ function completeAction(data: StoreData, character: CharacterProfile, item: Stor
     rewards.experience = roundReward(14, multiplier);
     rewards.instinctExp = Math.max(1, Math.round(rewards.experience * 0.35));
     awardInstinctExperience(character, rewards.instinctExp);
-    message = `${character.name} ??霈?貊敞蝛??亥???撌扼`;
+    message = `${character.name} 完成讀書訓練，智慧與技巧提升。`;
     notificationBody = `${message}\n獲得 ${rewards.experience} 經驗、${rewards.instinctExp} 本能經驗。\n提升：${(rewards.statKeys || []).map(statLabel).join("、")}`;
   } else if (item.actionType === "push_ups") {
     updateCharacterStat(character, "vitality", 1);
@@ -1934,7 +2048,7 @@ function completeAction(data: StoreData, character: CharacterProfile, item: Stor
     rewards.experience = roundReward(14, multiplier);
     rewards.instinctExp = Math.max(1, Math.round(rewards.experience * 0.45));
     awardInstinctExperience(character, rewards.instinctExp);
-    message = `${character.name} 摰?隡?箄澈嚗?脰?擃??渡帘摰??`;
+    message = `${character.name} 完成伏地挺身，攻防與體力提升。`;
     notificationBody = `${message}\n獲得 ${rewards.experience} 經驗、${rewards.instinctExp} 本能經驗。\n提升：${(rewards.statKeys || []).map(statLabel).join("、")}`;
   } else if (item.actionType === "meditation") {
     updateCharacterStat(character, "luck", 1);
@@ -1946,7 +2060,7 @@ function completeAction(data: StoreData, character: CharacterProfile, item: Stor
     rewards.experience = roundReward(11, multiplier);
     rewards.instinctExp = Math.max(1, Math.round(rewards.experience * 0.35));
     awardInstinctExperience(character, rewards.instinctExp);
-    message = `${character.name} ??瘝?瞉勗?蟡??除銋????`;
+    message = `${character.name} 完成沉思，運氣與精神更加集中。`;
     notificationBody = `${message}\n獲得 ${rewards.experience} 經驗、${rewards.instinctExp} 本能經驗。\n提升：${(rewards.statKeys || []).map(statLabel).join("、")}`;
   } else if (item.actionType === "boxing") {
     updateCharacterStat(character, "attack", 1);
@@ -1960,7 +2074,7 @@ function completeAction(data: StoreData, character: CharacterProfile, item: Stor
     rewards.experience = roundReward(15, multiplier);
     rewards.instinctExp = Math.max(1, Math.round(rewards.experience * 0.5));
     awardInstinctExperience(character, rewards.instinctExp);
-    message = `${character.name} 摰??單?閮毀嚗??蝭憟???賬`;
+    message = `${character.name} 完成拳擊訓練，攻擊、體力與技巧提升。`;
     notificationBody = `${message}\n獲得 ${rewards.experience} 經驗、${rewards.instinctExp} 本能經驗。\n提升：${(rewards.statKeys || []).map(statLabel).join("、")}`;
   } else if (item.actionType === "rest") {
     activityType = "rest";
@@ -1975,8 +2089,8 @@ function completeAction(data: StoreData, character: CharacterProfile, item: Stor
     rewards.energyRestored = character.energy - prevEnergy;
     rewards.instinctExp = 1;
     awardInstinctExperience(character, rewards.instinctExp);
-    message = `${character.name} 憟賢末隡鈭?畾菜?????????`;
-    notificationBody = `${message}\n?Ｗ儔 HP ${rewards.hpRestored}?P ${rewards.mpRestored}?移??${rewards.energyRestored}?n?脣? ${rewards.instinctExp} ?祈蝬??`;
+    message = `${character.name} 完成休息，狀態已恢復。`;
+    notificationBody = `${message}\n恢復 HP ${rewards.hpRestored}、MP ${rewards.mpRestored}、精力 ${rewards.energyRestored}，獲得 ${rewards.instinctExp} 本能經驗。`;
   } else if (item.actionType === "mine_shallow" || item.actionType === "mine_deep") {
     activityType = "mining";
     const hours = item.metadata?.durationHours || 1;
@@ -2003,13 +2117,13 @@ function completeAction(data: StoreData, character: CharacterProfile, item: Stor
     }, {});
     const dropText = Object.entries(dropSummary)
       .map(([name, amount]) => `${name} x${amount}`)
-      .join("??");
-    message = `${character.name} ?丹摰?嚗葆??${gold} ?馳??${drops.length} 隞賜??`;
+      .join("、");
+    message = `${character.name} 完成${isDeep ? "深層" : "淺層"}挖礦，獲得 ${gold} 金幣與 ${drops.length} 份素材。`;
     notificationBody = `${message}\n掉落：${dropText || "無"}\n獲得 ${experience} 經驗、${rewards.instinctExp} 本能經驗。\n狀態：HP ${character.hp}/${character.maxHp}、MP ${character.mp}/${character.maxMp}`;
   }
 
   awardClassMasteryExperience(character, Math.max(2, Math.round((rewards.experience || 8) * 0.25)));
-  appendNotification(character, "activity", "銵?摰?", notificationBody);
+  appendNotification(character, "activity", "行動完成", notificationBody);
   const result: ActivityResult = {
     type: activityType,
     message,
@@ -2040,10 +2154,10 @@ export async function registerUser(payload: RegisterPayload) {
   const data = await ensureLoaded();
   const email = payload.email.trim().toLowerCase();
   if (data.users.some((user) => user.email === email)) {
-    throw new Error("??Email 撌脩?閮餃???");
+    throw new Error("這個 Email 已經註冊。");
   }
   if (findCharacterByName(data, payload.characterName)) {
-    throw new Error("???脣?蝔勗歇蝬◤雿輻鈭?");
+    throw new Error("這個角色名稱已被使用。");
   }
   const user: StoredUser = {
     id: randomId("user"),
@@ -2067,9 +2181,9 @@ export async function loginUser(emailInput: string, password: string) {
   const data = await ensureLoaded();
   const email = emailInput.trim().toLowerCase();
   const user = data.users.find((entry) => entry.email === email && entry.password === password);
-  if (!user) throw new Error("?餃憭望?");
+  if (!user) throw new Error("登入失敗，請確認帳號與密碼。");
   const character = data.characters.find((entry) => entry.userId === user.id);
-  if (!character) throw new Error("?曆??啗??脰???");
+  if (!character) throw new Error("找不到角色資料。");
   return { user: toAuthUser(user), character: toPublicCharacter(character) };
 }
 
@@ -2114,11 +2228,11 @@ export async function updateCharacter(character: CharacterProfile) {
 export async function changeCharacterClass(userId: string, className: CharacterClass) {
   const { data, character } = await findCharacterForUpdate(userId);
   if (character.classChangedOn === taipeiDayKey()) {
-    throw new Error("隞予撌脩????瑟平鈭?");
+    throw new Error("今天已經切換過職業。");
   }
   const config = data.classConfigs.find((entry) => entry.className === className);
   if (!config?.active) {
-    throw new Error("?璆剔???其葉");
+    throw new Error("這個職業目前未開放。");
   }
   if (character.specialSkillSlot) {
     const previous = gameplaySpecialSkillCatalog().find((entry) => entry.id === character.specialSkillSlot);
@@ -2203,9 +2317,9 @@ export async function enqueueAction(userId: string, actionType: ActionType, dura
   const { data, character } = await findCharacterForUpdate(userId);
   processWorldProgress(data);
   await processCharacterQueueInternal(data, character, false);
-  if (isCharacterBusy(character)) throw new Error("閫?桀?敹?銝哨?蝘餃???????銝??啗???");
+  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法加入新的行動。");
   if (actionType === "mine_deep" && character.instinctLevel < 10) {
-    throw new Error("瘛勗惜?丹?閬?賜?蝝?10");
+    throw new Error("深層挖礦需要本能等級 10。");
   }
 
   const hiddenCost = actionEnergyCost(character, actionType, durationHours);
@@ -2221,7 +2335,7 @@ export async function enqueueAction(userId: string, actionType: ActionType, dura
   await persist();
 
   return {
-    message: `${queuedAction.label} 撌脫??仿??`,
+    message: `${queuedAction.label} 已加入行動佇列。`,
     character: toPublicCharacter(character),
     queue: toPublicQueue(character.actionQueue)
   };
@@ -2235,14 +2349,14 @@ export async function getQueueState(userId: string, isOnline: boolean) {
 export async function cancelQueuedAction(userId: string, actionId: string): Promise<QueueMutationResult> {
   const { data, character } = await findCharacterForUpdate(userId);
   const index = character.actionQueue.items.findIndex((item) => item.id === actionId);
-  if (index === -1) throw new Error("?曆??圈?????");
-  if (index === 0) throw new Error("?脰?銝剔??銝??");
+  if (index === -1) throw new Error("找不到指定的佇列行動。");
+  if (index === 0) throw new Error("進行中的行動不能取消。");
 
   const item = character.actionQueue.items[index] as StoredQueuedAction;
   character.energy = clamp(character.energy + (item.hiddenCost || 0), 0, character.maxEnergy);
   character.actionQueue.items.splice(index, 1);
   syncQueueStatuses(character);
-  appendNotification(character, "system", "????", `${item.label} 撌脣???蝘駁?`);
+  appendNotification(character, "system", "行動佇列", `${item.label} 已從佇列取消。`);
   await persist();
   return { message: "已取消佇列行動", character: toPublicCharacter(character), queue: toPublicQueue(character.actionQueue) };
 }
@@ -2251,7 +2365,7 @@ export async function cancelQueuedActionsExceptActive(userId: string): Promise<Q
   const { data, character } = await findCharacterForUpdate(userId);
   if (character.actionQueue.items.length <= 1) {
     return {
-      message: "?桀?瘝??臬?瘨??????",
+      message: "目前沒有可取消的等待行動。",
       character: toPublicCharacter(character),
       queue: toPublicQueue(character.actionQueue)
     };
@@ -2262,10 +2376,10 @@ export async function cancelQueuedActionsExceptActive(userId: string): Promise<Q
   character.energy = clamp(character.energy + refundedEnergy, 0, character.maxEnergy);
   character.actionQueue.items = character.actionQueue.items.slice(0, 1) as StoredQueuedAction[];
   syncQueueStatuses(character);
-  appendNotification(character, "system", "????", `撌脣?瘨?${cancelledItems.length} ?????柴`);
+  appendNotification(character, "system", "行動佇列", `已取消 ${cancelledItems.length} 個等待行動。`);
   await persist();
   return {
-    message: `撌脣?瘨?${cancelledItems.length} ?????柴`,
+    message: `已取消 ${cancelledItems.length} 個等待行動。`,
     character: toPublicCharacter(character),
     queue: toPublicQueue(character.actionQueue)
   };
@@ -2279,8 +2393,8 @@ export async function listShopItems(): Promise<ShopItem[]> {
 export async function purchaseShopItem(userId: string, itemId: string): Promise<PurchaseResult> {
   const { character } = await findCharacterForUpdate(userId);
   const item = staticShopItems().find((entry) => entry.id === itemId);
-  if (!item) throw new Error("?曆??啣?摨??");
-  if (character.gold < item.price) throw new Error("?馳銝雲");
+  if (!item) throw new Error("找不到商店物品。");
+  if (character.gold < item.price) throw new Error("金幣不足。");
 
   character.gold -= item.price;
   const inventoryItem = normalizeItem({
@@ -2292,11 +2406,11 @@ export async function purchaseShopItem(userId: string, itemId: string): Promise<
     qualityTier: "standard"
   });
   mergeInventoryStack(character, inventoryItem);
-  appendNotification(character, "system", "鞈潸眺??", `${inventoryItem.name} 撌脤脣???`);
+  appendNotification(character, "system", "購買完成", `${inventoryItem.name} 已加入背包。`);
   await persist();
 
   return {
-    message: `${inventoryItem.name} 撌脰頃鞎戡`,
+    message: `${inventoryItem.name} 購買成功。`,
     character: toPublicCharacter(character),
     purchasedItem: inventoryItem
   };
@@ -2315,7 +2429,7 @@ export async function listAnnouncements() {
 export async function listFriends(userId: string, isOnline: (id: string) => boolean): Promise<FriendSummary[]> {
   const data = await ensureLoaded();
   const user = data.users.find((entry) => entry.id === userId);
-  if (!user) throw new Error("?曆??唬蝙?刻?");
+  if (!user) throw new Error("找不到使用者。");
   return user.friendIds
     .map((friendId) => data.users.find((entry) => entry.id === friendId))
     .filter((entry): entry is StoredUser => Boolean(entry))
@@ -2333,10 +2447,10 @@ export async function addFriend(userId: string, characterName?: string, email?: 
   const target =
     (characterName ? findUserByCharacterName(data, characterName) : null) ||
     (email ? data.users.find((entry) => entry.email === email.trim().toLowerCase()) || null : null);
-  if (!me) throw new Error("?曆??唬蝙?刻?");
-  if (!target) throw new Error("?曆??圈??脣?蝔?");
-  if (target.id === me.id) throw new Error("銝?撌勗??末??");
-  if (me.friendIds.includes(target.id)) throw new Error("撌脩??臬末??");
+  if (!me) throw new Error("找不到使用者。");
+  if (!target) throw new Error("找不到目標角色或 Email。");
+  if (target.id === me.id) throw new Error("不能加入自己為好友。");
+  if (me.friendIds.includes(target.id)) throw new Error("已經是好友。");
   me.friendIds.push(target.id);
   target.friendIds.push(me.id);
   await persist();
@@ -2345,7 +2459,7 @@ export async function addFriend(userId: string, characterName?: string, email?: 
 export async function getSignInStatus(userId: string): Promise<SignInStatus> {
   const data = await ensureLoaded();
   const user = data.users.find((entry) => entry.id === userId);
-  if (!user) throw new Error("?曆??唬蝙?刻?");
+  if (!user) throw new Error("找不到使用者。");
   const flashConfig = data.flashEventConfig;
   const forcedFlash = flashWindowInfo(data.forcedFlashEventEndsAt);
   const flashActive = forcedFlash.active || isRewardScheduleActive(flashConfig);
@@ -2368,26 +2482,26 @@ export async function getSignInStatus(userId: string): Promise<SignInStatus> {
 export async function claimDailySignIn(userId: string) {
   const { data, user, character } = await findCharacterForUpdate(userId);
   const dayKey = taipeiDayKey();
-  if (user.lastDailySignInOn === dayKey) throw new Error("隞予撌脩?蝪賢??");
-  if (!isRewardScheduleActive(data.dailyRewardConfig)) throw new Error("?桀?瘥?撠?");
+  if (user.lastDailySignInOn === dayKey) throw new Error("今天已經領過每日補給。");
+  if (!isRewardScheduleActive(data.dailyRewardConfig)) throw new Error("目前沒有可領取的每日補給。");
   user.lastDailySignInOn = dayKey;
   grantRewardTemplate(character, data.dailyRewardConfig.reward, data.dailyRewardConfig.title);
   appendRewardAnnouncement(data, data.dailyRewardConfig.title, data.dailyRewardConfig.reward);
   await persist();
-  return { message: "瘥蝪賢摰?", character: toPublicCharacter(character) };
+  return { message: "每日補給領取成功。", character: toPublicCharacter(character) };
 }
 
 export async function claimFlashSignIn(userId: string) {
   const { data, user, character } = await findCharacterForUpdate(userId);
   const flash = flashWindowInfo(data.forcedFlashEventEndsAt);
   const flashActive = flash.active || isRewardScheduleActive(data.flashEventConfig);
-  if (!flashActive) throw new Error("?桀?瘝?蝒蝪賢瘣餃?");
-  if (user.lastFlashSignInOn === taipeiDayKey()) throw new Error("隞予撌脩???蝒蝪賢");
+  if (!flashActive) throw new Error("目前沒有可領取的限時補給。");
+  if (user.lastFlashSignInOn === taipeiDayKey()) throw new Error("今天已經領過限時補給。");
   user.lastFlashSignInOn = taipeiDayKey();
   grantRewardTemplate(character, data.flashEventConfig.reward, data.flashEventConfig.title);
   appendRewardAnnouncement(data, data.flashEventConfig.title, data.flashEventConfig.reward);
   await persist();
-  return { message: "蝒蝪賢摰?", character: toPublicCharacter(character) };
+  return { message: "限時補給領取成功。", character: toPublicCharacter(character) };
 }
 
 export async function getInventory(userId: string): Promise<InventoryResult> {
@@ -2433,7 +2547,7 @@ function refreshCharacterLoadout(character: CharacterProfile) {
   }
   if (character.specialSkillSlot) {
     const special = gameplaySpecialSkillCatalog().find((entry) => entry.id === character.specialSkillSlot);
-    if (special) skills.add(`?寞?嚗?{special.name}`);
+    if (special) skills.add(`特殊技能：${special.name}`);
   }
   character.loadout = {
     ...base,
@@ -2466,16 +2580,16 @@ export async function getCharacterCatalog() {
 export async function selectSecondaryCharacter(userId: string, payload: { slot: number; characterId: string | null }) {
   const { character } = await findCharacterForUpdate(userId);
   const slotNumber = Number(payload.slot);
-  if (![1, 2, 3].includes(slotNumber)) throw new Error("甈∟?閫甈?銝迤蝣箝?");
+  if (![1, 2, 3].includes(slotNumber)) throw new Error("次要角色欄位必須是 1 到 3。");
   const nextCharacterId = payload.characterId || null;
   const catalog = gameplaySecondaryCharacterCatalog();
   const nextDefinition = nextCharacterId ? catalog.find((entry) => entry.id === nextCharacterId) : null;
-  if (nextCharacterId && !nextDefinition) throw new Error("?曆??圈活閬??脯?");
+  if (nextCharacterId && !nextDefinition) throw new Error("找不到次要角色。");
   if (nextCharacterId && character.secondaryCharacters.some((slot) => slot.slot !== slotNumber && slot.characterId === nextCharacterId)) {
-    throw new Error("???活閬??脖??賡?銴???");
+    throw new Error("同一個次要角色不能重複裝備。");
   }
   const currentSlot = character.secondaryCharacters.find((slot) => slot.slot === slotNumber);
-  if (!currentSlot) throw new Error("?曆??唳活閬??脫?雿?");
+  if (!currentSlot) throw new Error("找不到次要角色欄位。");
   const previousDefinition = currentSlot.characterId ? catalog.find((entry) => entry.id === currentSlot.characterId) : null;
   if (previousDefinition) applyStatBonus(character, effectiveSecondaryStatBonus(character, currentSlot, previousDefinition), -1);
   currentSlot.characterId = nextCharacterId;
@@ -2502,7 +2616,7 @@ export async function equipSpecialSkill(userId: string, payload: { skillId: stri
   const nextSkillId = payload.skillId || null;
   const previous = character.specialSkillSlot ? gameplaySpecialSkillCatalog().find((entry) => entry.id === character.specialSkillSlot) : null;
   const next = nextSkillId ? unlockedSpecialSkills(character).find((entry) => entry.id === nextSkillId) : null;
-  if (nextSkillId && !next) throw new Error("?畾??賢??芾圾??");
+  if (nextSkillId && !next) throw new Error("這個特殊技能尚未解鎖。");
   if (previous) applyStatBonus(character, statBonusFromSkill(previous), -1);
   character.specialSkillSlot = nextSkillId;
   if (next) applyStatBonus(character, statBonusFromSkill(next), 1);
@@ -2516,11 +2630,11 @@ export async function equipSpecialSkill(userId: string, payload: { skillId: stri
 export async function learnManual(userId: string, payload: { itemId: string }) {
   const { character } = await findCharacterForUpdate(userId);
   const index = character.inventory.findIndex((item) => item.id === payload.itemId);
-  if (index === -1) throw new Error("?曆??圈蝘???");
+  if (index === -1) throw new Error("找不到秘籍物品。");
   const item = character.inventory[index];
-  if (item.category !== "manual") throw new Error("?芣?蝘??臭誑摮貊???");
+  if (item.category !== "manual") throw new Error("這個物品不是秘籍。");
   const manualId = item.craftSource || item.name;
-  if (character.learnedManuals.some((manual) => manual.manualId === manualId)) throw new Error("?蝘?撌脩?摮豢???");
+  if (character.learnedManuals.some((manual) => manual.manualId === manualId)) throw new Error("這本秘籍已經學會。");
   character.inventory.splice(index, 1);
   const learned: LearnedManual = {
     manualId,
@@ -2540,9 +2654,9 @@ export async function learnManual(userId: string, payload: { itemId: string }) {
 export async function equipManual(userId: string, payload: { manualId: string }) {
   const { character } = await findCharacterForUpdate(userId);
   const manual = character.learnedManuals.find((entry) => entry.manualId === payload.manualId);
-  if (!manual) throw new Error("撠摮豢??蝘???");
-  if (character.equippedManuals.includes(manual.manualId)) throw new Error("?蝘?撌脩?鋆?銝准?");
-  if (character.equippedManuals.length >= 3) throw new Error("蝘??憭?賢??????研?");
+  if (!manual) throw new Error("尚未學會這本秘籍。");
+  if (character.equippedManuals.includes(manual.manualId)) throw new Error("這本秘籍已經裝備。");
+  if (character.equippedManuals.length >= 3) throw new Error("秘籍槽已滿，最多裝備 3 本。");
   character.equippedManuals.push(manual.manualId);
   applyStatBonus(character, manual.statBonus || {}, 1);
   refreshCharacterLoadout(character);
@@ -2555,7 +2669,7 @@ export async function equipManual(userId: string, payload: { manualId: string })
 export async function unequipManual(userId: string, payload: { manualId: string }) {
   const { character } = await findCharacterForUpdate(userId);
   const manual = character.learnedManuals.find((entry) => entry.manualId === payload.manualId);
-  if (!manual || !character.equippedManuals.includes(payload.manualId)) throw new Error("?蝘?瘝?鋆?銝准?");
+  if (!manual || !character.equippedManuals.includes(payload.manualId)) throw new Error("這本秘籍目前沒有裝備。");
   character.equippedManuals = character.equippedManuals.filter((manualId) => manualId !== payload.manualId);
   applyStatBonus(character, manual.statBonus || {}, -1);
   refreshCharacterLoadout(character);
@@ -2584,7 +2698,7 @@ export async function updateInventorySortOrder(userId: string, payload: Inventor
   });
   const groupIds = new Set(groupedItems.map((item) => item.id));
   if (orderedIds.some((itemId) => !groupIds.has(itemId)) || orderedIds.length !== groupedItems.length) {
-    throw new Error("??鞈???黎蝯?銝??");
+    throw new Error("背包排序資料與目前分類不一致。");
   }
 
   const sortedGroup = orderedIds
@@ -2612,11 +2726,11 @@ export async function updateInventorySortOrder(userId: string, payload: Inventor
 export async function equipInventoryItem(userId: string, payload: EquipItemPayload): Promise<InventoryResult> {
   const { character } = await findCharacterForUpdate(userId);
   const index = character.inventory.findIndex((item) => item.id === payload.itemId);
-  if (index === -1) throw new Error("?曆??圈????");
+  if (index === -1) throw new Error("找不到背包物品。");
   const item = character.inventory[index];
   const slot = payload.slot || item.equipmentSlot;
-  if (!slot) throw new Error("????鋆?甈?");
-  if (item.isBroken) throw new Error("憯??????質???");
+  if (!slot) throw new Error("這個物品沒有可裝備欄位。");
+  if (item.isBroken) throw new Error("已損壞的裝備不能裝備。");
   const previous = character.equipmentSlots[slot];
   if (previous) {
     removeItemBonus(character, previous);
@@ -2625,7 +2739,7 @@ export async function equipInventoryItem(userId: string, payload: EquipItemPaylo
   character.inventory.splice(index, 1);
   character.equipmentSlots[slot] = item;
   applyItemBonus(character, item);
-  appendNotification(character, "system", "鋆?霈", `${item.name} 撌脰?? ${equipmentSlotLabel(slot)}?`);
+  appendNotification(character, "system", "裝備更新", `${item.name} 已裝備到 ${equipmentSlotLabel(slot)}。`);
   await persist();
   return getInventory(userId);
 }
@@ -2633,11 +2747,11 @@ export async function equipInventoryItem(userId: string, payload: EquipItemPaylo
 export async function unequipInventoryItem(userId: string, payload: UnequipItemPayload): Promise<InventoryResult> {
   const { character } = await findCharacterForUpdate(userId);
   const item = character.equipmentSlots[payload.slot];
-  if (!item) throw new Error("閰脫?雿?????");
+  if (!item) throw new Error("這個欄位沒有裝備。");
   removeItemBonus(character, item);
   character.equipmentSlots[payload.slot] = null;
   mergeInventoryStack(character, item);
-  appendNotification(character, "system", "?訾?鋆?", `${item.name} 撌脣??啗??`);
+  appendNotification(character, "system", "裝備卸下", `${item.name} 已放回背包。`);
   await persist();
   return getInventory(userId);
 }
@@ -2647,13 +2761,18 @@ export async function listForgeOptions(): Promise<ForgeOption[]> {
   return forgeOptions();
 }
 
+export async function listForgeRecipes(): Promise<ForgeRecipe[]> {
+  await ensureLoaded();
+  return forgeRecipes();
+}
+
 export async function craftEquipment(userId: string, payload: CraftPayload) {
   const { data, character } = await findCharacterForUpdate(userId);
   processWorldProgress(data);
-  if (isCharacterBusy(character)) throw new Error("閫?桀?敹?銝哨?蝘餃???????銝??");
-  if (character.actionQueue.items.length > 0) throw new Error("?桀?敹?銝哨??⊥??脰???");
+  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法鍛造。");
+  if (character.actionQueue.items.length > 0) throw new Error("角色已有行動佇列，暫時無法鍛造。");
   if (!payload.materialItemIds?.length || payload.materialItemIds.length > 16) {
-    throw new Error("??閬??1 ??16 ????");
+    throw new Error("鍛造材料需介於 1 到 16 個。");
   }
 
   const materialTypes: MaterialType[] = [];
@@ -2664,10 +2783,10 @@ export async function craftEquipment(userId: string, payload: CraftPayload) {
   for (const [materialItemId, count] of materialCounts.entries()) {
     const source = character.inventory.find((item) => item.id === materialItemId);
     if (!source || source.category !== "material" || !source.materialType) {
-      throw new Error("??皜銝剜??⊥??");
+      throw new Error("鍛造只能使用背包中的材料。");
     }
     if (count > (source.quantity || 0)) {
-      throw new Error(`${source.name} ???交??????`);
+      throw new Error(`${source.name} 數量不足。`);
     }
     for (let index = 0; index < count; index += 1) {
       materialTypes.push(source.materialType);
@@ -2675,26 +2794,40 @@ export async function craftEquipment(userId: string, payload: CraftPayload) {
   }
   for (const [materialItemId, count] of materialCounts.entries()) {
     const removed = removeInventoryQuantity(character, materialItemId, count);
-    if (!removed) throw new Error("????憭望?");
+    if (!removed) throw new Error("扣除材料失敗。");
   }
 
+  // Minecraft 式精確配方優先：材料組合完全一致時打造出特殊產品
+  const matchedRecipe = matchForgeRecipe(materialTypes);
   const item = normalizeItem(
-    createForgedEquipment({
-      equipmentSlot: payload.equipmentSlot,
-      customName: payload.customName,
-      materialTypes,
-      stats: character.stats,
-      instinctLevel: character.instinctLevel,
-      forgeLevel: character.forgeLevel,
-      craftedBy: character.name
-    })
+    matchedRecipe
+      ? createRecipeEquipment({ recipe: matchedRecipe, forgeLevel: character.forgeLevel, craftedBy: character.name })
+      : createForgedEquipment({
+          equipmentSlot: payload.equipmentSlot,
+          customName: payload.customName,
+          materialTypes,
+          stats: character.stats,
+          instinctLevel: character.instinctLevel,
+          forgeLevel: character.forgeLevel,
+          craftedBy: character.name
+        })
   );
   mergeInventoryStack(character, item);
-  awardForgeExperience(character, 14 + materialTypes.length * 2);
+  awardForgeExperience(character, matchedRecipe ? 30 + materialTypes.length * 2 : 14 + materialTypes.length * 2);
   awardInstinctExperience(character, Math.max(2, Math.floor(materialTypes.length / 2)));
-  appendNotification(character, "system", "鍛造完成", `${item.name} 已完成強化。`);
+  appendNotification(
+    character,
+    "system",
+    matchedRecipe ? "特殊配方鍛造成功" : "鍛造完成",
+    matchedRecipe ? `配方「${matchedRecipe.name}」命中！打造出 ${item.name}。` : `${item.name} 已完成強化。`
+  );
   await persist();
-  return { message: `${item.name} 已完成強化`, character: toPublicCharacter(character), item };
+  return {
+    message: matchedRecipe ? `特殊配方命中！打造出 ${item.name}` : `${item.name} 已完成強化`,
+    character: toPublicCharacter(character),
+    item,
+    matchedRecipeName: matchedRecipe?.name || null
+  };
 }
 
 export async function repairEquipment(userId: string, payload: RepairPayload) {
@@ -2703,10 +2836,10 @@ export async function repairEquipment(userId: string, payload: RepairPayload) {
     payload.source === "equipment" && payload.slot
       ? character.equipmentSlots[payload.slot]
       : character.inventory.find((entry) => entry.id === payload.itemId) || null;
-  if (!item || item.maxDurability == null || item.durability == null) throw new Error("?辣鋆?銝靽桃?");
+  if (!item || item.maxDurability == null || item.durability == null) throw new Error("這個裝備無法修復。");
 
   const repairMaterials = Math.ceil((item.maxDurability - item.durability) / 10);
-  if (repairMaterials <= 0) throw new Error("?辣鋆??桀?銝?閬耨??");
+  if (repairMaterials <= 0) throw new Error("這個裝備不需要修復。");
   spendRepairMaterials(character, repairMaterials);
 
   const wasBroken = item.isBroken;
@@ -2715,9 +2848,9 @@ export async function repairEquipment(userId: string, payload: RepairPayload) {
   if (wasBroken && payload.source === "equipment") {
     applyItemBonus(character, item);
   }
-  appendNotification(character, "system", "靽桀儔摰?", `${item.name} 撌脫敺抵??`);
+  appendNotification(character, "system", "修復完成", `${item.name} 已恢復耐久。`);
   await persist();
-  return { message: `${item.name} 靽桀儔摰?`, character: toPublicCharacter(character), item, repairMaterials };
+  return { message: `${item.name} 修復完成`, character: toPublicCharacter(character), item, repairMaterials };
 }
 
 export async function listFactions() {
@@ -2735,14 +2868,14 @@ export async function getFactionState(userId: string): Promise<FactionState> {
 
 export async function selectFaction(userId: string, payload: SelectFactionPayload) {
   const { data, character } = await findCharacterForUpdate(userId);
-  if (character.factionId) throw new Error("撌脩??賊????鈭?憒?隤踵隢 admin ?");
+  if (character.factionId) throw new Error("已經加入陣營，若要重選請使用 admin 功能。");
   getFactionById(data, payload.factionId);
   character.factionId = payload.factionId;
   character.currentCastleId =
     data.castles.find((castle) => castle.ownerFactionId === payload.factionId && castle.isCapital)?.id ||
     data.castles.find((castle) => castle.ownerFactionId === payload.factionId)?.id ||
     null;
-  appendNotification(character, "faction", "????", "雿歇摰?????豢???");
+  appendNotification(character, "faction", "加入陣營", "已加入陣營。");
   await persist();
   return buildFactionState(data, userId);
 }
@@ -2784,30 +2917,30 @@ export async function enqueueCastleMove(userId: string, payload: TravelPayload):
 export async function enqueueCastleBuild(userId: string, payload: BuildFacilityPayload): Promise<FactionActionResult> {
   const { data, character } = await findCharacterForUpdate(userId);
   processWorldProgress(data);
-  if (!character.factionId) throw new Error("撠????");
-  if (isCharacterBusy(character)) throw new Error("閫?桀?敹?銝哨?蝘餃???????銝撱箄身");
+  if (!character.factionId) throw new Error("請先加入陣營。");
+  if (isCharacterBusy(character)) throw new Error("角色忙碌中，不能建設。");
   const castle = data.castles.find((entry) => entry.id === payload.castleId);
-  if (!castle) throw new Error("?曆??唳?暺?");
-  if (castle.ownerFactionId !== character.factionId) throw new Error("?芾撱箄身?芸楛?????暺?");
-  if (character.currentCastleId !== castle.id) throw new Error("?閬?蝘餃??啗府????潸絲撱箄身");
+  if (!castle) throw new Error("找不到城池。");
+  if (castle.ownerFactionId !== character.factionId) throw new Error("只能建設自己陣營的城池。");
+  if (character.currentCastleId !== castle.id) throw new Error("必須在該城池才能建設。");
   const facilityName = payload.facilityName.trim().slice(0, 20);
-  if (!facilityName) throw new Error("隢撓?亥身?賢?蝔?");
-  if (castle.facilities.includes(facilityName)) throw new Error("?身?賢歇摮");
-  if (castle.facilities.length >= castle.buildSlots) throw new Error("撱箄身瑽賢歇皛?");
+  if (!facilityName) throw new Error("請輸入設施名稱。");
+  if (castle.facilities.includes(facilityName)) throw new Error("這個設施已存在。");
+  if (castle.facilities.length >= castle.buildSlots) throw new Error("建設槽已滿。");
   if (data.factionProjects.some((project) => project.status === "active" && project.castleId === castle.id && project.facilityName === facilityName)) {
-    throw new Error("?身?賢歇蝬撱箄身銝?");
+    throw new Error("這個設施已經在建設中。");
   }
 
   const faction = getFactionById(data, character.factionId);
   const cost = buildFacilityCost(castle, faction);
-  if (faction.treasury.gold < cost.gold) throw new Error("?砍澈?馳銝雲");
+  if (faction.treasury.gold < cost.gold) throw new Error("公庫金幣不足。");
   faction.treasury.gold -= cost.gold;
   const project: FactionProject = {
     id: randomId("project"),
     factionId: faction.id,
     castleId: castle.id,
     kind: "build_facility",
-    label: `撱箄身 ${facilityName}`,
+    label: `建設 ${facilityName}`,
     startedAt: nowIso(),
     endsAt: new Date(Date.now() + projectDurationMs("build_facility", faction)).toISOString(),
     contributorUserIds: [userId],
@@ -2816,10 +2949,10 @@ export async function enqueueCastleBuild(userId: string, payload: BuildFacilityP
     treasuryCost: cost
   };
   data.factionProjects.unshift(project);
-  appendNotification(character, "faction", "撌亦???", `${project.label} 撌脤?憪`);
+  appendNotification(character, "faction", "工程開始", `${project.label} 已開始。`);
   await persist();
   return {
-    message: `${project.label} 撌脤?憪`,
+    message: `${project.label} 已開始。`,
     character: toPublicCharacter(character),
     factionState: buildFactionState(data, userId)
   };
@@ -2828,27 +2961,27 @@ export async function enqueueCastleBuild(userId: string, payload: BuildFacilityP
 export async function enqueueCastleRepair(userId: string, payload: RepairCastlePayload): Promise<FactionActionResult> {
   const { data, character } = await findCharacterForUpdate(userId);
   processWorldProgress(data);
-  if (!character.factionId) throw new Error("撠????");
+  if (!character.factionId) throw new Error("請先加入陣營。");
   const castle = data.castles.find((entry) => entry.id === payload.castleId);
-  if (!castle) throw new Error("?曆??唳?暺?");
-  if (castle.ownerFactionId !== character.factionId) throw new Error("?芾靽桀遣?芸楛?????暺?");
-  if (character.currentCastleId !== castle.id) throw new Error("?閬?蝘餃??啗府????潸絲靽桀遣");
-  if (castle.fortification >= castle.maxFortification) throw new Error("?撌脫遛");
-  if (isCharacterBusy(character)) throw new Error("閫?桀?敹?銝哨?蝘餃???????銝靽桀遣");
+  if (!castle) throw new Error("找不到城池。");
+  if (castle.ownerFactionId !== character.factionId) throw new Error("只能修建自己陣營的城池。");
+  if (character.currentCastleId !== castle.id) throw new Error("必須在該城池才能修建。");
+  if (castle.fortification >= castle.maxFortification) throw new Error("城牆耐久已滿。");
+  if (isCharacterBusy(character)) throw new Error("角色忙碌中，不能修建。");
   if (data.factionProjects.some((project) => project.status === "active" && project.castleId === castle.id && project.kind === "repair_castle")) {
-    throw new Error("?漣?歇?耨撱箏極蝔脰?銝?");
+    throw new Error("這座城池已經有修建工程。");
   }
 
   const faction = getFactionById(data, character.factionId);
   const cost = repairCastleCost(castle, faction);
-  if (faction.treasury.gold < cost.gold) throw new Error("?砍澈?馳銝雲");
+  if (faction.treasury.gold < cost.gold) throw new Error("公庫金幣不足。");
   faction.treasury.gold -= cost.gold;
   const project: FactionProject = {
     id: randomId("project"),
     factionId: faction.id,
     castleId: castle.id,
     kind: "repair_castle",
-    label: `靽桀儔 ${castle.name} ?`,
+    label: `修建 ${castle.name} 城防`,
     startedAt: nowIso(),
     endsAt: new Date(Date.now() + projectDurationMs("repair_castle", faction)).toISOString(),
     contributorUserIds: [userId],
@@ -2857,10 +2990,10 @@ export async function enqueueCastleRepair(userId: string, payload: RepairCastleP
     treasuryCost: { gold: cost.gold }
   };
   data.factionProjects.unshift(project);
-  appendNotification(character, "faction", "撌亦???", `${project.label} 撌脤?憪`);
+  appendNotification(character, "faction", "工程開始", `${project.label} 已開始。`);
   await persist();
   return {
-    message: `${project.label} 撌脤?憪`,
+    message: `${project.label} 已開始。`,
     character: toPublicCharacter(character),
     factionState: buildFactionState(data, userId)
   };
@@ -2869,20 +3002,20 @@ export async function enqueueCastleRepair(userId: string, payload: RepairCastleP
 export async function joinFactionProject(userId: string, projectId: string): Promise<FactionActionResult> {
   const { data, character } = await findCharacterForUpdate(userId);
   processWorldProgress(data);
-  if (!character.factionId) throw new Error("撠????");
-  if (isCharacterBusy(character)) throw new Error("閫?桀?敹?銝哨?蝘餃???????銝?撌亦?");
+  if (!character.factionId) throw new Error("請先加入陣營。");
+  if (isCharacterBusy(character)) throw new Error("角色忙碌中，不能協助工程。");
   const project = data.factionProjects.find((entry) => entry.id === projectId && entry.status === "active");
-  if (!project) throw new Error("?曆??圈脰?銝剔?撌亦?");
-  if (project.factionId !== character.factionId) throw new Error("銝??嗡?????極蝔?");
-  if (character.currentCastleId !== project.castleId) throw new Error("?閬??典極蝔??冽?暺??賢???");
+  if (!project) throw new Error("找不到進行中的工程。");
+  if (project.factionId !== character.factionId) throw new Error("不能協助其他陣營的工程。");
+  if (character.currentCastleId !== project.castleId) throw new Error("必須在工程所在城池才能協助。");
   if (!project.contributorUserIds.includes(userId)) {
     recalibrateProjectEndsAt(project, project.contributorUserIds.length + 1);
     project.contributorUserIds.push(userId);
   }
-  appendNotification(character, "faction", "?撌亦?", `雿??乩? ${project.label}?`);
+  appendNotification(character, "faction", "協助工程", `已協助 ${project.label}。`);
   await persist();
   return {
-    message: `撌脣???${project.label}`,
+    message: `已協助 ${project.label}`,
     character: toPublicCharacter(character),
     factionState: buildFactionState(data, userId)
   };
@@ -2891,10 +3024,10 @@ export async function joinFactionProject(userId: string, projectId: string): Pro
 export async function leaveFactionProject(userId: string, projectId: string): Promise<FactionActionResult> {
   const { data, character } = await findCharacterForUpdate(userId);
   processWorldProgress(data);
-  if (!character.factionId) throw new Error("撠????");
+  if (!character.factionId) throw new Error("請先加入陣營。");
   const project = data.factionProjects.find((entry) => entry.id === projectId && entry.status === "active");
-  if (!project) throw new Error("?曆??圈脰?銝剔?撌亦?");
-  if (!project.contributorUserIds.includes(userId)) throw new Error("雿??券極蝔葉");
+  if (!project) throw new Error("找不到進行中的工程。");
+  if (!project.contributorUserIds.includes(userId)) throw new Error("你尚未加入這個工程。");
   const nextContributorIds = project.contributorUserIds.filter((entry) => entry !== userId);
   if (nextContributorIds.length === 0) {
     const faction = data.factions.find((entry) => entry.id === project.factionId);
@@ -2909,7 +3042,7 @@ export async function leaveFactionProject(userId: string, projectId: string): Pr
   appendNotification(character, "faction", "同盟專案", `已退出 ${project.label}`);
   await persist();
   return {
-    message: `撌脤??${project.label}`,
+    message: `已退出 ${project.label}`,
     character: toPublicCharacter(character),
     factionState: buildFactionState(data, userId)
   };
@@ -2917,20 +3050,20 @@ export async function leaveFactionProject(userId: string, projectId: string): Pr
 
 export async function requestCooperation(userId: string, payload: CooperatePayload) {
   const { data, character, user } = await findCharacterForUpdate(userId);
-  if (!character.factionId) throw new Error("撠????");
-  if (!isFactionLeader(data, userId) && user.role !== "admin") throw new Error("?芣?????admin ?臭誑???");
+  if (!character.factionId) throw new Error("請先加入陣營。");
+  if (!isFactionLeader(data, userId) && user.role !== "admin") throw new Error("只有陣營領袖或 admin 可以提出合作。");
   const faction = getFactionById(data, character.factionId);
   const target = getFactionById(data, payload.targetFactionId);
-  if (faction.id === target.id) throw new Error("銝撠撌梢???箏?雿?");
-  if (faction.allyIds.includes(target.id)) throw new Error("撌脩??舐???");
-  if (faction.allyIds.length >= 2 || target.allyIds.length >= 2) throw new Error("?嗡葉銝?寧??撌脤?銝?");
+  if (faction.id === target.id) throw new Error("不能向自己的陣營提出合作。");
+  if (faction.allyIds.includes(target.id)) throw new Error("雙方已經是盟友。");
+  if (faction.allyIds.length >= 2 || target.allyIds.length >= 2) throw new Error("任一陣營最多只能維持 2 個盟友。");
   const existing = data.diplomacyRequests.find(
     (request) =>
       request.status === "pending" &&
       ((request.fromFactionId === faction.id && request.toFactionId === target.id) ||
         (request.fromFactionId === target.id && request.toFactionId === faction.id))
   );
-  if (existing) throw new Error("撌脩???????雿隢?");
+  if (existing) throw new Error("已經有待處理的合作申請。");
 
   data.diplomacyRequests.unshift({
     id: randomId("dip"),
@@ -2947,18 +3080,18 @@ export async function requestCooperation(userId: string, payload: CooperatePaylo
 
 export async function respondCooperation(userId: string, payload: CooperateRespondPayload) {
   const { data, character, user } = await findCharacterForUpdate(userId);
-  if (!character.factionId) throw new Error("撠????");
-  if (!isFactionLeader(data, userId) && user.role !== "admin") throw new Error("?芣?????admin ?臭誑????");
+  if (!character.factionId) throw new Error("請先加入陣營。");
+  if (!isFactionLeader(data, userId) && user.role !== "admin") throw new Error("只有陣營領袖或 admin 可以回應合作。");
   const request = data.diplomacyRequests.find((entry) => entry.id === payload.requestId);
-  if (!request || request.status !== "pending") throw new Error("?曆??啣??????唾?");
-  if (request.toFactionId !== character.factionId && user.role !== "admin") throw new Error("雿??質????隢?");
+  if (!request || request.status !== "pending") throw new Error("找不到待處理的合作申請。");
+  if (request.toFactionId !== character.factionId && user.role !== "admin") throw new Error("你不能回應其他陣營的合作申請。");
 
   request.status = payload.accept ? "accepted" : "rejected";
   request.respondedAt = nowIso();
   if (payload.accept) {
     const from = getFactionById(data, request.fromFactionId);
     const to = getFactionById(data, request.toFactionId);
-    if (from.allyIds.length >= 2 || to.allyIds.length >= 2) throw new Error("?嗡葉銝?寧??撌脤?銝?");
+    if (from.allyIds.length >= 2 || to.allyIds.length >= 2) throw new Error("任一陣營最多只能維持 2 個盟友。");
     from.allyIds = Array.from(new Set([...from.allyIds, to.id]));
     to.allyIds = Array.from(new Set([...to.allyIds, from.id]));
   }
@@ -2968,11 +3101,11 @@ export async function respondCooperation(userId: string, payload: CooperateRespo
 
 export async function declareWar(userId: string, payload: DeclareWarPayload) {
   const { data, character, user } = await findCharacterForUpdate(userId);
-  if (!character.factionId) throw new Error("撠????");
-  if (!isFactionLeader(data, userId) && user.role !== "admin") throw new Error("?芣?????admin ?臭誑摰?");
+  if (!character.factionId) throw new Error("請先加入陣營。");
+  if (!isFactionLeader(data, userId) && user.role !== "admin") throw new Error("只有陣營領袖或 admin 可以宣戰。");
   const faction = getFactionById(data, character.factionId);
   const target = getFactionById(data, payload.targetFactionId);
-  if (faction.id === target.id) throw new Error("銝撠撌勗恐??");
+  if (faction.id === target.id) throw new Error("不能對自己的陣營宣戰。");
   faction.warTargetIds = Array.from(new Set([...faction.warTargetIds, target.id]));
   await persist();
   return buildFactionState(data, userId);
@@ -2980,11 +3113,11 @@ export async function declareWar(userId: string, payload: DeclareWarPayload) {
 
 function factionTechLabel(techKey: FactionTechKey) {
   const labels: Record<FactionTechKey, string> = {
-    castle: "?",
-    defense: "?脩戌",
-    attack: "?餅?",
-    support: "?舀",
-    offense_speed: "?脫?漲"
+    castle: "城建",
+    defense: "防禦",
+    attack: "攻擊",
+    support: "支援",
+    offense_speed: "攻城機動"
   };
   return labels[techKey];
 }
@@ -2995,19 +3128,19 @@ function factionTechUpgradeCost(level: number) {
 
 export async function upgradeFactionTech(userId: string, payload: FactionTechUpgradePayload) {
   const { data, character, user } = await findCharacterForUpdate(userId);
-  if (!character.factionId) throw new Error("撠????");
-  if (!isFactionLeader(data, userId) && user.role !== "admin") throw new Error("?芣?????admin ?臭誑???祆?蝘?");
+  if (!character.factionId) throw new Error("請先加入陣營。");
+  if (!isFactionLeader(data, userId) && user.role !== "admin") throw new Error("只有陣營領袖或 admin 可以升級科技。");
   const faction = getFactionById(data, character.factionId);
   faction.tech = normalizeFactionTech(faction.tech);
-  if (!Object.prototype.hasOwnProperty.call(faction.tech, payload.techKey)) throw new Error("?芰????");
+  if (!Object.prototype.hasOwnProperty.call(faction.tech, payload.techKey)) throw new Error("未知的科技項目。");
   const currentLevel = faction.tech[payload.techKey];
   const cost = factionTechUpgradeCost(currentLevel);
-  if (faction.treasury.gold < cost) throw new Error("?砍澈?馳銝雲");
+  if (faction.treasury.gold < cost) throw new Error("公庫金幣不足。");
 
   faction.treasury.gold -= cost;
   faction.tech[payload.techKey] = currentLevel + 1;
   for (const member of data.characters.filter((entry) => entry.factionId === faction.id)) {
-    appendNotification(member, "faction", "?祆?蝘???", `${factionTechLabel(payload.techKey)} ????Lv.${currentLevel + 1}?`);
+    appendNotification(member, "faction", "公會科技升級", `${factionTechLabel(payload.techKey)} 已升到 Lv.${currentLevel + 1}。`);
   }
   await persist();
   return buildFactionState(data, userId);
@@ -3020,15 +3153,15 @@ export async function listFactionMarket(userId: string) {
 
 export async function createMarketListing(userId: string, payload: MarketListPayload) {
   const { data, character, user } = await findCharacterForUpdate(userId);
-  if (!character.factionId) throw new Error("?閬??????雿輻撣");
+  if (!character.factionId) throw new Error("請先加入陣營才能使用玩家市場。");
   const source = character.inventory.find((item) => item.id === payload.itemId);
-  if (!source) throw new Error("?曆??啗?銝???");
+  if (!source) throw new Error("找不到要上架的物品。");
   const maxQuantity = Math.max(1, source.quantity || 1);
   const price = clampedInt(payload.price, 1, GAME_LIMITS.marketPrice, 0);
-  if (price <= 0) throw new Error("?寞敹?憭扳 0");
+  if (price <= 0) throw new Error("上架價格必須大於 0。");
   const quantity = clampedInt(payload.quantity || 1, 1, maxQuantity, 1);
   const removed = removeInventoryQuantity(character, payload.itemId, quantity);
-  if (!removed) throw new Error("?曆??啗?銝???");
+  if (!removed) throw new Error("找不到要上架的物品。");
 
   data.marketListings.unshift({
     id: randomId("listing"),
@@ -3047,21 +3180,21 @@ export async function createMarketListing(userId: string, payload: MarketListPay
 
 export async function buyMarketListing(userId: string, payload: MarketBuyPayload) {
   const { data, character } = await findCharacterForUpdate(userId);
-  if (!character.factionId) throw new Error("?閬??????雿輻撣");
+  if (!character.factionId) throw new Error("請先加入陣營才能使用玩家市場。");
   const index = data.marketListings.findIndex((listing) => listing.id === payload.listingId);
-  if (index === -1) throw new Error("?曆??圈??");
+  if (index === -1) throw new Error("找不到市場商品。");
   const listing = data.marketListings[index];
-  if (!visibleFactionIds(data, character.factionId).has(listing.factionId)) throw new Error("雿?銝???");
-  if (character.gold < listing.price) throw new Error("?馳銝雲");
+  if (!visibleFactionIds(data, character.factionId).has(listing.factionId)) throw new Error("目前看不到這筆市場商品。");
+  if (character.gold < listing.price) throw new Error("金幣不足。");
 
   const sellerCharacter = data.characters.find((entry) => entry.userId === listing.sellerUserId);
-  if (!sellerCharacter) throw new Error("鞈?振閫銝???");
+  if (!sellerCharacter) throw new Error("找不到賣家角色。");
 
   character.gold -= listing.price;
   sellerCharacter.gold += listing.price;
   mergeInventoryStack(character, normalizeItem(listing.item));
   data.marketListings.splice(index, 1);
-  appendNotification(sellerCharacter, "faction", "撣?桀", `${listing.item.name} 撌脣?綽??脣? ${listing.price} ?馳?`);
+  appendNotification(sellerCharacter, "faction", "市場售出", `${listing.item.name} 已售出，獲得 ${listing.price} 金幣。`);
   await persist();
   return buildFactionState(data, userId);
 }
@@ -3069,7 +3202,7 @@ export async function buyMarketListing(userId: string, payload: MarketBuyPayload
 export async function cancelMarketListing(userId: string, listingId: string) {
   const { data, character } = await findCharacterForUpdate(userId);
   const index = data.marketListings.findIndex((listing) => listing.id === listingId && listing.sellerUserId === userId);
-  if (index === -1) throw new Error("?曆??圈??芸楛????");
+  if (index === -1) throw new Error("找不到可取消的市場商品。");
   const [listing] = data.marketListings.splice(index, 1);
   mergeInventoryStack(character, normalizeItem(listing.item));
   await persist();
@@ -3086,23 +3219,79 @@ type InstantBattleConfig = {
   battleExp: number;
   materialType: MaterialType;
   materialQuantity: number;
+  scenePurpose?: CastleState["mapNodePurpose"];
+  difficulty?: SoloBattleDifficulty;
 };
 
-function soloDifficultyConfig(difficulty: SoloBattlePayload["difficulty"], castle: CastleState): InstantBattleConfig {
+function sceneDifficultyForCastle(castle: CastleState): SoloBattleDifficulty {
+  if (castle.mapNodePurpose === "guild_boss") return "elite";
+  if (castle.mapNodePurpose === "mining") return castle.layer >= 3 ? "elite" : "hard";
+  if (castle.mapNodePurpose === "trade" || castle.mapNodePurpose === "solo_combat") return castle.layer >= 3 ? "hard" : "normal";
+  if (castle.mapNodePurpose === "capital") return "normal";
+  return castle.layer >= 2 ? "normal" : "easy";
+}
+
+function soloDifficultyConfig(difficulty: SoloBattleDifficulty, castle: CastleState, battleLevel = 1): InstantBattleConfig {
   const configs = gameplaySoloDifficulties();
   const config = configs[difficulty] || configs.normal;
   const materialType: MaterialType =
     castle.mapNodePurpose === "mining" ? "silver_ore" : castle.mapNodePurpose === "guild_boss" ? "stardust" : "iron_ore";
+  // 敵方與獎勵都跟著戰鬥等級成長，讓挑戰與收益曲線一致
+  const levelFactor = Math.max(0, battleLevel - 1);
   return {
     context: "adventure",
     bossName: `${castle.name} ${config.label}探險`,
-    bossHp: config.hp + castle.layer * 18,
-    bossAttack: config.attack + castle.layer * 3,
+    bossHp: Math.round((config.hp + castle.layer * 18) * (1 + levelFactor * 0.22 + levelFactor * levelFactor * 0.012)),
+    bossAttack: Math.round((config.attack + castle.layer * 3) * (1 + levelFactor * 0.08)),
     maxRounds: 8,
-    rewardGold: config.gold + castle.layer * 8,
-    battleExp: config.exp + castle.layer * 6,
+    rewardGold: Math.round((config.gold + castle.layer * 8) * (1 + levelFactor * 0.05)),
+    battleExp: Math.round((config.exp + castle.layer * 6) * (1 + levelFactor * 0.1)),
     materialType,
-    materialQuantity: config.qty
+    materialQuantity: config.qty,
+    scenePurpose: castle.mapNodePurpose,
+    difficulty
+  };
+}
+
+function adventureEncounter(purpose: CastleState["mapNodePurpose"] = "solo_combat", round: number) {
+  const pools: Record<CastleState["mapNodePurpose"], Array<{ name: string; intro: string; hp: number; attack: number }>> = {
+    capital: [
+      { name: "城門訓練傀儡", intro: "守備教官放出訓練傀儡，測試你的起手節奏。", hp: 0.9, attack: 0.85 },
+      { name: "潛入斥候", intro: "城門陰影裡竄出一名潛入斥候。", hp: 1, attack: 1 },
+      { name: "失控守城機關", intro: "舊式守城機關突然失控，必須立刻壓制。", hp: 1.1, attack: 1.05 }
+    ],
+    gathering: [
+      { name: "田野野豬群", intro: "農野被野豬群踩亂，牠們正朝補給車衝來。", hp: 0.85, attack: 0.9 },
+      { name: "偷糧盜鼠王", intro: "糧倉旁傳來翻箱聲，盜鼠王帶著小怪現身。", hp: 0.95, attack: 0.95 },
+      { name: "毒藤寄生獸", intro: "採集點的藤蔓纏上腳踝，寄生獸從土裡鑽出。", hp: 1, attack: 1 }
+    ],
+    solo_combat: [
+      { name: "荒野狼群", intro: "遠處狼嚎回應，荒野狼群從兩側包抄。", hp: 1, attack: 1 },
+      { name: "裂谷蠻兵", intro: "裂谷邊的蠻兵敲盾挑釁，逼你正面交戰。", hp: 1.1, attack: 1.08 },
+      { name: "遊蕩菁英怪", intro: "道路中央出現遊蕩菁英怪，牠守著一只補給箱。", hp: 1.18, attack: 1.12 }
+    ],
+    guild_boss: [
+      { name: "前哨守衛隊長", intro: "公會前哨的守衛隊長攔下隊伍，要求一對一試煉。", hp: 1.2, attack: 1.12 },
+      { name: "爬塔偵察兵", intro: "爬塔偵察兵帶著戰術圖撤退，必須先截住他。", hp: 1.12, attack: 1.18 },
+      { name: "儀式護衛", intro: "討伐營周圍的儀式護衛展開防線。", hp: 1.25, attack: 1.15 }
+    ],
+    mining: [
+      { name: "晶化礦獸", intro: "礦壁裂開，晶化礦獸拖著礦脈碎片衝出來。", hp: 1.15, attack: 1.05 },
+      { name: "噬礦蟲群", intro: "腳下礦砂塌陷，噬礦蟲群從裂縫中湧出。", hp: 1.05, attack: 1.15 },
+      { name: "深層岩殼怪", intro: "深層通道傳來重擊聲，岩殼怪堵住退路。", hp: 1.28, attack: 1.12 }
+    ],
+    trade: [
+      { name: "商路盜匪", intro: "商隊旗幟倒在路邊，盜匪從貨車後現身。", hp: 0.98, attack: 1.05 },
+      { name: "走私法師", intro: "走私法師撕開卷軸，準備用幻術拖延你。", hp: 1, attack: 1.12 },
+      { name: "攔路破甲兵", intro: "關卡前的破甲兵舉起重槌，企圖打斷你的連擊。", hp: 1.12, attack: 1.1 }
+    ]
+  };
+  const encounter = randomFrom(pools[purpose] || pools.solo_combat);
+  const roundScale = 1 + Math.max(0, round - 1) * 0.06;
+  return {
+    ...encounter,
+    hp: encounter.hp * roundScale,
+    attack: encounter.attack * roundScale
   };
 }
 
@@ -3170,7 +3359,9 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
   character.secondaryCharacters.forEach((slot) => {
     slot.cooldownUntilTick = null;
   });
-  let bossHp = config.bossHp;
+  let bossHp = config.context === "adventure" ? 0 : config.bossHp;
+  let currentTargetName = config.bossName;
+  let currentAttack = config.bossAttack;
   const battleTypeLabel = config.context === "adventure" ? "探險" : config.context === "guildBoss" ? "公會 Boss" : "世界 Boss";
   const logs: string[] = [`【${battleTypeLabel}】目標：${config.bossName}`, `開戰：${character.name} 進入 ${battleTypeLabel}。`];
   const specialEvents: BattleSpecialEvent[] = [];
@@ -3186,37 +3377,56 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
     if (character.hp <= 0) break;
     if (config.context !== "adventure" && bossHp <= 0) break;
     if (config.context === "adventure" && bossHp <= 0) {
-      bossHp = config.bossHp + round * 14;
+      const encounter = adventureEncounter(config.scenePurpose, round);
+      currentTargetName = encounter.name;
+      currentAttack = Math.round(config.bossAttack * encounter.attack);
+      bossHp = Math.round((config.bossHp + round * 14) * encounter.hp);
+      const difficultyName = ({ easy: "簡單", normal: "普通", hard: "困難", elite: "菁英" } as Record<SoloBattleDifficulty, string>)[config.difficulty || "normal"];
+      logs.push(`第 ${round} 步：${encounter.intro}`);
+      logs.push(`遭遇 ${currentTargetName}，場景難度 ${difficultyName}，HP ${bossHp}。`);
+      if (round > 1 && Math.random() < 0.28) {
+        const recovered = Math.max(2, Math.round(character.stats.spirit / 2));
+        character.hp = clamp(character.hp + recovered, 0, character.maxHp);
+        logs.push(`場景事件：找到短暫補給，回復 ${recovered} HP。`);
+      }
     }
     roundCount = round;
     if (config.context === "adventure") {
-      const sceneEvents = [
-        "荒草晃動，一群野獸衝出來。",
-        "舊礦道深處傳出低吼，晶化獸擋住去路。",
-        "破碎營地旁出現菁英怪，牠正守著補給箱。",
-        "地面陷阱觸發，隊伍被迫邊閃避邊迎戰。",
-        "短暫休整後，下一段路出現更強的怪物。"
-      ];
-      logs.push(`第 ${round} 步：${randomFrom(sceneEvents)}`);
+      logs.push(`第 ${round} 步交戰：${currentTargetName} 剩餘 ${bossHp} HP。`);
     } else {
       logs.push(`第 ${round} 回合：${config.bossName} 仍有 ${bossHp} HP。`);
     }
-    const baseDamage =
-      12 +
-      character.battleLevel * 4 +
-      character.stats.attack * 2 +
-      Math.floor(character.stats.technique * 1.5) +
-      Math.floor(character.stats.luck * 0.6);
-    bossHp = Math.max(0, bossHp - baseDamage);
-    participant.damageDealt += baseDamage;
-    logs.push(`${character.name} 攻擊 ${config.bossName}，造成 ${baseDamage} 點傷害。`);
+    // 精神回魔、體力回精力，支撐連擊持久度
+    character.mp = clamp(character.mp + Math.floor(character.stats.spirit / 6), 0, character.maxMp);
+    character.energy = clamp(character.energy + Math.floor(character.stats.vitality / 8), 0, character.maxEnergy);
+
+    const usesMp = character.className === "mage";
+    const combo = resolveComboAttack({
+      actorUserId: character.userId,
+      actorName: character.name,
+      className: character.className,
+      targetName: currentTargetName,
+      stats: character.stats,
+      battleLevel: Math.max(1, character.battleLevel || 1),
+      baseDamage: comboBaseDamageFor(character.className, character.stats, Math.max(1, character.battleLevel || 1)),
+      availableResource: usesMp ? character.mp : character.energy
+    });
+    if (usesMp) {
+      character.mp = clamp(character.mp - combo.resourceSpent, 0, character.maxMp);
+    } else {
+      character.energy = clamp(character.energy - combo.resourceSpent, 0, character.maxEnergy);
+    }
+    bossHp = Math.max(0, bossHp - combo.totalDamage);
+    participant.damageDealt += combo.totalDamage;
+    logs.push(...combo.logs);
+    specialEvents.push(...combo.events);
 
     const attackEvents = rollAttackSpecialEvents({
       actorUserId: character.userId,
       actorName: character.name,
-      bossName: config.bossName,
+      bossName: currentTargetName,
       stats: character.stats,
-      baseDamage
+      baseDamage: combo.totalDamage
     });
     if (attackEvents.extraDamage > 0) {
       bossHp = Math.max(0, bossHp - attackEvents.extraDamage);
@@ -3229,7 +3439,7 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
     specialEvents.push(...attackEvents.events);
     logs.push(...attackEvents.events.map((event) => event.message));
 
-    const secondaryEvents = rollInstantSecondarySkills(character, config.bossName, round);
+    const secondaryEvents = rollInstantSecondarySkills(character, currentTargetName, round);
     if (secondaryEvents.damageTotal > 0) {
       bossHp = Math.max(0, bossHp - secondaryEvents.damageTotal);
       participant.damageDealt += secondaryEvents.damageTotal;
@@ -3243,28 +3453,30 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
 
     if (bossHp <= 0) {
       if (config.context === "adventure") {
-        logs.push(`第 ${round} 步清理完成，隊伍繼續前進。`);
+        logs.push(`第 ${round} 步：擊倒 ${currentTargetName}，隊伍繼續前進。`);
         continue;
       }
       break;
     }
 
     const bossCounter = rollBossCounterEvent({
-      bossName: config.bossName,
+      bossName: currentTargetName,
       tick: round,
       livingCount: 1,
-      attackPower: config.bossAttack
+      attackPower: currentAttack
     });
     if (bossCounter) {
       specialEvents.push(bossCounter);
       logs.push(bossCounter.message);
     }
 
-    const incoming = Math.max(
-      1,
-      Math.round((config.bossAttack + round * 2 + (bossCounter?.impact.damage || 0)) * (attackEvents.bossAttackModifier || 1) * secondaryEvents.bossAttackModifier) -
-        Math.floor(character.stats.defense / 3)
+    const incomingRaw = Math.round(
+      (currentAttack + round * 2 + (bossCounter?.impact.damage || 0)) *
+        (attackEvents.bossAttackModifier || 1) *
+        secondaryEvents.bossAttackModifier *
+        combo.bossAttackModifier
     );
+    const incoming = mitigateIncomingDamage(incomingRaw, character.stats);
     const dodge = rollDangerDodge({
       actorUserId: character.userId,
       actorName: character.name,
@@ -3281,7 +3493,7 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
     character.mp = clamp(character.mp - Math.ceil(damage / 4), 0, character.maxMp);
     character.energy = clamp(character.energy - 4, 0, character.maxEnergy);
     participant.damageTaken += damage;
-    logs.push(`${config.bossName} 反擊 ${character.name}，造成 ${damage} 點傷害。`);
+    logs.push(`${currentTargetName} 反擊 ${character.name}，造成 ${damage} 點傷害。`);
   }
 
   const won = config.context === "adventure" ? character.hp > 0 && roundCount >= adventureSteps : bossHp <= 0;
@@ -3294,7 +3506,7 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
   } else {
     logs.push("特殊事件：本場沒有觸發特殊事件。");
   }
-  logs.push(won ? `${config.bossName} 已被擊敗，取得勝利。` : `${character.name} 戰敗，等待下次挑戰。`);
+  logs.push(won ? (config.context === "adventure" ? `${config.bossName} 探險完成，取得勝利。` : `${config.bossName} 已被擊敗，取得勝利。`) : `${character.name} 戰敗，等待下次挑戰。`);
   return {
     won,
     logs,
@@ -3314,10 +3526,12 @@ export async function startAdventureBattle(userId: string, payload: AdventureBat
   if (!castle) throw new Error("找不到探險場景。");
   if (castle.ownerFactionId !== character.factionId) throw new Error("只能在自己陣營的場景探險。");
 
-  const config = soloDifficultyConfig(payload.difficulty, castle);
+  const config = soloDifficultyConfig(sceneDifficultyForCastle(castle), castle, Math.max(1, character.battleLevel || 1));
   const result = runInstantBattle(character, config);
   const materialQuantity = result.won ? config.materialQuantity : Math.max(1, Math.floor(config.materialQuantity / 2));
-  const gold = result.won ? config.rewardGold : Math.floor(config.rewardGold * 0.25);
+  // 運氣提高金幣繳獲
+  const luckBonus = 1 + Math.max(0, character.stats.luck) * 0.004;
+  const gold = Math.round((result.won ? config.rewardGold : config.rewardGold * 0.25) * luckBonus);
   const battleExp = result.won ? config.battleExp : Math.floor(config.battleExp * 0.4);
   character.gold = clamp(character.gold + gold, 0, GAME_LIMITS.goldBalance);
   mergeInventoryStack(character, createMaterialItem(config.materialType, materialQuantity));
@@ -3377,14 +3591,15 @@ export async function startFactionTowerBattle(userId: string, payload: FactionTo
 
   const isBoss = payload.mode === "boss";
   const layer = faction.tower.currentLayer;
+  const towerLevelFactor = 1 + Math.max(0, (character.battleLevel || 1) - 1) * 0.16;
   const config: InstantBattleConfig = {
     context: "guildBoss",
     bossName: isBoss ? `${faction.name} 第 ${layer} 層 ${faction.tower.bossName}` : `${castle.name} 公會 Boss 準備戰`,
-    bossHp: isBoss ? faction.tower.bossHp + layer * 60 : 130 + layer * 20,
-    bossAttack: isBoss ? 24 + layer * 4 : 16 + layer * 2,
+    bossHp: Math.round((isBoss ? faction.tower.bossHp + layer * 60 : 130 + layer * 20) * towerLevelFactor),
+    bossAttack: Math.round((isBoss ? 24 + layer * 4 : 16 + layer * 2) * (1 + Math.max(0, (character.battleLevel || 1) - 1) * 0.05)),
     maxRounds: isBoss ? 10 : 7,
-    rewardGold: isBoss ? 140 + layer * 35 : 45 + layer * 10,
-    battleExp: isBoss ? 80 + layer * 18 : 30 + layer * 8,
+    rewardGold: Math.round((isBoss ? 140 + layer * 35 : 45 + layer * 10) * towerLevelFactor),
+    battleExp: Math.round((isBoss ? 80 + layer * 18 : 30 + layer * 8) * towerLevelFactor),
     materialType: isBoss ? "stardust" : "iron_ore",
     materialQuantity: isBoss ? 2 : 1
   };
@@ -3682,18 +3897,30 @@ function processSiegeTicks(data: StoreData, siege: SiegeBattleState) {
       ? Math.max(rules.minorFortificationDamage, Math.floor((attackerPower * rules.breakthroughMultiplier - defenderPower) / 18) + rules.minorFortificationDamage - Math.floor(resistance / 10))
       : Math.max(0, rules.minorFortificationDamage - Math.floor(resistance / 18));
     let attackerEnergySpent = 0;
+    let turretDamageTotal = 0;
+    // 自動砲臺：城防工事獨立輸出，無人駐守時城池靠它磨死攻方；城牆越殘破火力越弱
+    const turretPower = Math.round(
+      (castle.autoDefensePower + facilityBonus.autoDefense + castle.fortification * 0.4 + defenseTechLevel * 8) * rules.autoDefenseScaling
+    );
     const retreatedUserIds: string[] = [];
     for (const participant of activeAttackers) {
       const character = data.characters.find((entry) => entry.userId === participant.userId);
       if (!character) continue;
       const energyLoss = Math.max(1, rules.baseEnergyCost - Math.floor((character.stats.vitality + character.stats.tenacity) / 12));
-      const hpLoss = Math.max(1, Math.floor(defenderPower / Math.max(20, activeAttackers.length * 32)) - Math.floor((character.stats.defense + character.stats.tenacity) / 9));
+      const turretDamage = Math.max(
+        activeDefenders.length === 0 ? 2 : 0,
+        Math.floor(turretPower / (6 + activeAttackers.length * 3)) - Math.floor((character.stats.defense + character.stats.tenacity) / 6)
+      );
+      const meleePressure = Math.floor((defenderPlayerPower * rules.defenderTerrainMultiplier) / Math.max(20, activeAttackers.length * 32));
+      const hpLoss = Math.max(1, meleePressure - Math.floor((character.stats.defense + character.stats.tenacity) / 9) + turretDamage);
       const mpLoss = Math.max(0, Math.floor(autoDefensePower / 45) - Math.floor(character.stats.spirit / 12));
       applySiegeParticipantCost(character, participant, { hpLoss, mpLoss, energyLoss });
       attackerEnergySpent += energyLoss;
+      turretDamageTotal += turretDamage;
       participant.damageDealt += Math.max(1, Math.floor(attackerPower / Math.max(1, activeAttackers.length * 6)));
       if (participant.status !== "active") retreatedUserIds.push(participant.userId);
     }
+    const turretDamageAverage = Math.round(turretDamageTotal / Math.max(1, activeAttackers.length));
     for (const participant of activeDefenders) {
       const character = data.characters.find((entry) => entry.userId === participant.userId);
       if (!character) continue;
@@ -3708,9 +3935,9 @@ function processSiegeTicks(data: StoreData, siege: SiegeBattleState) {
     siege.logs.push({
       tick,
       createdAt: nowIso(),
-      message: brokeDefense
-        ? `攻方突破守勢，城防損耗 ${fortificationDamage}。`
-        : `守方與自動防禦擋住攻勢，城防僅損耗 ${fortificationDamage}。`,
+      message: `${activeDefenders.length === 0 ? "無人駐守，自動砲臺獨力開火；" : ""}${
+        brokeDefense ? `攻方突破守勢，城牆損耗 ${fortificationDamage}` : `守勢穩固，城牆僅損耗 ${fortificationDamage}`
+      }；砲臺對每名攻方造成約 ${turretDamageAverage} 點壓制傷害。`,
       attackerPower,
       defenderPower,
       autoDefensePower,
@@ -3842,9 +4069,9 @@ export async function attackCastle(userId: string, castleId: string, participant
     });
 
   const warBonus = myFaction.warTargetIds.includes(targetFactionId) ? 1.15 : 1;
-  const bossSkill = randomFrom(castle.bossSkills.length > 0 ? castle.bossSkills : ["??"]);
-  const bossHpModifier = bossSkill.includes("憯急除") || bossSkill.includes("?脩戌") ? 1.15 : 1;
-  const bossAttackModifier = bossSkill.includes("?") || bossSkill.includes("?渡") || bossSkill.includes("??") ? 1.2 : 1;
+  const bossSkill = randomFrom(castle.bossSkills.length > 0 ? castle.bossSkills : ["重擊"]);
+  const bossHpModifier = bossSkill.includes("防禦姿態") || bossSkill.includes("士氣重整") || bossSkill.includes("壁壘反擊") ? 1.15 : 1;
+  const bossAttackModifier = bossSkill.includes("重擊") || bossSkill.includes("統領號令") || bossSkill.includes("破甲") ? 1.2 : 1;
   const bossHp = Math.round((castle.isCapital ? castle.bossHp * 1.25 : castle.bossHp) * bossHpModifier);
   const bossAttack = Math.round((castle.isCapital ? castle.bossAttack * 1.25 : castle.bossAttack) * bossAttackModifier);
   const rawPower = participants.reduce(
@@ -4089,7 +4316,7 @@ export async function adminCreateAnnouncement(payload: AdminAnnouncementPayload)
 export async function adminToggleAnnouncement(payload: AdminAnnouncementTogglePayload) {
   const data = await ensureLoaded();
   const announcement = data.announcements.find((entry) => entry.id === payload.announcementId);
-  if (!announcement) throw new Error("?曆??啣??");
+  if (!announcement) throw new Error("找不到公告。");
   announcement.active = payload.active;
   await persist();
   return data.announcements;
@@ -4097,7 +4324,7 @@ export async function adminToggleAnnouncement(payload: AdminAnnouncementTogglePa
 
 export async function adminCompleteQueue(payload: AdminCompleteQueuePayload) {
   const target = await resolveCharacterByName(payload.targetCharacterName);
-  if (!target) throw new Error("?曆??圈??脣?蝔?");
+  if (!target) throw new Error("找不到目標角色。");
   const { data, character } = await findCharacterForUpdate(target.userId);
   const now = Date.now() + 10 * 24 * 60 * 60 * 1000;
   for (const item of character.actionQueue.items) {
@@ -4110,7 +4337,7 @@ export async function adminCompleteQueue(payload: AdminCompleteQueuePayload) {
 
 export async function adminFillResources(payload: AdminFillResourcesPayload) {
   const target = await resolveCharacterByName(payload.targetCharacterName);
-  if (!target) throw new Error("?曆??圈??脣?蝔?");
+  if (!target) throw new Error("找不到目標角色。");
   const { character } = await findCharacterForUpdate(target.userId);
   character.hp = character.maxHp;
   character.mp = character.maxMp;
@@ -4121,7 +4348,7 @@ export async function adminFillResources(payload: AdminFillResourcesPayload) {
 
 export async function adminGrantItem(payload: AdminGrantItemPayload) {
   const target = await resolveCharacterByName(payload.targetCharacterName);
-  if (!target) throw new Error("?曆??圈??脣?蝔?");
+  if (!target) throw new Error("找不到目標角色。");
   const { character } = await findCharacterForUpdate(target.userId);
   const item = buildGrantedItem(payload);
   mergeInventoryStack(character, item);
@@ -4132,7 +4359,7 @@ export async function adminGrantItem(payload: AdminGrantItemPayload) {
 
 export async function adminAdjustResources(payload: AdminAdjustResourcesPayload) {
   const target = await resolveCharacterByName(payload.targetCharacterName);
-  if (!target) throw new Error("?曆??圈??脣?蝔?");
+  if (!target) throw new Error("找不到目標角色。");
   const { character } = await findCharacterForUpdate(target.userId);
   character.gold = clampedInt(payload.gold ?? character.gold, 0, GAME_LIMITS.goldBalance, character.gold);
   character.materials = clampedInt(payload.materials ?? character.materials, 0, GAME_LIMITS.resourceQuantity, character.materials);
@@ -4142,7 +4369,7 @@ export async function adminAdjustResources(payload: AdminAdjustResourcesPayload)
 
 export async function adminGrantResources(payload: AdminGrantResourcesPayload) {
   const target = await resolveCharacterByName(payload.targetCharacterName);
-  if (!target) throw new Error("?曆??圈??脣?蝔?");
+  if (!target) throw new Error("找不到目標角色。");
   const { character } = await findCharacterForUpdate(target.userId);
   const gold = clampedInt(payload.gold, 0, GAME_LIMITS.grantGold, 0);
   const resources = (payload.resources || [])
@@ -4160,7 +4387,7 @@ export async function adminGrantResources(payload: AdminGrantResourcesPayload) {
 
 export async function adminBattleTest(payload: AdminBattleTestPayload) {
   const target = await resolveCharacterByName(payload.targetCharacterName);
-  if (!target) throw new Error("?曆??圈??脣?蝔?");
+  if (!target) throw new Error("找不到目標角色。");
   const { character } = await findCharacterForUpdate(target.userId);
   const monsterHp = clampedInt(payload.monsterHp, 1, GAME_LIMITS.monsterHp, 1);
   const monsterAttack = clampedInt(payload.monsterAttack, 1, GAME_LIMITS.monsterAttack, 1);
@@ -4190,17 +4417,17 @@ export async function adminBattleTest(payload: AdminBattleTestPayload) {
         userId: character.userId,
         displayName: character.name,
         className: character.className,
-    damageDealt: won ? monsterHp : Math.floor(power / 6),
+        damageDealt: won ? monsterHp : Math.floor(power / 6),
         healingDone: 0,
         damageTaken
       }
     ],
     logs: [
-      `?格?嚗?{payload.monsterName}`,
-      `蝯?嚗?{won ? "?" : "憭望?"}`,
-      `???瑕拿嚗?{won ? monsterHp : Math.floor(power / 6)}`,
-      `?踹??瑕拿嚗?{damageTaken}`,
-      `?芰?餅?嚗?{monsterAttack}`
+      `怪物：${payload.monsterName}`,
+      `結果：${won ? "勝利" : "失敗"}`,
+      `造成傷害：${won ? monsterHp : Math.floor(power / 6)}`,
+      `承受傷害：${damageTaken}`,
+      `怪物攻擊：${monsterAttack}`
     ]
   };
   await recordBattle(record);
@@ -4244,7 +4471,7 @@ export async function adminUpdateRewardConfig(payload: AdminRewardConfigPayload)
 export async function adminToggleClass(payload: AdminClassTogglePayload) {
   const data = await ensureLoaded();
   const config = data.classConfigs.find((entry) => entry.className === payload.className);
-  if (!config) throw new Error("?曆??啗璆剛身摰?");
+  if (!config) throw new Error("找不到職業設定。");
   config.active = payload.active;
   await persist();
   return data.classConfigs;
@@ -4254,7 +4481,7 @@ export async function adminAssignLeader(payload: AdminAssignLeaderPayload) {
   const data = await ensureLoaded();
   const faction = getFactionById(data, payload.factionId);
   const targetCharacter = findCharacterByName(data, payload.targetCharacterName);
-  if (!targetCharacter) throw new Error("?曆??圈??脣?蝔?");
+  if (!targetCharacter) throw new Error("找不到目標角色。");
   if (targetCharacter.factionId !== faction.id) {
     targetCharacter.factionId = faction.id;
   }
@@ -4271,7 +4498,7 @@ type AdminSetCastleOwnerPayload = {
 export async function adminSetCastleOwner(payload: AdminSetCastleOwnerPayload) {
   const data = await ensureLoaded();
   const castle = data.castles.find((entry) => entry.id === payload.castleId);
-  if (!castle) throw new Error("?曆??啣?瘙?");
+  if (!castle) throw new Error("找不到城池。");
   getFactionById(data, payload.ownerFactionId);
   castle.ownerFactionId = payload.ownerFactionId;
   castle.fortification = castle.maxFortification;

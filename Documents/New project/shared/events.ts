@@ -27,11 +27,21 @@ export type BattleContext = BattleKind | "raid" | "castle" | "factionBoss" | "so
 export type BattleSpecialEventKind =
   | "lucky_crit"
   | "technique_combo"
+  | "combo_chain"
+  | "combo_finisher"
   | "secondary_skill"
   | "armor_break"
   | "ally_support"
   | "danger_dodge"
   | "boss_counter";
+
+export type ComboHitDetail = {
+  index: number;
+  moveName: string;
+  damage: number;
+  crit: boolean;
+  finisher: boolean;
+};
 
 export type BattleSpecialEvent = {
   kind: BattleSpecialEventKind;
@@ -44,6 +54,8 @@ export type BattleSpecialEvent = {
     damageReduction?: number;
     bossAttackModifier?: number;
     shield?: number;
+    comboLength?: number;
+    comboHits?: ComboHitDetail[];
   };
 };
 
@@ -553,6 +565,20 @@ export type ForgeOption = {
   recommendedMaterials?: MaterialType[];
 };
 
+export type ForgeRecipe = {
+  id: string;
+  name: string;
+  equipmentSlot: EquipmentSlotKey;
+  /** 精確配方：材料種類與數量需完全一致（Minecraft 式） */
+  ingredients: Partial<Record<MaterialType, number>>;
+  effectSummary: string;
+  statBonus: Partial<CharacterStats>;
+  durability: number;
+  rarity: ItemRarity;
+  qualityTier: QualityTier;
+  lore?: string;
+};
+
 export type QueueMutationResult = {
   message: string;
   character: CharacterProfile;
@@ -727,6 +753,8 @@ export type CastleState = {
   rewardSummary: string;
   mapNodePurpose: MapNodePurpose;
   layerBenefit: string;
+  /** 城牆被動維修的上次結算時間 */
+  wallRepairAt?: string | null;
 };
 
 export type CastleGarrison = {
@@ -872,7 +900,6 @@ export type SoloDifficultyConfig = {
 };
 
 export type SoloBattlePayload = {
-  difficulty: SoloBattleDifficulty;
   mapNodeId: string;
 };
 
@@ -1004,6 +1031,7 @@ export type GameConfig = {
   soloDifficulties: Record<SoloBattleDifficulty, SoloDifficultyConfig>;
   shopItems: ShopItem[];
   forgeOptions: ForgeOption[];
+  forgeRecipes: ForgeRecipe[];
   siegeRules: SiegeRulesConfig;
   statRules: StatRulesConfig;
 };

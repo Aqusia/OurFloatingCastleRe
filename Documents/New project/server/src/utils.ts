@@ -12,6 +12,7 @@ import type {
   EquipmentSlots,
   FactionSummary,
   ForgeOption,
+  ForgeRecipe,
   GameConfig,
   InventoryItem,
   LoadoutSummary,
@@ -411,23 +412,27 @@ export function maxEnergyForCharacter(character: Pick<CharacterProfile, "level" 
 }
 
 export function nextLevelRequirement(level: number) {
-  return Math.max(50, level * 100);
+  // 前期升得快、後期放緩的成長曲線：L1≈110、L5≈520、L10≈1340、L16≈2630、L20≈3650
+  return Math.max(60, Math.round(70 + Math.pow(Math.max(1, level), 1.5) * 40));
 }
 
-export function bossBaseHp(memberCount: number, battleContext: BattleContext = "raid") {
-  const base = 200 + memberCount * 90;
+export function bossBaseHp(memberCount: number, battleContext: BattleContext = "raid", averageBattleLevel = 1) {
+  const levelFactor = Math.max(0, averageBattleLevel - 1);
+  const levelScale = 1 + levelFactor * 0.2 + levelFactor * levelFactor * 0.01;
+  const base = (180 + memberCount * 80) * levelScale;
   if (battleContext === "castle") return Math.round(base * 1.15);
   if (battleContext === "factionBoss" || battleContext === "guildBoss") return Math.round(base * 1.3);
   if (battleContext === "worldBoss") return Math.round(base * 1.6);
-  return base;
+  return Math.round(base);
 }
 
-export function bossBaseAttack(memberCount: number, battleContext: BattleContext = "raid") {
-  const base = 12 + memberCount * 3;
+export function bossBaseAttack(memberCount: number, battleContext: BattleContext = "raid", averageBattleLevel = 1) {
+  const levelScale = 1 + Math.max(0, averageBattleLevel - 1) * 0.07;
+  const base = (11 + memberCount * 3) * levelScale;
   if (battleContext === "castle") return Math.round(base * 1.1);
   if (battleContext === "factionBoss" || battleContext === "guildBoss") return Math.round(base * 1.25);
   if (battleContext === "worldBoss") return Math.round(base * 1.45);
-  return base;
+  return Math.round(base);
 }
 
 export function randomFrom<T>(items: T[]) {
@@ -689,6 +694,162 @@ export function forgeOptions(): ForgeOption[] {
   return runtimeGameConfig?.forgeOptions || defaultForgeOptions();
 }
 
+// Minecraft 式精確配方：材料種類與數量完全一致才會命中，命中產出特殊強力裝備
+export function defaultForgeRecipes(): ForgeRecipe[] {
+  return [
+    {
+      id: "recipe_obsidian_blade",
+      name: "黑曜霸刃",
+      equipmentSlot: "weapon",
+      ingredients: { obsidian_ore: 5, iron_ore: 2 },
+      effectSummary: "攻擊 +8，技巧 +2",
+      statBonus: { attack: 8, technique: 2 },
+      durability: 160,
+      rarity: "epic",
+      qualityTier: "epic",
+      lore: "五份黑曜配雙鐵芯，刃口吞光。"
+    },
+    {
+      id: "recipe_starfall_staff",
+      name: "隕星法杖",
+      equipmentSlot: "weapon",
+      ingredients: { stardust: 3, bone: 2 },
+      effectSummary: "智慧 +7，精神 +2",
+      statBonus: { intelligence: 7, spirit: 2 },
+      durability: 120,
+      rarity: "epic",
+      qualityTier: "epic",
+      lore: "星塵纏繞獸骨，引落星之力。"
+    },
+    {
+      id: "recipe_silver_aegis_armor",
+      name: "白銀聖鎧",
+      equipmentSlot: "armor",
+      ingredients: { silver_ore: 4, cloth: 3 },
+      effectSummary: "防禦 +6，精神 +2，體力 +2",
+      statBonus: { defense: 6, spirit: 2, vitality: 2 },
+      durability: 180,
+      rarity: "epic",
+      qualityTier: "epic",
+      lore: "銀光織入聖布，邪祟不侵。"
+    },
+    {
+      id: "recipe_dragonbone_bulwark",
+      name: "龍骨重盾",
+      equipmentSlot: "offhand",
+      ingredients: { bone: 5, obsidian_ore: 2 },
+      effectSummary: "防禦 +5，韌性 +4",
+      statBonus: { defense: 5, tenacity: 4 },
+      durability: 170,
+      rarity: "epic",
+      qualityTier: "epic",
+      lore: "巨獸脊骨鑲黑曜，撞不碎的牆。"
+    },
+    {
+      id: "recipe_starmark_circlet",
+      name: "星紋頭環",
+      equipmentSlot: "helmet",
+      ingredients: { stardust: 2, silver_ore: 2, cloth: 1 },
+      effectSummary: "智慧 +4，運氣 +3",
+      statBonus: { intelligence: 4, luck: 3 },
+      durability: 130,
+      rarity: "rare",
+      qualityTier: "masterwork",
+      lore: "星紋在額前流轉，靈感不斷。"
+    },
+    {
+      id: "recipe_swiftshadow_kneepads",
+      name: "疾影皮護膝",
+      equipmentSlot: "kneepad",
+      ingredients: { leather: 4, cloth: 2 },
+      effectSummary: "技巧 +5，運氣 +2",
+      statBonus: { technique: 5, luck: 2 },
+      durability: 120,
+      rarity: "rare",
+      qualityTier: "masterwork",
+      lore: "輕若無物，步法快人一拍。"
+    },
+    {
+      id: "recipe_prospector_pick",
+      name: "礦工尋寶鎬",
+      equipmentSlot: "weapon",
+      ingredients: { copper_ore: 4, iron_ore: 2 },
+      effectSummary: "運氣 +6，攻擊 +2",
+      statBonus: { luck: 6, attack: 2 },
+      durability: 110,
+      rarity: "rare",
+      qualityTier: "masterwork",
+      lore: "老礦工說：銅四鐵二，挖到寶。"
+    },
+    {
+      id: "recipe_ironwall_helm",
+      name: "鐵壁戰盔",
+      equipmentSlot: "helmet",
+      ingredients: { iron_ore: 5, leather: 2 },
+      effectSummary: "防禦 +5，體力 +2",
+      statBonus: { defense: 5, vitality: 2 },
+      durability: 150,
+      rarity: "rare",
+      qualityTier: "masterwork",
+      lore: "五鐵雙革，正面硬接重錘。"
+    }
+  ];
+}
+
+export function forgeRecipes(): ForgeRecipe[] {
+  return runtimeGameConfig?.forgeRecipes?.length ? runtimeGameConfig.forgeRecipes : defaultForgeRecipes();
+}
+
+export function createRecipeEquipment(input: { recipe: ForgeRecipe; forgeLevel: number; craftedBy?: string }): InventoryItem {
+  const { recipe } = input;
+  const quality = qualityTierMeta(recipe.qualityTier);
+  const maxDurability = Math.round(recipe.durability + input.forgeLevel * 3);
+  const itemLevel = Math.max(3, Math.round(input.forgeLevel + Object.values(recipe.ingredients).reduce((sum, qty) => sum + (qty || 0), 0)));
+  return {
+    id: randomId("item"),
+    name: `${recipe.name}（${quality.label}）`,
+    category: "equipment",
+    effectSummary: `特殊配方產物：${recipe.effectSummary}${recipe.lore ? `。${recipe.lore}` : ""}`,
+    equipmentSlot: recipe.equipmentSlot,
+    rarity: recipe.rarity,
+    craftSource: Object.entries(recipe.ingredients).map(([type, qty]) => `${type}x${qty}`).join(","),
+    statBonus: { ...recipe.statBonus },
+    attackBonus: recipe.statBonus.attack || 0,
+    defenseBonus: recipe.statBonus.defense || 0,
+    luckBonus: recipe.statBonus.luck || 0,
+    tenacityBonus: recipe.statBonus.tenacity || 0,
+    durability: maxDurability,
+    maxDurability,
+    isBroken: false,
+    sortOrder: 0,
+    stackable: false,
+    quantity: 1,
+    materialType: null,
+    prefixName: recipe.name,
+    suffixName: quality.label,
+    qualityTier: recipe.qualityTier,
+    itemLevel,
+    sellPrice: Math.max(80, itemLevel * 20),
+    salvagePrice: Math.max(30, itemLevel * 8),
+    craftedBy: input.craftedBy || null,
+    craftedAt: nowIso()
+  };
+}
+
+export function matchForgeRecipe(materialTypes: MaterialType[], recipes = forgeRecipes()): ForgeRecipe | null {
+  const counts = new Map<MaterialType, number>();
+  for (const type of materialTypes) counts.set(type, (counts.get(type) || 0) + 1);
+  for (const recipe of recipes) {
+    const entries = Object.entries(recipe.ingredients) as Array<[MaterialType, number]>;
+    if (!entries.length) continue;
+    const exact =
+      entries.length === counts.size &&
+      entries.every(([type, qty]) => counts.get(type) === qty);
+    if (exact) return recipe;
+  }
+  return null;
+}
+
 export function defaultSoloDifficulties(): GameConfig["soloDifficulties"] {
   return {
     easy: { label: "簡單", hp: 90, attack: 12, gold: 24, exp: 18, qty: 1, risk: "低風險" },
@@ -735,6 +896,7 @@ export function defaultGameConfig(): GameConfig {
     soloDifficulties: defaultSoloDifficulties(),
     shopItems: defaultShopItems(),
     forgeOptions: defaultForgeOptions(),
+    forgeRecipes: defaultForgeRecipes(),
     siegeRules: defaultSiegeRules(),
     statRules: defaultStatRules()
   };

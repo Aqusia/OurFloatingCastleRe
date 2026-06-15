@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  COMBO_HARD_CAP,
+  comboCapForLevel,
+  mitigateIncomingDamage,
+  resolveComboAttack,
   rollAttackSpecialEvents,
   rollBossCounterEvent,
   rollDangerDodge
@@ -34,7 +38,7 @@ afterEach(() => {
 
 describe("rollAttackSpecialEvents", () => {
   it("returns no events when all rolls fail", () => {
-    withRandom([0.99, 0.99, 0.99, 0.99], () => {
+    withRandom([0.99, 0.99], () => {
       const result = rollAttackSpecialEvents({
         actorName: "Hero",
         bossName: "Boss",
@@ -51,26 +55,8 @@ describe("rollAttackSpecialEvents", () => {
     });
   });
 
-  it("emits a lucky_crit event when the luck roll succeeds", () => {
-    withRandom([0.0, 0.99, 0.99, 0.99], () => {
-      const result = rollAttackSpecialEvents({
-        actorUserId: "u1",
-        actorName: "Hero",
-        bossName: "Boss",
-        stats: baseStats,
-        baseDamage: 100
-      });
-
-      expect(result.events).toHaveLength(1);
-      expect(result.events[0].kind).toBe("lucky_crit");
-      expect(result.events[0].actorUserId).toBe("u1");
-      expect(result.extraDamage).toBeGreaterThan(0);
-      expect(result.events[0].impact?.damage).toBe(result.extraDamage);
-    });
-  });
-
   it("emits armor_break with a 0.9 boss attack modifier", () => {
-    withRandom([0.99, 0.99, 0.0, 0.99], () => {
+    withRandom([0.0, 0.99], () => {
       const result = rollAttackSpecialEvents({
         actorName: "Hero",
         bossName: "Boss",
@@ -85,7 +71,7 @@ describe("rollAttackSpecialEvents", () => {
   });
 
   it("does not emit ally_support when ally hp ratio is above 0.72", () => {
-    withRandom([0.99, 0.99, 0.99, 0.0], () => {
+    withRandom([0.99, 0.0], () => {
       const result = rollAttackSpecialEvents({
         actorName: "Hero",
         bossName: "Boss",
@@ -101,7 +87,7 @@ describe("rollAttackSpecialEvents", () => {
   });
 
   it("emits ally_support when ally hp ratio is below threshold and roll succeeds", () => {
-    withRandom([0.99, 0.99, 0.99, 0.0], () => {
+    withRandom([0.99, 0.0], () => {
       const result = rollAttackSpecialEvents({
         actorName: "Hero",
         bossName: "Boss",
@@ -115,6 +101,81 @@ describe("rollAttackSpecialEvents", () => {
       expect(support).toBeDefined();
       expect(result.supportHealing).toBeGreaterThan(0);
     });
+  });
+});
+
+describe("comboCapForLevel", () => {
+  it("matches battle level up to the hard cap", () => {
+    expect(comboCapForLevel(1)).toBe(1);
+    expect(comboCapForLevel(16)).toBe(16);
+    expect(comboCapForLevel(99)).toBe(COMBO_HARD_CAP);
+  });
+});
+
+describe("resolveComboAttack", () => {
+  const input = {
+    actorName: "Hero",
+    className: "warrior" as const,
+    targetName: "Boss",
+    stats: baseStats,
+    battleLevel: 16,
+    baseDamage: 20,
+    availableResource: 100
+  };
+
+  it("never exceeds the level combo cap and damage sums match", () => {
+    for (let run = 0; run < 50; run += 1) {
+      const result = resolveComboAttack(input);
+      expect(result.comboLength).toBeGreaterThanOrEqual(1);
+      expect(result.comboLength).toBeLessThanOrEqual(comboCapForLevel(input.battleLevel));
+      expect(result.totalDamage).toBe(result.hits.reduce((sum, hit) => sum + hit.damage, 0));
+      expect(result.resourceSpent).toBeLessThanOrEqual(input.availableResource);
+    }
+  });
+
+  it("always lands exactly one hit at battle level 1", () => {
+    const result = resolveComboAttack({ ...input, battleLevel: 1 });
+    expect(result.comboLength).toBe(1);
+    expect(result.hits[0].index).toBe(1);
+    expect(result.resourceSpent).toBe(0);
+  });
+
+  it("stops the chain when resources run out", () => {
+    const result = resolveComboAttack({ ...input, availableResource: 0 });
+    expect(result.comboLength).toBe(1);
+  });
+
+  it("emits a combo event with per-hit details for chains of 2+", () => {
+    withRandom([0.0, 0.99, 0.5, 0.0, 0.99, 0.5, 0.99], () => {
+      const result = resolveComboAttack(input);
+      if (result.comboLength >= 2) {
+        expect(result.events).toHaveLength(1);
+        expect(result.events[0].impact.comboHits).toHaveLength(result.comboLength);
+        expect(result.events[0].impact.comboLength).toBe(result.comboLength);
+      }
+    });
+  });
+
+  it("marks a finisher on long chains and lowers the boss attack modifier", () => {
+    let sawFinisher = false;
+    for (let run = 0; run < 200 && !sawFinisher; run += 1) {
+      const result = resolveComboAttack({ ...input, battleLevel: 20, stats: { ...baseStats, technique: 40 } });
+      if (result.finisherTriggered) {
+        sawFinisher = true;
+        expect(result.hits[result.hits.length - 1].finisher).toBe(true);
+        expect(result.bossAttackModifier).toBeLessThan(1);
+      }
+    }
+    expect(sawFinisher).toBe(true);
+  });
+});
+
+describe("mitigateIncomingDamage", () => {
+  it("reduces damage with defense and tenacity but never below 1", () => {
+    const tanky = mitigateIncomingDamage(100, { ...baseStats, defense: 80, tenacity: 40 });
+    const squishy = mitigateIncomingDamage(100, { ...baseStats, defense: 0, tenacity: 0 });
+    expect(tanky).toBeLessThan(squishy);
+    expect(mitigateIncomingDamage(1, { ...baseStats, defense: 999, tenacity: 999 })).toBe(1);
   });
 });
 
