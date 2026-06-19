@@ -81,6 +81,24 @@ export type StatRuleEntry = {
 
 export type StatRulesConfig = Record<CharacterStatKey, StatRuleEntry>;
 
+export type TowerRulesConfig = {
+  baseStepsRequired: number;
+  stepsPerSceneBand: number;
+  maxStepsRequired: number;
+  rushEnergyCost: number;
+  huntEnergyCost: number;
+  rushDoubleStepChance: number;
+  rushSingleStepChance: number;
+  huntStepChance: number;
+  bossFindChanceRush: number;
+  bossFindChanceHunt: number;
+  minorBossChanceRush: number;
+  minorBossChanceHunt: number;
+  bossHpMultiplier: number;
+  bossAttackMultiplier: number;
+  rewardMultiplier: number;
+};
+
 export type ActionType =
   | "fishing"
   | "jump_rope"
@@ -698,13 +716,22 @@ export type FactionTechMap = Record<FactionTechKey, number>;
 
 export type MapNodePurpose = "capital" | "gathering" | "solo_combat" | "guild_boss" | "mining" | "trade";
 
+export type TowerAdvanceMode = "rush" | "hunt";
+
+export type TowerEncounterKind = "travel" | "minor_boss" | "boss_unlocked";
+
 export type FactionTowerProgress = {
   currentLayer: number;
   highestClearedLayer: number;
   bossName: string;
   bossHp: number;
+  bossAttack: number;
   rewardSummary: string;
   progress: number;
+  steps: number;
+  stepsRequired: number;
+  bossUnlocked: boolean;
+  lastEvent: string | null;
 };
 
 export type FactionSummary = {
@@ -924,6 +951,29 @@ export type FactionTowerBattlePayload = {
   mode: "skirmish" | "boss";
 };
 
+export type FactionTowerAdvancePayload = {
+  castleId?: string;
+  mode: TowerAdvanceMode;
+};
+
+export type FactionTowerAdvanceResult = {
+  message: string;
+  character: CharacterProfile;
+  factionState: FactionState;
+  battleRecord?: BattleRecordSummary | null;
+  encounter: {
+    kind: TowerEncounterKind;
+    mode: TowerAdvanceMode;
+    layer: number;
+    stepsGained: number;
+    rewardGold: number;
+    battleExp: number;
+    materialType: MaterialType;
+    materialQuantity: number;
+    bossUnlocked: boolean;
+  };
+};
+
 export type FactionTowerBattleResult = {
   message: string;
   character: CharacterProfile;
@@ -1034,6 +1084,7 @@ export type GameConfig = {
   forgeRecipes: ForgeRecipe[];
   siegeRules: SiegeRulesConfig;
   statRules: StatRulesConfig;
+  towerRules: TowerRulesConfig;
 };
 
 export type AdminConfigSection =
@@ -1048,6 +1099,7 @@ export type AdminConfigSection =
   | "forge"
   | "siegeRules"
   | "statRules"
+  | "towerRules"
   | "announcements";
 
 export type AdminGameConfigResponse = {

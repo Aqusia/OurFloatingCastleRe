@@ -19,7 +19,8 @@
 
 - `client/src/App.tsx`
   - 主畫面與大部分頁面邏輯都集中在這裡
-  - 包含角色、行動、戰鬥、陣營、揹包、鍛造、消息、好友、商店
+  - 包含角色、行動、爬塔、戰鬥、陣營、揹包、鍛造、消息、好友、商店
+  - 頂部 HUD 導覽、公告列、頁面標題列與主要切頁狀態也在這裡
   - 登入 / 建立角色畫面已抽成 `AuthScreen`
 - `client/src/lib/api.ts`
   - 所有 HTTP API 呼叫集中處
@@ -35,6 +36,7 @@
 - 使用與主遊戲相同的 `/api/auth/login` 登入。
 - 登入後只允許 `user.role === "admin"` 載入參數頁。
 - 目前以 schema-driven 表單管理遊戲參數分類，不再要求 admin 直接編輯 JSON。
+- 「爬塔規則」頁額外顯示 FUN SCORE 與調參建議，邏輯在 `admin-client/src/main.tsx`，樣式在 `admin-client/src/style.css`。
 - `admin-client/src/main.tsx` 的 `sections` / `FieldDef` 是後台擴充入口；新增參數時優先補欄位定義與預設新增模板。
 - 主遊戲 `client/` 不再顯示 Admin 導覽入口。
 
@@ -142,16 +144,20 @@
 3. `/api/admin/config/:section` 只更新單一分類，避免整包設定被誤覆蓋。
 4. `/api/admin/config/:section/reset` 還原單一分類預設。
 5. 後台參數頁用表單 schema 產生輸入元件，支援文字、數字、開關、下拉、多選、時間、陣列增刪與巢狀欄位。
-6. `server/src/persistence/localStore.ts` 會正規化舊 store；沒有 `gameConfig`、`siegeRules`、`statRules` 或 `garrisonAssignment` 時自動補預設值。
-7. `server/src/utils.ts` 的技能、次要角色、戰鬥難度、商店、鍛造、攻城與屬性規則都會先讀取 store override，沒有 override 才使用預設值。
+6. `towerRules` 是爬塔與攻打節奏的調參入口，控制步數需求、趕路 / 攻擊機率、Boss / 小王遭遇、強度倍率與獎勵倍率。
+7. `server/src/persistence/localStore.ts` 會正規化舊 store；沒有 `gameConfig`、`siegeRules`、`statRules`、`towerRules` 或 `garrisonAssignment` 時自動補預設值。
+8. `server/src/utils.ts` 的技能、次要角色、戰鬥難度、商店、鍛造、攻城、爬塔與屬性規則都會先讀取 store override，沒有 override 才使用預設值。
 
 ### 探險、公會 Boss、世界 Boss
 
 1. 探險入口是 `/battles/adventure/start`，舊 `/battles/solo/start` 保留為 alias。
-2. 公會 Boss 入口是 `/factions/battles/guild-boss/start`，舊 `/factions/battles/tower/start` 保留為 alias。
-3. 世界 Boss 狀態與挑戰分別是 `/factions/world-boss`、`/factions/world-boss/challenge`。
-4. 三類戰鬥都由 `server/src/persistence/localStore.ts` 產生 `BattleRecordSummary`，新資料使用 `battleKind` 標示 `adventure / guildBoss / worldBoss`。
-5. 前端戰鬥頁在 `client/src/App.tsx` 顯示三類入口；場景挑戰卡可橫向拖曳，探險難度不由玩家手動選擇。
+2. 公會爬塔推進入口是 `/factions/battles/guild-boss/advance`，撤退入口是 `/factions/battles/guild-boss/retreat`，Boss 挑戰入口是 `/factions/battles/guild-boss/start`；舊 `/factions/battles/tower/start` 保留為 alias。
+3. `FactionTowerProgress` 會保存目前層數、最高通關層、當層 Boss、步數、所需步數、Boss 解鎖狀態與最近事件；舊 store 會在 `localStore` 正規化時補欄位。
+4. `gameConfig.towerRules` 控制公會爬塔步數需求、推進機率、遭遇機率、Boss 強度倍率與獎勵倍率；admin-client 的「爬塔規則」分頁可調。
+5. 世界 Boss 狀態與挑戰分別是 `/factions/world-boss`、`/factions/world-boss/challenge`。
+6. 三類戰鬥都由 `server/src/persistence/localStore.ts` 產生 `BattleRecordSummary`，新資料使用 `battleKind` 標示 `adventure / guildBoss / worldBoss`。
+7. 前端戰鬥頁在 `client/src/App.tsx` 顯示探險、隊伍與世界 Boss；公會爬塔改到獨立「爬塔」導覽頁，Boss 據點卡只導向塔頁。
+8. 前端整體視覺集中在 `client/src/index.css`，目前採頂部 HUD、公告跑馬燈、終端式卡片與手機橫向導航列。
 
 ## 哪些檔案是高影響區
 

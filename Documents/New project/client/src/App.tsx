@@ -7,16 +7,20 @@ import {
   Castle,
   Coins,
   Dumbbell,
+  Footprints,
   Hammer,
   HeartPulse,
   LogOut,
+  MapPinned,
   MessageSquareText,
   ShieldCheck,
+  Skull,
   Sparkles,
   Store,
   ScrollText,
   Swords,
   Trophy,
+  TowerControl,
   UserRound,
   UsersRound,
   Wifi,
@@ -41,6 +45,7 @@ import type {
   EquipmentSlotKey,
   FactionState,
   FactionTechKey,
+  FactionTowerProgress,
   ForgeOption,
   ForgeRecipe,
   FriendSummary,
@@ -56,10 +61,12 @@ import type {
   ShopItem,
   SignInStatus,
   SoloBattleDifficulty,
+  TowerAdvanceMode,
   WorldBossState
 } from "../../shared/events";
 import {
   addFriend,
+  advanceFactionTower,
   adminAdjustResources,
   adminGrantResources,
   adminAdjustTreasury,
@@ -119,6 +126,7 @@ import {
   repairItem,
   repairCastle,
   requestCooperation,
+  retreatFactionTowerBoss,
   resolveCastleSiege,
   respondCooperation,
   selectFaction,
@@ -134,7 +142,7 @@ import {
 import { getSocket } from "./lib/socket";
 import { getStoredToken, setStoredToken } from "./lib/storage";
 
-type NavKey = "character" | "actions" | "battle" | "faction" | "inventory" | "forge" | "achievements" | "messages" | "friends" | "shop" | "admin";
+type NavKey = "character" | "actions" | "tower" | "battle" | "faction" | "inventory" | "forge" | "achievements" | "messages" | "friends" | "shop" | "admin";
 type InventoryTab = "equipment" | "material" | "manual" | "other";
 type ShopTab = "npc" | "market";
 type ShopCategoryFilter = "all" | "weapon" | "offhand" | "armor" | "material" | "other";
@@ -179,6 +187,7 @@ const navItems: Array<{ key: NavKey; label: string; icon: LucideIcon; hint: stri
   { key: "actions", label: "行動", icon: Dumbbell, hint: "訓練與隊列", group: "個人" },
   { key: "inventory", label: "揹包", icon: Backpack, hint: "物品與穿戴", group: "個人" },
   { key: "achievements", label: "成就", icon: Trophy, hint: "目標與進度", group: "個人" },
+  { key: "tower", label: "爬塔", icon: TowerControl, hint: "推進與打王", group: "征戰" },
   { key: "battle", label: "戰鬥", icon: Swords, hint: "房間與討伐", group: "征戰" },
   { key: "faction", label: "陣營", icon: Castle, hint: "城池與外交", group: "征戰" },
   { key: "forge", label: "鍛造", icon: Hammer, hint: "製作與修復", group: "經濟" },
@@ -523,6 +532,38 @@ function battleSceneDetail(castle: CastleState) {
   return details[castle.mapNodePurpose];
 }
 
+function towerSceneBand(layer: number) {
+  const start = Math.floor((Math.max(1, layer) - 1) / 5) * 5 + 1;
+  return `${start} - ${start + 4} 層`;
+}
+
+function towerModeLabel(mode: TowerAdvanceMode) {
+  return mode === "rush" ? "趕路" : "攻擊";
+}
+
+function towerModeDetail(mode: TowerAdvanceMode) {
+  return mode === "rush" ? "較高機率前進，適合快速找 Boss。" : "前進較慢，但較容易遇到小王與素材。";
+}
+
+function towerFunRating(tower: FactionTowerProgress | null, canAct: boolean, isAtTowerCastle: boolean) {
+  const layer = tower?.currentLayer ?? 1;
+  const progress = tower?.progress ?? 0;
+  const activeProgressBonus = progress > 0 && progress < 100 ? 0.8 : 0;
+  const bossBonus = tower?.bossUnlocked ? 1.4 : 0;
+  const layerBonus = Math.min(1.2, Math.max(0, layer - 1) * 0.15);
+  const actionBonus = isAtTowerCastle ? (canAct ? 0.5 : -0.3) : -0.8;
+  const score = 6.2 + activeProgressBonus + bossBonus + layerBonus + actionBonus;
+  return Math.max(1, Math.min(10, Number(score.toFixed(1))));
+}
+
+function towerFunSummary(score: number, tower: FactionTowerProgress | null) {
+  if (tower?.bossUnlocked) return "王戰已開，刺激度最高。";
+  if (score >= 8) return "推進節奏佳，刷怪與找王平衡。";
+  if (score >= 7) return "節奏穩定，可以繼續推進。";
+  if (score >= 6) return "偏暖機，需要更多遭遇或進度。";
+  return "目前受位置或忙碌狀態限制。";
+}
+
 function battleLogTone(log: string) {
   if (/終結技|連擊收尾/.test(log)) return "finisher";
   if (/暴擊/.test(log)) return "crit";
@@ -732,6 +773,8 @@ function App() {
   const [factionTab, setFactionTab] = useState<FactionTab>("map");
   const [adminTab, setAdminTab] = useState<AdminTab>("actions");
   const [selectedMapCastleId, setSelectedMapCastleId] = useState("");
+  const [selectedTowerCastleId, setSelectedTowerCastleId] = useState("");
+  const [towerAdvanceMode, setTowerAdvanceMode] = useState<TowerAdvanceMode>("rush");
   const [mapZoom, setMapZoom] = useState(1);
   const [selectedInventoryItemId, setSelectedInventoryItemId] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<InventoryItem | null>(null);
@@ -819,6 +862,8 @@ function App() {
 
   const currentForgeOption = forgeOptions.find((entry) => entry.id === forgeRecipeId) || forgeOptions[0] || null;
   const visibleNav = navItems;
+  const activeNavMeta = visibleNav.find((item) => item.key === activeNav);
+  const noticeItems = announcements.length > 0 ? announcements.slice(0, 5) : [{ id: "empty", title: "NOTICE", body: "目前沒有公告。" }];
   const visibleListings = useMemo(
     () =>
       (factionState?.marketListings || []).filter((listing) => {
@@ -891,6 +936,16 @@ function App() {
         .sort((left, right) => left.layer - right.layer || left.name.localeCompare(right.name)),
     [character?.factionId, factionState?.castles]
   );
+  const towerCastles = useMemo(() => battleScenes.filter((castle) => castle.mapNodePurpose === "guild_boss"), [battleScenes]);
+  const selectedTowerCastle =
+    towerCastles.find((castle) => castle.id === selectedTowerCastleId) ||
+    towerCastles.find((castle) => castle.id === character?.currentCastleId) ||
+    towerCastles[0] ||
+    null;
+  const towerProgress = factionState?.selectedFaction?.tower || null;
+  const isAtTowerCastle = Boolean(selectedTowerCastle && character?.currentCastleId === selectedTowerCastle.id);
+  const canUseTowerAction = Boolean(character && selectedTowerCastle && isAtTowerCastle && isIdle(character));
+  const towerFunScore = towerFunRating(towerProgress, canUseTowerAction, isAtTowerCastle);
   const selectedSecondaryCharacters = useMemo(
     () =>
       (character?.secondaryCharacters || []).map((slot) => ({
@@ -1757,6 +1812,37 @@ async function bootstrap(nextToken: string) {
     }
   }
 
+  async function handleAdvanceTower(mode: TowerAdvanceMode) {
+    if (!token || !selectedTowerCastle) return;
+    try {
+      const result = await advanceFactionTower(token, { castleId: selectedTowerCastle.id, mode });
+      setCharacter(result.character);
+      setFactionState(result.factionState);
+      await refreshNotifications();
+      if (result.battleRecord) {
+        await refreshBattles();
+        setDetailBattleRecord(result.battleRecord);
+      }
+      setActiveNav("tower");
+      setFeedback(result.message);
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "塔層推進失敗");
+    }
+  }
+
+  async function handleRetreatTowerBoss() {
+    if (!token) return;
+    try {
+      const result = await retreatFactionTowerBoss(token);
+      setCharacter(result.character);
+      setFactionState(result.factionState);
+      await refreshNotifications();
+      setFeedback(result.message);
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "塔層撤退失敗");
+    }
+  }
+
   async function handleWorldBossChallenge() {
     if (!token) return;
     try {
@@ -1868,8 +1954,8 @@ async function bootstrap(nextToken: string) {
     <div className="app-shell">
       <div className="app-layout">
         <aside className="sidebar" style={{ padding: 16 }}>
-          <div className="section-stack">
-            <div>
+          <div className="section-stack shell-bar">
+            <div className="brand-panel">
               <div className="eyebrow">角色</div>
               <h3 style={{ marginBottom: 4 }}>{character.name}</h3>
               <div className="muted">{user.displayName} · {classOptions.find((option) => option.value === character.className)?.label}</div>
@@ -1909,6 +1995,17 @@ async function bootstrap(nextToken: string) {
         </aside>
 
         <main className="content-panel">
+          <div className="notice-strip">
+            <strong>公告 · NOTICE</strong>
+            <div className="notice-track">
+              <div className="notice-marquee">
+                {[...noticeItems, ...noticeItems].map((announcement, index) => (
+                  <span key={`${announcement.id}-${index}`}>{announcement.title}：{announcement.body}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+
           <div className="top-banner" style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
               <div>
@@ -1924,6 +2021,15 @@ async function bootstrap(nextToken: string) {
                 <span className="mini-pill"><Coins size={15} />金幣 {character.gold}</span>
               </div>
             </div>
+          </div>
+
+          <div className="page-title-bar">
+            <div>
+              <div className="eyebrow">/ {activeNavMeta?.key.toUpperCase() || "PAGE"}</div>
+              <h1>{activeNavMeta?.label || "頁面"}</h1>
+              <p className="muted">{activeNavMeta?.hint || "系統功能"}</p>
+            </div>
+            <span className={`status-pill compact status-${myActivityStatus.tone}`}>{myActivityStatus.label}</span>
           </div>
 
           {activeNav === "character" ? (
@@ -2087,6 +2193,23 @@ async function bootstrap(nextToken: string) {
 
           {activeNav === "actions" ? (
             <section className="section-stack">
+              <div className="panel command-panel">
+                <div className="panel-heading">
+                  <div>
+                    <strong>ACTION PROTOCOL</strong>
+                    <div className="muted" style={{ marginTop: 6 }}>
+                      {isIdle(character) ? "角色閒暇中，可以安排下一個行動。" : `目前狀態：${myActivityStatus.label}，完成前不能插入新行動。`}
+                    </div>
+                  </div>
+                  <span className={`status-pill compact status-${myActivityStatus.tone}`}>{myActivityStatus.label}</span>
+                </div>
+                <div className="quick-metric-grid">
+                  <div><span>QUEUE</span><strong>{character.actionQueue.items.length}</strong></div>
+                  <div><span>ENERGY</span><strong>{character.energy}/{character.maxEnergy}</strong></div>
+                  <div><span>LOCATION</span><strong>{currentCastle?.name || "-"}</strong></div>
+                </div>
+              </div>
+
               <div className="shop-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
                 {trainingActions.map((entry) => (
                   <div className="action-card" key={entry.type} style={{ padding: 16 }}>
@@ -2170,6 +2293,177 @@ async function bootstrap(nextToken: string) {
             </section>
           ) : null}
 
+          {activeNav === "tower" ? (
+            <section className="section-stack tower-page">
+              {!character.factionId ? (
+                <div className="panel tower-terminal">
+                  <div className="tower-panel-title">
+                    <span>/ TOWER</span>
+                    <strong>請先加入陣營</strong>
+                  </div>
+                  <button className="primary-button" onClick={() => setActiveNav("faction")} type="button">
+                    <Castle size={16} /> 前往陣營
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="tower-command-grid">
+                    <div className="panel tower-terminal">
+                      <div className="tower-panel-title">
+                        <span>/ STATUS</span>
+                        <strong>塔層狀態</strong>
+                      </div>
+                      <div className="tower-status-row">
+                        <div>
+                          <span className="metric-label">LAYER</span>
+                          <strong className="tower-big-number">{towerProgress?.currentLayer ?? 1}</strong>
+                        </div>
+                        <div>
+                          <span className="metric-label">SCENE</span>
+                          <strong>{towerSceneBand(towerProgress?.currentLayer ?? 1)}</strong>
+                          <div className="muted">最高通關 {towerProgress?.highestClearedLayer ?? 0} 層</div>
+                        </div>
+                        <span className={`mini-pill ${towerProgress?.bossUnlocked ? "is-live" : ""}`}>
+                          {towerProgress?.bossUnlocked ? "Boss 已遇到" : "搜尋中"}
+                        </span>
+                      </div>
+                      <div className="progress-bar">
+                        <div className="progress-fill is-energy" style={{ width: `${towerProgress?.progress ?? 0}%` }} />
+                      </div>
+                      <div className="tower-step-row" aria-label="塔層步數">
+                        {Array.from({ length: towerProgress?.stepsRequired ?? 5 }).map((_, index) => (
+                          <span key={index} className={index < (towerProgress?.steps ?? 0) ? "is-done" : ""} />
+                        ))}
+                      </div>
+                      <div className="tower-rating-card">
+                        <div>
+                          <span className="metric-label">FUN SCORE</span>
+                          <strong>{towerFunScore.toFixed(1)} / 10</strong>
+                        </div>
+                        <span>{towerFunSummary(towerFunScore, towerProgress)}</span>
+                      </div>
+                      <div className="muted">{towerProgress?.lastEvent || "尚未開始推進本層。"}</div>
+                    </div>
+
+                    <div className="panel tower-terminal">
+                      <div className="tower-panel-title">
+                        <span>/ LOCATION</span>
+                        <strong>據點</strong>
+                      </div>
+                      {selectedTowerCastle ? (
+                        <>
+                          <div className="tower-location-card">
+                            <MapPinned size={22} />
+                            <div>
+                              <strong>{selectedTowerCastle.name}</strong>
+                              <div className="muted">{selectedTowerCastle.layerName} · {castleSpecialtyLabel(selectedTowerCastle.specialty)}</div>
+                            </div>
+                            <span className={`mini-pill ${isAtTowerCastle ? "is-live" : ""}`}>{isAtTowerCastle ? "目前所在" : "未抵達"}</span>
+                          </div>
+                          {towerCastles.length > 1 ? (
+                            <label className="field">
+                              <span>Boss 據點</span>
+                              <select value={selectedTowerCastle.id} onChange={(event) => setSelectedTowerCastleId(event.target.value)}>
+                                {towerCastles.map((castle) => (
+                                  <option key={castle.id} value={castle.id}>{castle.name}</option>
+                                ))}
+                              </select>
+                            </label>
+                          ) : null}
+                          {character.movement ? (
+                            <div className="banner tower-lock-strip">
+                              <strong>移動中</strong>
+                              <span>{movementRouteLabel}</span>
+                              <span>抵達 {formatDate(character.movement.endsAt)}</span>
+                            </div>
+                          ) : !isAtTowerCastle ? (
+                            <button className="primary-button" onClick={() => void handleMoveCastle(selectedTowerCastle.id)} disabled={!isIdle(character)} type="button">
+                              <Footprints size={16} /> 前往據點
+                            </button>
+                          ) : (
+                            <span className="mini-pill is-live">可推進塔層</span>
+                          )}
+                        </>
+                      ) : (
+                        <div className="empty-card" style={{ padding: 14 }}>你的陣營還沒有公會 Boss 據點。</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="tower-action-layout">
+                    <div className="panel tower-terminal">
+                      <div className="tower-panel-title">
+                        <span>/ ADVANCE</span>
+                        <strong>推進模式</strong>
+                      </div>
+                      <div className="tower-mode-grid">
+                        {(["rush", "hunt"] as TowerAdvanceMode[]).map((mode) => (
+                          <button
+                            key={mode}
+                            className={`tower-mode-card ${towerAdvanceMode === mode ? "is-active" : ""}`}
+                            onClick={() => setTowerAdvanceMode(mode)}
+                            type="button"
+                          >
+                            {mode === "rush" ? <Footprints size={22} /> : <Swords size={22} />}
+                            <strong>{towerModeLabel(mode)}</strong>
+                            <span>{towerModeDetail(mode)}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <div className="battle-actions">
+                        <button
+                          className="primary-button"
+                          onClick={() => void handleAdvanceTower(towerAdvanceMode)}
+                          disabled={!canUseTowerAction || Boolean(towerProgress?.bossUnlocked)}
+                          type="button"
+                        >
+                          <Footprints size={16} /> 執行{towerModeLabel(towerAdvanceMode)}
+                        </button>
+                        <span className="muted">
+                          {towerProgress?.bossUnlocked ? "已遇到 Boss，請挑戰或撤退。" : canUseTowerAction ? "精力足夠時可推進。" : "需在 Boss 據點且角色閒暇。"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="panel tower-terminal tower-boss-zone">
+                      <div className="tower-panel-title">
+                        <span>/ BOSS</span>
+                        <strong>挑戰 Boss</strong>
+                      </div>
+                      <div className="tower-boss-card">
+                        <Skull size={28} />
+                        <div>
+                          <strong>{towerProgress?.bossName || "未鎖定 Boss"}</strong>
+                          <div className="muted">
+                            HP {towerProgress?.bossHp ?? "-"} · 攻擊 {towerProgress?.bossAttack ?? "-"} · {towerProgress?.rewardSummary || "公庫與個人獎勵"}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="battle-actions">
+                        <button
+                          className="primary-button"
+                          onClick={() => selectedTowerCastle && void handleFactionTowerBattle(selectedTowerCastle.id, "boss")}
+                          disabled={!canUseTowerAction || !towerProgress?.bossUnlocked}
+                          type="button"
+                        >
+                          <Swords size={16} /> 挑戰 Boss
+                        </button>
+                        <button
+                          className="secondary-button"
+                          onClick={() => void handleRetreatTowerBoss()}
+                          disabled={!canUseTowerAction || !towerProgress?.bossUnlocked}
+                          type="button"
+                        >
+                          <Footprints size={16} /> 撤退
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </section>
+          ) : null}
+
           {activeNav === "battle" ? (
             <section className="section-stack">
               <div className="panel" style={{ padding: 16 }}>
@@ -2239,17 +2533,19 @@ async function bootstrap(nextToken: string) {
                           >
                             開始探險
                           </button>
-                          <button
-                            className="primary-button"
-                            onClick={() => {
-                              if (sceneDragRef.current.dragged) return;
-                              void handleFactionTowerBattle(castle.id, "skirmish");
-                            }}
-                            disabled={!isIdle(character)}
-                            type="button"
-                          >
-                            公會 Boss
-                          </button>
+                          {castle.mapNodePurpose === "guild_boss" ? (
+                            <button
+                              className="primary-button"
+                              onClick={() => {
+                                if (sceneDragRef.current.dragged) return;
+                                setSelectedTowerCastleId(castle.id);
+                                setActiveNav("tower");
+                              }}
+                              type="button"
+                            >
+                              <TowerControl size={16} /> 進入爬塔
+                            </button>
+                          ) : null}
                         </div>
                       </div>
                     );
@@ -2655,14 +2951,32 @@ async function bootstrap(nextToken: string) {
                                 {isMine && castle.mapNodePurpose === "guild_boss" ? (
                                   <div className="castle-boss-strip">
                                     <strong>公會爬層 Lv.{factionState?.selectedFaction?.tower.currentLayer ?? 1}</strong>
-                                    <span>最高通關 {factionState?.selectedFaction?.tower.highestClearedLayer ?? 0} 層 · 進度 {factionState?.selectedFaction?.tower.progress ?? 0}%</span>
+                                    <span>
+                                      最高通關 {factionState?.selectedFaction?.tower.highestClearedLayer ?? 0} 層 ·
+                                      進度 {factionState?.selectedFaction?.tower.steps ?? 0}/{factionState?.selectedFaction?.tower.stepsRequired ?? 5}
+                                    </span>
                                     <div className="progress-bar">
                                       <div className="progress-fill is-energy" style={{ width: `${factionState?.selectedFaction?.tower.progress ?? 0}%` }} />
                                     </div>
                                     <span>當層 Boss：{factionState?.selectedFaction?.tower.bossName ?? "未設定"} · HP {factionState?.selectedFaction?.tower.bossHp ?? "-"}</span>
                                     <span>{factionState?.selectedFaction?.tower.rewardSummary}</span>
                                     <div className="battle-actions">
-                                      <button className="primary-button" onClick={() => void handleFactionTowerBattle(castle.id, "boss")} disabled={!isIdle(character)} type="button">
+                                      <button
+                                        className="secondary-button"
+                                        onClick={() => {
+                                          setSelectedTowerCastleId(castle.id);
+                                          setActiveNav("tower");
+                                        }}
+                                        type="button"
+                                      >
+                                        <TowerControl size={16} /> 進入爬塔
+                                      </button>
+                                      <button
+                                        className="primary-button"
+                                        onClick={() => void handleFactionTowerBattle(castle.id, "boss")}
+                                        disabled={!isIdle(character) || !isCurrentLocation || !factionState?.selectedFaction?.tower.bossUnlocked}
+                                        type="button"
+                                      >
                                         挑戰爬層 Boss
                                       </button>
                                     </div>

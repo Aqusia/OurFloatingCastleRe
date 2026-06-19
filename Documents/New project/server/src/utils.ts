@@ -876,6 +876,30 @@ export function defaultSiegeRules(): GameConfig["siegeRules"] {
   };
 }
 
+export function defaultTowerRules(): GameConfig["towerRules"] {
+  return {
+    baseStepsRequired: 5,
+    stepsPerSceneBand: 1,
+    maxStepsRequired: 12,
+    rushEnergyCost: 5,
+    huntEnergyCost: 7,
+    rushDoubleStepChance: 0.72,
+    rushSingleStepChance: 0.22,
+    huntStepChance: 0.38,
+    bossFindChanceRush: 0.68,
+    bossFindChanceHunt: 0.42,
+    minorBossChanceRush: 0.14,
+    minorBossChanceHunt: 0.42,
+    bossHpMultiplier: 1,
+    bossAttackMultiplier: 1,
+    rewardMultiplier: 1
+  };
+}
+
+export function gameplayTowerRules(): GameConfig["towerRules"] {
+  return runtimeGameConfig?.towerRules || defaultTowerRules();
+}
+
 export function defaultStatRules(): GameConfig["statRules"] {
   return {
     attack: { attackPower: 3, defensePower: 0.4, sustain: 0, siege: 1.8, growth: 1, summary: "提高攻方破防與對守軍傷害。" },
@@ -898,7 +922,8 @@ export function defaultGameConfig(): GameConfig {
     forgeOptions: defaultForgeOptions(),
     forgeRecipes: defaultForgeRecipes(),
     siegeRules: defaultSiegeRules(),
-    statRules: defaultStatRules()
+    statRules: defaultStatRules(),
+    towerRules: defaultTowerRules()
   };
 }
 

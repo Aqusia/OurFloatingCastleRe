@@ -28,6 +28,7 @@ import type {
   FactionActionResult,
   FactionState,
   FactionTechKey,
+  FactionTowerAdvanceResult,
   ForgeOption,
   ForgeRecipe,
   FriendAddPayload,
@@ -532,6 +533,27 @@ export function startSoloBattle(token: string, mapNodeId: string) {
 }
 
 export const startAdventureBattle = startSoloBattle;
+
+export function advanceFactionTower(token: string, payload: { castleId?: string; mode: "rush" | "hunt" }) {
+  return request<FactionTowerAdvanceResult>(
+    "/factions/battles/guild-boss/advance",
+    {
+      method: "POST",
+      body: JSON.stringify(payload)
+    },
+    token
+  );
+}
+
+export function retreatFactionTowerBoss(token: string) {
+  return request<FactionActionResult>(
+    "/factions/battles/guild-boss/retreat",
+    {
+      method: "POST"
+    },
+    token
+  );
+}
 
 export function startFactionTowerBattle(token: string, payload: { castleId?: string; mode: "skirmish" | "boss" }) {
   return request<FactionTowerBattleResult>(

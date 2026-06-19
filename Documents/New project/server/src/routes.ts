@@ -21,6 +21,7 @@ import type {
   CraftPayload,
   EquipItemPayload,
   FactionTechUpgradePayload,
+  FactionTowerAdvancePayload,
   FactionTowerBattlePayload,
   FriendAddPayload,
   InventorySortPayload,
@@ -40,6 +41,7 @@ import { login, register, requireAuth, requireFactionLeaderOrAdmin, requireRole 
 import { getPublicRoomState, getRoomForUser, listRoomSummaries, refreshRoomMemberCharacters } from "./game";
 import {
   addFriend,
+  advanceFactionTower,
   adminAdjustResources,
   adminAdjustTreasury,
   adminAssignLeader,
@@ -104,6 +106,7 @@ import {
   processCharacterQueue,
   purchaseShopItem,
   repairEquipment,
+  retreatFactionTowerBoss,
   requestCooperation,
   respondCooperation,
   selectFaction,
@@ -434,6 +437,24 @@ export function createApiRouter() {
       response.json(await startSoloBattle(request.auth!.user.id, request.body as SoloBattlePayload));
     } catch (error) {
       response.status(400).json({ error: error instanceof Error ? error.message : "探險失敗。" });
+    }
+  });
+
+  router.post("/factions/battles/guild-boss/advance", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      await processCharacterQueue(request.auth!.user.id, true);
+      response.json(await advanceFactionTower(request.auth!.user.id, request.body as FactionTowerAdvancePayload));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "塔層推進失敗。" });
+    }
+  });
+
+  router.post("/factions/battles/guild-boss/retreat", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      await processCharacterQueue(request.auth!.user.id, true);
+      response.json(await retreatFactionTowerBoss(request.auth!.user.id));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "塔層撤退失敗。" });
     }
   });
 

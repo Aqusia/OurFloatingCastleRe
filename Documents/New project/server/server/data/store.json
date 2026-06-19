@@ -10,13 +10,29 @@
       "friendIds": [],
       "lastDailySignInOn": "2026-06-12",
       "lastFlashSignInOn": null
+    },
+    {
+      "id": "user_ef3da62d4b6f",
+      "email": "admin",
+      "displayName": "Admin",
+      "role": "admin",
+      "password": "admin",
+      "createdAt": "2026-06-19T14:22:29.980Z",
+      "friendIds": [],
+      "lastDailySignInOn": null,
+      "lastFlashSignInOn": null
     }
   ],
   "sessions": [
     {
-      "token": "session_b6860dfbbc5e",
+      "token": "session_f8641801f5e1",
       "userId": "user_228354f2654a",
-      "createdAt": "2026-06-15T19:03:31.245Z"
+      "createdAt": "2026-06-19T14:19:24.030Z"
+    },
+    {
+      "token": "session_b72713406468",
+      "userId": "user_ef3da62d4b6f",
+      "createdAt": "2026-06-19T14:28:55.598Z"
     }
   ],
   "characters": [
@@ -24,7 +40,7 @@
       "id": "char_910b59a132f0",
       "userId": "user_228354f2654a",
       "factionId": "faction_ember",
-      "currentCastleId": "castle_1_1",
+      "currentCastleId": "castle_1_3",
       "movement": null,
       "garrisonAssignment": null,
       "name": "qq",
@@ -44,7 +60,7 @@
       "maxHp": 137,
       "mp": 37,
       "maxMp": 76,
-      "energy": 80,
+      "energy": 68,
       "maxEnergy": 104,
       "stats": {
         "attack": 14,
@@ -346,6 +362,22 @@
       },
       "notifications": [
         {
+          "id": "notice_c736707132f2",
+          "kind": "faction",
+          "title": "城池移動完成",
+          "body": "已抵達 炎燼城池 2。",
+          "createdAt": "2026-06-19T14:19:24.061Z",
+          "read": false
+        },
+        {
+          "id": "notice_834377d73d9e",
+          "kind": "faction",
+          "title": "城池移動",
+          "body": "正在前往 炎燼城池 2。",
+          "createdAt": "2026-06-15T19:49:03.636Z",
+          "read": false
+        },
+        {
           "id": "notice_4d7cbb01403b",
           "kind": "battle",
           "title": "戰鬥失敗",
@@ -418,6 +450,212 @@
           "read": false
         }
       ]
+    },
+    {
+      "id": "char_ed9d0bef4e91",
+      "userId": "user_ef3da62d4b6f",
+      "factionId": null,
+      "currentCastleId": null,
+      "movement": null,
+      "garrisonAssignment": null,
+      "name": "Admin",
+      "className": "warrior",
+      "classChangedOn": "2026-06-19",
+      "level": 1,
+      "experience": 0,
+      "instinctLevel": 1,
+      "instinctExp": 0,
+      "battleLevel": 1,
+      "battleExp": 0,
+      "forgeLevel": 1,
+      "forgeExp": 0,
+      "gold": 100,
+      "materials": 0,
+      "hp": 137,
+      "maxHp": 137,
+      "mp": 74,
+      "maxMp": 74,
+      "energy": 100,
+      "maxEnergy": 100,
+      "stats": {
+        "attack": 12,
+        "defense": 6,
+        "luck": 3,
+        "intelligence": 5,
+        "vitality": 8,
+        "spirit": 5,
+        "technique": 4,
+        "tenacity": 7
+      },
+      "equipmentSlots": {
+        "weapon": null,
+        "offhand": null,
+        "helmet": null,
+        "armor": null,
+        "kneepad": null,
+        "pet": null,
+        "avatar": null
+      },
+      "title": "前線破陣者",
+      "inventory": [
+        {
+          "id": "item_7559cb0a8d2f",
+          "name": "鐵礦",
+          "category": "material",
+          "effectSummary": "鍛造與修復素材",
+          "rarity": "common",
+          "craftSource": null,
+          "isBroken": false,
+          "sortOrder": 0,
+          "stackable": true,
+          "quantity": 3,
+          "materialType": "iron_ore",
+          "prefixName": null,
+          "suffixName": null,
+          "qualityTier": null,
+          "tenacityBonus": 0,
+          "itemLevel": 1,
+          "sellPrice": null,
+          "salvagePrice": null,
+          "craftedBy": null,
+          "craftedAt": null
+        },
+        {
+          "id": "item_b01a5ab90d75",
+          "name": "布料",
+          "category": "material",
+          "effectSummary": "鍛造與修復素材",
+          "rarity": "common",
+          "craftSource": null,
+          "isBroken": false,
+          "sortOrder": 0,
+          "stackable": true,
+          "quantity": 2,
+          "materialType": "cloth",
+          "prefixName": null,
+          "suffixName": null,
+          "qualityTier": null,
+          "tenacityBonus": 0,
+          "itemLevel": 1,
+          "sellPrice": null,
+          "salvagePrice": null,
+          "craftedBy": null,
+          "craftedAt": null
+        }
+      ],
+      "statusEffects": [
+        {
+          "id": "status_9742b1b35c26",
+          "name": "初心者祝福",
+          "description": "剛踏上旅途的角色會獲得一段短暫的新手保護。",
+          "kind": "buff",
+          "source": "title"
+        }
+      ],
+      "subRoleSlots": [
+        {
+          "slot": 1,
+          "item": null
+        },
+        {
+          "slot": 2,
+          "item": null
+        },
+        {
+          "slot": 3,
+          "item": null
+        }
+      ],
+      "secondaryCharacters": [
+        {
+          "slot": 1,
+          "characterId": null,
+          "level": 1,
+          "exp": 0,
+          "unlockedSkillIds": [],
+          "lastTriggeredSkillId": null,
+          "cooldownUntilTick": null
+        },
+        {
+          "slot": 2,
+          "characterId": null,
+          "level": 1,
+          "exp": 0,
+          "unlockedSkillIds": [],
+          "lastTriggeredSkillId": null,
+          "cooldownUntilTick": null
+        },
+        {
+          "slot": 3,
+          "characterId": null,
+          "level": 1,
+          "exp": 0,
+          "unlockedSkillIds": [],
+          "lastTriggeredSkillId": null,
+          "cooldownUntilTick": null
+        }
+      ],
+      "classMastery": {
+        "warrior": {
+          "className": "warrior",
+          "level": 1,
+          "exp": 0,
+          "unlocked": true
+        },
+        "assassin": {
+          "className": "assassin",
+          "level": 1,
+          "exp": 0,
+          "unlocked": false
+        },
+        "mage": {
+          "className": "mage",
+          "level": 1,
+          "exp": 0,
+          "unlocked": false
+        },
+        "priest": {
+          "className": "priest",
+          "level": 1,
+          "exp": 0,
+          "unlocked": false
+        }
+      },
+      "specialSkillSlot": null,
+      "learnedManuals": [],
+      "equippedManuals": [],
+      "achievements": [
+        {
+          "id": "level_5",
+          "title": "達到 5 級",
+          "description": "角色等級達到 5 級。",
+          "progress": 1,
+          "target": 5,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "待領取"
+        }
+      ],
+      "jobImage": null,
+      "loadout": {
+        "preferredRole": "tank",
+        "blessing": "鋼鐵誓約",
+        "title": "前線破陣者",
+        "equipment": [
+          "厚刃長劍",
+          "訓練護甲"
+        ],
+        "skills": [
+          "盾牆",
+          "裂地",
+          "怒吼"
+        ]
+      },
+      "actionQueue": {
+        "items": [],
+        "updatedAt": "2026-06-19T14:22:29.981Z"
+      },
+      "notifications": []
     }
   ],
   "battleRecords": [
@@ -893,8 +1131,13 @@
         "highestClearedLayer": 0,
         "bossName": "炎燼 第 1 層守將",
         "bossHp": 260,
+        "bossAttack": 28,
         "rewardSummary": "公庫金幣、個人素材與戰鬥經驗",
-        "progress": 0
+        "progress": 0,
+        "steps": 0,
+        "stepsRequired": 5,
+        "bossUnlocked": false,
+        "lastEvent": null
       }
     },
     {
@@ -921,8 +1164,13 @@
         "highestClearedLayer": 0,
         "bossName": "潮汐 第 1 層守將",
         "bossHp": 260,
+        "bossAttack": 28,
         "rewardSummary": "公庫金幣、個人素材與戰鬥經驗",
-        "progress": 0
+        "progress": 0,
+        "steps": 0,
+        "stepsRequired": 5,
+        "bossUnlocked": false,
+        "lastEvent": null
       }
     },
     {
@@ -949,8 +1197,13 @@
         "highestClearedLayer": 0,
         "bossName": "翠風 第 1 層守將",
         "bossHp": 260,
+        "bossAttack": 28,
         "rewardSummary": "公庫金幣、個人素材與戰鬥經驗",
-        "progress": 0
+        "progress": 0,
+        "steps": 0,
+        "stepsRequired": 5,
+        "bossUnlocked": false,
+        "lastEvent": null
       }
     },
     {
@@ -977,8 +1230,13 @@
         "highestClearedLayer": 0,
         "bossName": "岩盾 第 1 層守將",
         "bossHp": 260,
+        "bossAttack": 28,
         "rewardSummary": "公庫金幣、個人素材與戰鬥經驗",
-        "progress": 0
+        "progress": 0,
+        "steps": 0,
+        "stepsRequired": 5,
+        "bossUnlocked": false,
+        "lastEvent": null
       }
     },
     {
@@ -1005,8 +1263,13 @@
         "highestClearedLayer": 0,
         "bossName": "曦光 第 1 層守將",
         "bossHp": 260,
+        "bossAttack": 28,
         "rewardSummary": "公庫金幣、個人素材與戰鬥經驗",
-        "progress": 0
+        "progress": 0,
+        "steps": 0,
+        "stepsRequired": 5,
+        "bossUnlocked": false,
+        "lastEvent": null
       }
     }
   ],
@@ -2772,6 +3035,23 @@
         "growth": 1,
         "summary": "降低 HP / 精力 / 裝備耐久損耗，守城時提高抗壓。"
       }
+    },
+    "towerRules": {
+      "baseStepsRequired": 5,
+      "stepsPerSceneBand": 1,
+      "maxStepsRequired": 12,
+      "rushEnergyCost": 5,
+      "huntEnergyCost": 7,
+      "rushDoubleStepChance": 0.72,
+      "rushSingleStepChance": 0.22,
+      "huntStepChance": 0.38,
+      "bossFindChanceRush": 0.68,
+      "bossFindChanceHunt": 0.42,
+      "minorBossChanceRush": 0.14,
+      "minorBossChanceHunt": 0.42,
+      "bossHpMultiplier": 1,
+      "bossAttackMultiplier": 1,
+      "rewardMultiplier": 1
     }
   },
   "worldBoss": {

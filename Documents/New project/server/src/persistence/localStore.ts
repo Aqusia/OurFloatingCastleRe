@@ -49,6 +49,8 @@ import type {
   FactionSummary,
   FactionTechKey,
   FactionTechUpgradePayload,
+  FactionTowerAdvancePayload,
+  FactionTowerAdvanceResult,
   FactionTowerBattlePayload,
   FactionTowerBattleResult,
   FactionTowerProgress,
@@ -120,6 +122,7 @@ import {
   forgeOptions,
   defaultGameConfig,
   defaultSoloDifficulties,
+  gameplayTowerRules,
   materialCatalog,
   materialName,
   maxEnergyForCharacter,
@@ -357,6 +360,8 @@ function normalizeGameConfig(rawConfig: any): GameConfig {
   }, structuredClone(soloDefaults));
   const siegeFallback = fallback.siegeRules;
   const rawSiege = rawConfig?.siegeRules || {};
+  const towerFallback = fallback.towerRules;
+  const rawTowerRules = rawConfig?.towerRules || {};
   const statFallback = fallback.statRules;
   const rawStats = rawConfig?.statRules || {};
   const statRules = (Object.keys(statFallback) as CharacterStatKey[]).reduce<GameConfig["statRules"]>((next, key) => {
@@ -400,7 +405,24 @@ function normalizeGameConfig(rawConfig: any): GameConfig {
       autoDefenseScaling: Number.isFinite(Number(rawSiege.autoDefenseScaling)) ? clamp(Number(rawSiege.autoDefenseScaling), 0, 5) : siegeFallback.autoDefenseScaling,
       minAttackerEnergy: clampedInt(rawSiege.minAttackerEnergy, 0, 100, siegeFallback.minAttackerEnergy)
     },
-    statRules
+    statRules,
+    towerRules: {
+      baseStepsRequired: clampedInt(rawTowerRules.baseStepsRequired, 3, 30, towerFallback.baseStepsRequired),
+      stepsPerSceneBand: clampedInt(rawTowerRules.stepsPerSceneBand, 0, 10, towerFallback.stepsPerSceneBand),
+      maxStepsRequired: clampedInt(rawTowerRules.maxStepsRequired, 3, 60, towerFallback.maxStepsRequired),
+      rushEnergyCost: clampedInt(rawTowerRules.rushEnergyCost, 1, 100, towerFallback.rushEnergyCost),
+      huntEnergyCost: clampedInt(rawTowerRules.huntEnergyCost, 1, 100, towerFallback.huntEnergyCost),
+      rushDoubleStepChance: Number.isFinite(Number(rawTowerRules.rushDoubleStepChance)) ? clamp(Number(rawTowerRules.rushDoubleStepChance), 0, 1) : towerFallback.rushDoubleStepChance,
+      rushSingleStepChance: Number.isFinite(Number(rawTowerRules.rushSingleStepChance)) ? clamp(Number(rawTowerRules.rushSingleStepChance), 0, 1) : towerFallback.rushSingleStepChance,
+      huntStepChance: Number.isFinite(Number(rawTowerRules.huntStepChance)) ? clamp(Number(rawTowerRules.huntStepChance), 0, 1) : towerFallback.huntStepChance,
+      bossFindChanceRush: Number.isFinite(Number(rawTowerRules.bossFindChanceRush)) ? clamp(Number(rawTowerRules.bossFindChanceRush), 0, 1) : towerFallback.bossFindChanceRush,
+      bossFindChanceHunt: Number.isFinite(Number(rawTowerRules.bossFindChanceHunt)) ? clamp(Number(rawTowerRules.bossFindChanceHunt), 0, 1) : towerFallback.bossFindChanceHunt,
+      minorBossChanceRush: Number.isFinite(Number(rawTowerRules.minorBossChanceRush)) ? clamp(Number(rawTowerRules.minorBossChanceRush), 0, 1) : towerFallback.minorBossChanceRush,
+      minorBossChanceHunt: Number.isFinite(Number(rawTowerRules.minorBossChanceHunt)) ? clamp(Number(rawTowerRules.minorBossChanceHunt), 0, 1) : towerFallback.minorBossChanceHunt,
+      bossHpMultiplier: Number.isFinite(Number(rawTowerRules.bossHpMultiplier)) ? clamp(Number(rawTowerRules.bossHpMultiplier), 0.2, 5) : towerFallback.bossHpMultiplier,
+      bossAttackMultiplier: Number.isFinite(Number(rawTowerRules.bossAttackMultiplier)) ? clamp(Number(rawTowerRules.bossAttackMultiplier), 0.2, 5) : towerFallback.bossAttackMultiplier,
+      rewardMultiplier: Number.isFinite(Number(rawTowerRules.rewardMultiplier)) ? clamp(Number(rawTowerRules.rewardMultiplier), 0.1, 5) : towerFallback.rewardMultiplier
+    }
   };
 }
 
@@ -642,27 +664,59 @@ function defaultFactionTech(): Record<FactionTechKey, number> {
   };
 }
 
+function towerStepsRequired(layer: number) {
+  const rules = gameplayTowerRules();
+  const base = Math.max(3, Math.round(rules.baseStepsRequired));
+  const stepUp = Math.max(0, Math.round(rules.stepsPerSceneBand));
+  const maxSteps = Math.max(base, Math.round(rules.maxStepsRequired));
+  return clamp(base + Math.floor(Math.max(0, layer - 1) / 5) * stepUp, base, maxSteps);
+}
+
+function towerBossHpForLayer(layer: number) {
+  const rules = gameplayTowerRules();
+  return Math.round((260 + layer * 55) * rules.bossHpMultiplier);
+}
+
+function towerBossAttackForLayer(layer: number) {
+  const rules = gameplayTowerRules();
+  return Math.round((24 + layer * 4) * rules.bossAttackMultiplier);
+}
+
 function defaultFactionTower(factionName = "公會"): FactionTowerProgress {
   return {
     currentLayer: 1,
     highestClearedLayer: 0,
     bossName: `${factionName} 第 1 層守將`,
-    bossHp: 260,
+    bossHp: towerBossHpForLayer(1),
+    bossAttack: towerBossAttackForLayer(1),
     rewardSummary: "公庫金幣、個人素材與戰鬥經驗",
-    progress: 0
+    progress: 0,
+    steps: 0,
+    stepsRequired: towerStepsRequired(1),
+    bossUnlocked: false,
+    lastEvent: null
   };
 }
 
 function normalizeFactionTower(rawTower: any, factionName: string): FactionTowerProgress {
   const fallback = defaultFactionTower(factionName);
   const currentLayer = clampedInt(rawTower?.currentLayer, 1, 999, fallback.currentLayer);
+  const stepsRequired = clampedInt(rawTower?.stepsRequired, 5, 99, towerStepsRequired(currentLayer));
+  const oldProgress = clampedInt(rawTower?.progress, 0, 100, 0);
+  const stepsFallback = Math.floor((oldProgress / 100) * stepsRequired);
+  const steps = clampedInt(rawTower?.steps, 0, stepsRequired, stepsFallback);
   return {
     currentLayer,
     highestClearedLayer: clampedInt(rawTower?.highestClearedLayer, 0, 999, Math.max(0, currentLayer - 1)),
     bossName: String(rawTower?.bossName || `${factionName} 第 ${currentLayer} 層守將`),
-    bossHp: clampedInt(rawTower?.bossHp, 80, GAME_LIMITS.monsterHp, 220 + currentLayer * 55),
+    bossHp: clampedInt(rawTower?.bossHp, 80, GAME_LIMITS.monsterHp, towerBossHpForLayer(currentLayer)),
+    bossAttack: clampedInt(rawTower?.bossAttack, 1, GAME_LIMITS.monsterAttack, towerBossAttackForLayer(currentLayer)),
     rewardSummary: String(rawTower?.rewardSummary || fallback.rewardSummary),
-    progress: clampedInt(rawTower?.progress, 0, 100, 0)
+    progress: clampedInt(rawTower?.progress, 0, 100, Math.round((steps / stepsRequired) * 100)),
+    steps,
+    stepsRequired,
+    bossUnlocked: Boolean(rawTower?.bossUnlocked),
+    lastEvent: typeof rawTower?.lastEvent === "string" ? rawTower.lastEvent : null
   };
 }
 
@@ -3576,6 +3630,216 @@ export async function startSoloBattle(userId: string, payload: SoloBattlePayload
   return startAdventureBattle(userId, payload);
 }
 
+function syncTowerProgress(tower: FactionTowerProgress) {
+  tower.stepsRequired = towerStepsRequired(tower.currentLayer);
+  tower.steps = clamp(tower.steps, 0, tower.stepsRequired);
+  tower.progress = clamp(Math.round((tower.steps / tower.stepsRequired) * 100), 0, 100);
+  tower.bossHp = clampedInt(tower.bossHp, 80, GAME_LIMITS.monsterHp, towerBossHpForLayer(tower.currentLayer));
+  tower.bossAttack = clampedInt(tower.bossAttack, 1, GAME_LIMITS.monsterAttack, towerBossAttackForLayer(tower.currentLayer));
+}
+
+function prepareTowerLayer(faction: StoredFaction, layer: number, lastEvent: string | null) {
+  faction.tower.currentLayer = layer;
+  faction.tower.bossName = `${faction.name} 第 ${layer} 層守將`;
+  faction.tower.bossHp = towerBossHpForLayer(layer);
+  faction.tower.bossAttack = towerBossAttackForLayer(layer);
+  faction.tower.stepsRequired = towerStepsRequired(layer);
+  faction.tower.steps = 0;
+  faction.tower.progress = 0;
+  faction.tower.bossUnlocked = false;
+  faction.tower.lastEvent = lastEvent;
+}
+
+function towerSceneBand(layer: number) {
+  const start = Math.floor((Math.max(1, layer) - 1) / 5) * 5 + 1;
+  return `${start}-${start + 4} 層共用場景`;
+}
+
+function towerModeLabel(mode: FactionTowerAdvancePayload["mode"]) {
+  return mode === "rush" ? "趕路" : "攻擊";
+}
+
+function findGuildBossCastle(data: StoreData, faction: StoredFaction, castleId?: string) {
+  const castle =
+    (castleId ? data.castles.find((entry) => entry.id === castleId) : null) ||
+    data.castles.find((entry) => entry.ownerFactionId === faction.id && entry.mapNodePurpose === "guild_boss");
+  if (!castle) throw new Error("找不到公會 Boss 據點。");
+  if (castle.ownerFactionId !== faction.id) throw new Error("只能在自己陣營的公會 Boss 據點行動。");
+  if (castle.mapNodePurpose !== "guild_boss") throw new Error("請選擇公會 Boss 據點。");
+  return castle;
+}
+
+function assertAtTowerCastle(character: CharacterProfile, castle: CastleState) {
+  if (character.currentCastleId !== castle.id) {
+    throw new Error("必須先移動到公會 Boss 據點，才能推進或挑戰塔層。");
+  }
+}
+
+export async function advanceFactionTower(userId: string, payload: FactionTowerAdvancePayload): Promise<FactionTowerAdvanceResult> {
+  const { data, character } = await findCharacterForUpdate(userId);
+  processWorldProgress(data);
+  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法推進塔層。");
+  if (!character.factionId) throw new Error("請先加入陣營。");
+  const faction = getFactionById(data, character.factionId);
+  faction.tower = normalizeFactionTower(faction.tower, faction.name);
+  syncTowerProgress(faction.tower);
+  const castle = findGuildBossCastle(data, faction, payload.castleId);
+  assertAtTowerCastle(character, castle);
+  if (faction.tower.bossUnlocked) {
+    throw new Error(`目前已遇到第 ${faction.tower.currentLayer} 層 Boss，只能挑戰或撤退。`);
+  }
+
+  const mode: FactionTowerAdvancePayload["mode"] = payload.mode === "rush" ? "rush" : "hunt";
+  const rules = data.gameConfig.towerRules;
+  const layer = faction.tower.currentLayer;
+  const energyCost = mode === "rush" ? rules.rushEnergyCost : rules.huntEnergyCost;
+  if (character.energy < energyCost) throw new Error("精力不足，無法推進塔層。");
+  character.energy = clamp(character.energy - energyCost, 0, character.maxEnergy);
+
+  const moveRoll = Math.random();
+  const stepsGained =
+    mode === "rush"
+      ? moveRoll < rules.rushDoubleStepChance
+        ? 2
+        : moveRoll < rules.rushDoubleStepChance + rules.rushSingleStepChance
+          ? 1
+          : 0
+      : moveRoll < rules.huntStepChance
+        ? 1
+        : 0;
+  faction.tower.steps = clamp(faction.tower.steps + stepsGained, 0, faction.tower.stepsRequired);
+  syncTowerProgress(faction.tower);
+
+  const materialType: MaterialType = mode === "hunt" && layer >= 3 ? "silver_ore" : "iron_ore";
+  let rewardGold = Math.round((mode === "rush" ? 8 + layer * 2 : 14 + layer * 4) * rules.rewardMultiplier);
+  let battleExp = Math.round((mode === "rush" ? 8 + layer * 2 : 14 + layer * 4) * rules.rewardMultiplier);
+  let materialQuantity = mode === "hunt" ? 1 : 0;
+  let battleRecord: BattleRecordSummary | null = null;
+  let encounterKind: FactionTowerAdvanceResult["encounter"]["kind"] = "travel";
+  const logs = [
+    `【公會爬塔】${character.name} 以${towerModeLabel(mode)}模式推進第 ${layer} 層。`,
+    `場景：${castle.name} · ${towerSceneBand(layer)}。`,
+    `前進 ${stepsGained} 步，進度 ${faction.tower.steps}/${faction.tower.stepsRequired}。`
+  ];
+
+  const bossCheckChance = mode === "rush" ? rules.bossFindChanceRush : rules.bossFindChanceHunt;
+  if (faction.tower.steps >= faction.tower.stepsRequired && Math.random() < bossCheckChance) {
+    faction.tower.bossUnlocked = true;
+    faction.tower.progress = 100;
+    faction.tower.lastEvent = `目前遇到第 ${layer} 層 Boss：${faction.tower.bossName}`;
+    encounterKind = "boss_unlocked";
+    logs.push(faction.tower.lastEvent);
+  } else {
+    const minorBossChance = mode === "hunt" ? rules.minorBossChanceHunt : rules.minorBossChanceRush;
+    if (Math.random() < minorBossChance) {
+      encounterKind = "minor_boss";
+      const towerLevelFactor = 1 + Math.max(0, (character.battleLevel || 1) - 1) * 0.12;
+      const config: InstantBattleConfig = {
+        context: "guildBoss",
+        bossName: `${faction.name} 第 ${layer} 層巡邏小王`,
+        bossHp: Math.round((120 + layer * 34) * towerLevelFactor * rules.bossHpMultiplier),
+        bossAttack: Math.round((15 + layer * 2) * (1 + Math.max(0, (character.battleLevel || 1) - 1) * 0.04) * rules.bossAttackMultiplier),
+        maxRounds: 6,
+        rewardGold: Math.round((55 + layer * 12) * towerLevelFactor * rules.rewardMultiplier),
+        battleExp: Math.round((34 + layer * 8) * towerLevelFactor * rules.rewardMultiplier),
+        materialType: layer >= 3 ? "stardust" : "iron_ore",
+        materialQuantity: mode === "hunt" ? 2 : 1
+      };
+      const result = runInstantBattle(character, config);
+      rewardGold += result.won ? Math.floor(config.rewardGold * 0.35) : Math.floor(config.rewardGold * 0.12);
+      battleExp += result.won ? config.battleExp : Math.floor(config.battleExp * 0.35);
+      materialQuantity += result.won ? config.materialQuantity : 1;
+      battleRecord = {
+        id: randomId("battle"),
+        roomId: randomId("guild"),
+        bossName: config.bossName,
+        winner: result.won ? "players" : "boss",
+        durationMs: result.roundCount * 1000,
+        totalTicks: result.roundCount,
+        createdAt: nowIso(),
+        battleContext: "guildBoss",
+        battleKind: "guildBoss",
+        castleId: castle.id,
+        targetFactionId: faction.id,
+        participants: [
+          {
+            userId: character.userId,
+            displayName: character.name,
+            className: character.className,
+            damageDealt: result.participant.damageDealt,
+            healingDone: result.participant.healingDone,
+            damageTaken: result.participant.damageTaken
+          }
+        ],
+        logs: [...logs, ...result.logs]
+      };
+      faction.treasury.gold = clamp(faction.treasury.gold + (result.won ? 18 + layer * 4 : 8 + layer * 2), 0, GAME_LIMITS.goldBalance);
+      faction.tower.lastEvent = result.won ? `第 ${layer} 層巡邏小王已擊倒。` : `第 ${layer} 層巡邏小王逼退了隊伍。`;
+      damageEquippedForBattle(character, result.participant.damageTaken > 0);
+    } else {
+      faction.tower.lastEvent =
+        faction.tower.steps >= faction.tower.stepsRequired
+          ? `第 ${layer} 層 Boss 氣息已出現，但尚未鎖定位置。`
+          : `${towerModeLabel(mode)}推進中，尚未遇到大型目標。`;
+    }
+  }
+
+  character.gold = clamp(character.gold + rewardGold, 0, GAME_LIMITS.goldBalance);
+  if (materialQuantity > 0) mergeInventoryStack(character, createMaterialItem(encounterKind === "minor_boss" && layer >= 3 ? "stardust" : materialType, materialQuantity));
+  awardBattleExperience(character, battleExp);
+  appendNotification(character, "battle", "公會爬塔", `${towerModeLabel(mode)}推進第 ${layer} 層：${faction.tower.lastEvent || "無特殊遭遇"}。`);
+
+  if (battleRecord) {
+    await recordBattle(battleRecord);
+  }
+  await persist();
+  return {
+    message:
+      encounterKind === "boss_unlocked"
+        ? `目前遇到第 ${layer} 層 Boss，挑戰 Boss 區已開啟。`
+        : encounterKind === "minor_boss"
+          ? `第 ${layer} 層遭遇小王，已完成即時戰鬥。`
+          : `第 ${layer} 層${towerModeLabel(mode)}完成。`,
+    character: toPublicCharacter(character),
+    factionState: buildFactionState(data, userId),
+    battleRecord,
+    encounter: {
+      kind: encounterKind,
+      mode,
+      layer,
+      stepsGained,
+      rewardGold,
+      battleExp,
+      materialType: encounterKind === "minor_boss" && layer >= 3 ? "stardust" : materialType,
+      materialQuantity,
+      bossUnlocked: faction.tower.bossUnlocked
+    }
+  };
+}
+
+export async function retreatFactionTowerBoss(userId: string): Promise<FactionActionResult> {
+  const { data, character } = await findCharacterForUpdate(userId);
+  processWorldProgress(data);
+  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法撤退。");
+  if (!character.factionId) throw new Error("請先加入陣營。");
+  const faction = getFactionById(data, character.factionId);
+  faction.tower = normalizeFactionTower(faction.tower, faction.name);
+  syncTowerProgress(faction.tower);
+  if (!faction.tower.bossUnlocked) throw new Error("目前沒有已遇到的塔層 Boss。");
+  const layer = faction.tower.currentLayer;
+  faction.tower.bossUnlocked = false;
+  faction.tower.steps = Math.max(0, faction.tower.stepsRequired - 1);
+  syncTowerProgress(faction.tower);
+  faction.tower.lastEvent = `已從第 ${layer} 層 Boss 前撤退，需要重新鎖定位置。`;
+  appendNotification(character, "battle", "公會爬塔撤退", faction.tower.lastEvent);
+  await persist();
+  return {
+    message: faction.tower.lastEvent,
+    character: toPublicCharacter(character),
+    factionState: buildFactionState(data, userId)
+  };
+}
+
 export async function startFactionTowerBattle(userId: string, payload: FactionTowerBattlePayload): Promise<FactionTowerBattleResult> {
   const { data, character } = await findCharacterForUpdate(userId);
   processWorldProgress(data);
@@ -3583,23 +3847,24 @@ export async function startFactionTowerBattle(userId: string, payload: FactionTo
   if (!character.factionId) throw new Error("請先加入陣營。");
   const faction = getFactionById(data, character.factionId);
   faction.tower = normalizeFactionTower(faction.tower, faction.name);
-  const castle =
-    data.castles.find((entry) => entry.id === payload.castleId) ||
-    data.castles.find((entry) => entry.ownerFactionId === faction.id && entry.mapNodePurpose === "guild_boss");
-  if (!castle) throw new Error("找不到公會 Boss 場景。");
-  if (castle.ownerFactionId !== faction.id) throw new Error("只能在自己陣營的公會 Boss 據點挑戰。");
+  syncTowerProgress(faction.tower);
+  const castle = findGuildBossCastle(data, faction, payload.castleId);
+  assertAtTowerCastle(character, castle);
 
   const isBoss = payload.mode === "boss";
   const layer = faction.tower.currentLayer;
+  const rules = data.gameConfig.towerRules;
+  if (isBoss && !faction.tower.bossUnlocked) throw new Error(`尚未遇到第 ${layer} 層 Boss，請先推進塔層。`);
+  if (!isBoss && faction.tower.bossUnlocked) throw new Error(`目前已遇到第 ${layer} 層 Boss，只能挑戰或撤退。`);
   const towerLevelFactor = 1 + Math.max(0, (character.battleLevel || 1) - 1) * 0.16;
   const config: InstantBattleConfig = {
     context: "guildBoss",
-    bossName: isBoss ? `${faction.name} 第 ${layer} 層 ${faction.tower.bossName}` : `${castle.name} 公會 Boss 準備戰`,
-    bossHp: Math.round((isBoss ? faction.tower.bossHp + layer * 60 : 130 + layer * 20) * towerLevelFactor),
-    bossAttack: Math.round((isBoss ? 24 + layer * 4 : 16 + layer * 2) * (1 + Math.max(0, (character.battleLevel || 1) - 1) * 0.05)),
+    bossName: isBoss ? faction.tower.bossName : `${castle.name} 公會 Boss 準備戰`,
+    bossHp: Math.round((isBoss ? faction.tower.bossHp + layer * 60 : (130 + layer * 20) * rules.bossHpMultiplier) * towerLevelFactor),
+    bossAttack: Math.round((isBoss ? faction.tower.bossAttack : (16 + layer * 2) * rules.bossAttackMultiplier) * (1 + Math.max(0, (character.battleLevel || 1) - 1) * 0.05)),
     maxRounds: isBoss ? 10 : 7,
-    rewardGold: Math.round((isBoss ? 140 + layer * 35 : 45 + layer * 10) * towerLevelFactor),
-    battleExp: Math.round((isBoss ? 80 + layer * 18 : 30 + layer * 8) * towerLevelFactor),
+    rewardGold: Math.round((isBoss ? 140 + layer * 35 : 45 + layer * 10) * towerLevelFactor * rules.rewardMultiplier),
+    battleExp: Math.round((isBoss ? 80 + layer * 18 : 30 + layer * 8) * towerLevelFactor * rules.rewardMultiplier),
     materialType: isBoss ? "stardust" : "iron_ore",
     materialQuantity: isBoss ? 2 : 1
   };
@@ -3613,12 +3878,14 @@ export async function startFactionTowerBattle(userId: string, payload: FactionTo
   faction.treasury.gold = clamp(faction.treasury.gold + guildGold, 0, GAME_LIMITS.goldBalance);
   if (isBoss && result.won) {
     faction.tower.highestClearedLayer = Math.max(faction.tower.highestClearedLayer, layer);
-    faction.tower.currentLayer = layer + 1;
-    faction.tower.progress = 0;
-    faction.tower.bossName = `${faction.name} 第 ${layer + 1} 層守將`;
-    faction.tower.bossHp = 260 + (layer + 1) * 55;
+    prepareTowerLayer(faction, layer + 1, `第 ${layer} 層 Boss 已擊破，解鎖第 ${layer + 1} 層。`);
   } else if (!isBoss && result.won) {
-    faction.tower.progress = clamp(faction.tower.progress + 20, 0, 100);
+    faction.tower.steps = clamp(faction.tower.steps + 1, 0, faction.tower.stepsRequired);
+    syncTowerProgress(faction.tower);
+    if (faction.tower.steps >= faction.tower.stepsRequired) {
+      faction.tower.bossUnlocked = true;
+      faction.tower.lastEvent = `目前遇到第 ${layer} 層 Boss：${faction.tower.bossName}`;
+    }
   }
   appendNotification(character, "battle", "公會戰鬥", `公庫獲得 ${guildGold} 金幣，個人獲得 ${personalGold} 金幣與戰鬥經驗 ${battleExp}。`);
 
@@ -4261,6 +4528,8 @@ export async function adminUpdateGameConfigSection(section: AdminConfigSection, 
     data.gameConfig = normalizeGameConfig({ ...data.gameConfig, siegeRules: payload });
   } else if (section === "statRules") {
     data.gameConfig = normalizeGameConfig({ ...data.gameConfig, statRules: payload });
+  } else if (section === "towerRules") {
+    data.gameConfig = normalizeGameConfig({ ...data.gameConfig, towerRules: payload });
   } else if (section === "announcements") {
     data.announcements = Array.isArray(payload) ? payload : data.announcements;
   }
@@ -4289,6 +4558,7 @@ export async function adminResetGameConfigSection(section: AdminConfigSection): 
   if (section === "forge") data.gameConfig.forgeOptions = defaults.forgeOptions;
   if (section === "siegeRules") data.gameConfig.siegeRules = defaults.siegeRules;
   if (section === "statRules") data.gameConfig.statRules = defaults.statRules;
+  if (section === "towerRules") data.gameConfig.towerRules = defaults.towerRules;
   if (section === "announcements") data.announcements = [];
   data.gameConfig = normalizeGameConfig(data.gameConfig);
   await persist();

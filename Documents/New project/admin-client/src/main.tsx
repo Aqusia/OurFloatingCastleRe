@@ -248,6 +248,35 @@ const sections: SectionDef[] = [
     ]
   },
   {
+    key: "towerRules",
+    label: "爬塔規則",
+    description: "調整趕路 / 攻擊推進、Boss 遭遇、小王遭遇、能量成本與獎勵倍率。",
+    groups: () => [
+      {
+        type: "object",
+        key: "",
+        label: "推進與遭遇",
+        fields: [
+          { key: "baseStepsRequired", label: "基礎步數", type: "number", min: 3, step: 1 },
+          { key: "stepsPerSceneBand", label: "每 5 層增加步數", type: "number", min: 0, step: 1 },
+          { key: "maxStepsRequired", label: "最大步數", type: "number", min: 3, step: 1 },
+          { key: "rushEnergyCost", label: "趕路精力", type: "number", min: 1, step: 1 },
+          { key: "huntEnergyCost", label: "攻擊精力", type: "number", min: 1, step: 1 },
+          { key: "rushDoubleStepChance", label: "趕路 +2 步率", type: "number", min: 0, max: 1, step: 0.01 },
+          { key: "rushSingleStepChance", label: "趕路 +1 步率", type: "number", min: 0, max: 1, step: 0.01 },
+          { key: "huntStepChance", label: "攻擊前進率", type: "number", min: 0, max: 1, step: 0.01 },
+          { key: "bossFindChanceRush", label: "趕路找王率", type: "number", min: 0, max: 1, step: 0.01 },
+          { key: "bossFindChanceHunt", label: "攻擊找王率", type: "number", min: 0, max: 1, step: 0.01 },
+          { key: "minorBossChanceRush", label: "趕路小王率", type: "number", min: 0, max: 1, step: 0.01 },
+          { key: "minorBossChanceHunt", label: "攻擊小王率", type: "number", min: 0, max: 1, step: 0.01 },
+          { key: "bossHpMultiplier", label: "Boss HP 倍率", type: "number", min: 0.2, step: 0.05 },
+          { key: "bossAttackMultiplier", label: "Boss 攻擊倍率", type: "number", min: 0.2, step: 0.05 },
+          { key: "rewardMultiplier", label: "獎勵倍率", type: "number", min: 0.1, step: 0.05 }
+        ]
+      }
+    ]
+  },
+  {
     key: "rewards",
     label: "獎勵活動",
     description: "調整每日獎勵與突發活動的時間、金幣、材料與贈品。",
@@ -568,6 +597,7 @@ function sectionValue(config: AdminGameConfigResponse, section: AdminConfigSecti
   if (section === "secondaryCharacters") return config.gameConfig.secondaryCharacters;
   if (section === "specialSkills") return config.gameConfig.specialSkills;
   if (section === "battle") return config.gameConfig.soloDifficulties;
+  if (section === "towerRules") return config.gameConfig.towerRules;
   if (section === "rewards") return config.rewards;
   if (section === "castles") return config.castles;
   if (section === "factions") return config.factions;
@@ -613,6 +643,92 @@ function fromDateTimeInput(value: string) {
 
 function optionLabel(options: Option[] | undefined, value: string) {
   return options?.find((option) => option.value === value)?.label || value;
+}
+
+function numericRule(source: AnyRecord, key: string, fallback: number) {
+  const value = Number(source?.[key]);
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function bounded(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function evaluateTowerRules(source: AnyRecord) {
+  const rushDouble = numericRule(source, "rushDoubleStepChance", 0.72);
+  const rushSingle = numericRule(source, "rushSingleStepChance", 0.22);
+  const huntStep = numericRule(source, "huntStepChance", 0.38);
+  const bossRush = numericRule(source, "bossFindChanceRush", 0.68);
+  const bossHunt = numericRule(source, "bossFindChanceHunt", 0.42);
+  const minorRush = numericRule(source, "minorBossChanceRush", 0.14);
+  const minorHunt = numericRule(source, "minorBossChanceHunt", 0.42);
+  const rushEnergy = numericRule(source, "rushEnergyCost", 5);
+  const huntEnergy = numericRule(source, "huntEnergyCost", 7);
+  const baseSteps = numericRule(source, "baseStepsRequired", 5);
+  const bossPressure = numericRule(source, "bossHpMultiplier", 1) * numericRule(source, "bossAttackMultiplier", 1);
+  const reward = numericRule(source, "rewardMultiplier", 1);
+  const expectedRushSteps = rushDouble * 2 + rushSingle;
+  const speedSeparation = expectedRushSteps - huntStep;
+  const encounterSeparation = minorHunt - minorRush;
+  const costGap = huntEnergy - rushEnergy;
+
+  let score =
+    5.4 +
+    bounded(speedSeparation * 1.3, -1.2, 1.4) +
+    bounded(encounterSeparation * 2.2, -0.9, 1.2) +
+    bounded((bossRush + bossHunt) * 0.75, 0, 1.1) +
+    bounded(1.2 - Math.abs(bossPressure - 1.15), -0.9, 1.2) +
+    bounded(reward - 0.75, -0.8, 1.1) -
+    bounded((baseSteps - 7) * 0.12, -0.3, 0.7) -
+    bounded(Math.abs(costGap - 2) * 0.08, 0, 0.5);
+  score = Number(bounded(score, 1, 10).toFixed(1));
+
+  const advice: string[] = [];
+  if (expectedRushSteps <= huntStep + 0.25) advice.push("趕路前進優勢不明顯，玩家可能感覺兩種模式差不多。");
+  if (bossRush < bossHunt) advice.push("趕路找王率低於攻擊，會削弱快速推王定位。");
+  if (minorHunt <= minorRush) advice.push("攻擊模式小王率應高於趕路，刷寶定位才清楚。");
+  if (bossPressure > 1.75) advice.push("Boss 壓力偏高，低等玩家可能需要先刷裝或調高獎勵。");
+  if (bossPressure < 0.75) advice.push("Boss 壓力偏低，打王可能缺少緊張感。");
+  if (reward < 0.8) advice.push("獎勵倍率偏低，長線推進的回饋感會弱。");
+  if (baseSteps > 9) advice.push("前期步數偏長，第一層到第一隻王可能拖太久。");
+  if (!advice.length) advice.push("目前節奏明確：趕路找王、攻擊刷小王，風險與獎勵平衡。");
+
+  return {
+    score,
+    expectedRushSteps,
+    huntStep,
+    bossRush,
+    bossHunt,
+    minorHunt,
+    bossPressure,
+    reward,
+    advice
+  };
+}
+
+function TowerRulesScorePanel({ rules }: { rules: AnyRecord }) {
+  const result = evaluateTowerRules(rules);
+  return (
+    <section className="tuning-panel">
+      <div className="tuning-score">
+        <span>FUN SCORE</span>
+        <strong>{result.score.toFixed(1)} / 10</strong>
+        <small>{result.score >= 8 ? "節奏偏好玩" : result.score >= 7 ? "可玩性穩定" : "需要調整節奏"}</small>
+      </div>
+      <div className="tuning-metrics">
+        <div><span>趕路期望步數</span><strong>{result.expectedRushSteps.toFixed(2)}</strong></div>
+        <div><span>攻擊前進率</span><strong>{Math.round(result.huntStep * 100)}%</strong></div>
+        <div><span>趕路找王率</span><strong>{Math.round(result.bossRush * 100)}%</strong></div>
+        <div><span>攻擊找王率</span><strong>{Math.round(result.bossHunt * 100)}%</strong></div>
+        <div><span>攻擊小王率</span><strong>{Math.round(result.minorHunt * 100)}%</strong></div>
+        <div><span>Boss 壓力</span><strong>{result.bossPressure.toFixed(2)}x</strong></div>
+      </div>
+      <div className="tuning-advice">
+        <strong>調參建議</strong>
+        {result.advice.map((entry) => <p key={entry}>{entry}</p>)}
+      </div>
+    </section>
+  );
 }
 
 function App() {
@@ -757,9 +873,12 @@ function App() {
           {draft == null ? (
             <div className="empty-state">請先登入並載入參數。</div>
           ) : (
-            activeDef.groups(editorContext).map((group) => (
-              <EditorGroup key={`${group.type}:${group.key}:${group.label}`} group={group} value={draft} onChange={updateDraft} />
-            ))
+            <>
+              {activeSection === "towerRules" ? <TowerRulesScorePanel rules={draft as AnyRecord} /> : null}
+              {activeDef.groups(editorContext).map((group) => (
+                <EditorGroup key={`${group.type}:${group.key}:${group.label}`} group={group} value={draft} onChange={updateDraft} />
+              ))}
+            </>
           )}
         </div>
         <footer>{feedback}</footer>

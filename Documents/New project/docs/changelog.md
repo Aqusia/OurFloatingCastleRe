@@ -1,5 +1,61 @@
 # Changelog
 
+## 2026-06-19
+
+### 爬塔攻打調參 / 好玩度評分
+
+- 新增 `TowerRulesConfig` 與 `gameConfig.towerRules`，把爬塔步數需求、趕路 / 攻擊精力、前進率、找王率、小王率、Boss HP / 攻擊倍率與獎勵倍率從後端硬寫改為可調參數
+- Admin 後台新增「爬塔規則」分頁，可直接調整攻打節奏與風險收益，不需要改程式
+- 「爬塔規則」分頁新增即時 FUN SCORE、核心指標與調參建議，讓 admin 可以直接看出目前節奏偏推王、刷怪或壓力過高
+- 公會爬塔推進、巡邏小王、Boss / 準備戰挑戰現在會讀取 `towerRules`
+- 前台爬塔頁新增好玩度評分，依目前層數、進度、Boss 是否已遇到、角色是否在 Boss 據點且可操作估算
+- README 更新目前主介面為頂部 HUD，並補上公會爬塔與攻打調參入口
+
+### 相關檔案
+
+- `shared/events.ts`
+- `server/src/utils.ts`
+- `server/src/persistence/localStore.ts`
+- `admin-client/src/main.tsx`
+- `admin-client/src/style.css`
+- `client/src/App.tsx`
+- `client/src/index.css`
+- `README.md`
+- `docs/game-design.md`
+- `docs/repository-guide.md`
+- `docs/changelog.md`
+
+## 2026-06-16
+
+### 爬塔主玩法 / 參考式介面整理
+
+- 新增獨立「爬塔」導覽頁：集中顯示塔層、步數、Boss 解鎖、目前 Boss 據點、移動鎖定、推進模式與挑戰 Boss 區
+- 公會爬塔新增「趕路 / 攻擊」推進模式：趕路較容易前進，攻擊較容易遇到巡邏小王並取得素材、金幣與戰鬥經驗
+- 當層步數達門檻後，推進有機率遇到該層 Boss；遇到後只能挑戰 Boss 或撤退，不能繼續推進
+- 打贏當層 Boss 會解鎖下一層、重置步數與 Boss 狀態，並保留個人獎勵 + 公庫金幣回饋
+- 公會爬塔要求角色人在公會 Boss 據點且閒暇中；移動、駐防或行動隊列中會鎖定推進 / 挑戰 / 撤退
+- 擴充 `FactionTowerProgress` 與新增 `/factions/battles/guild-boss/advance`、`/factions/battles/guild-boss/retreat`
+- 戰鬥頁的場景卡改為只在公會 Boss 據點顯示「進入爬塔」，避免非 Boss 場景誤觸公會 Boss API
+
+### 全站 HUD 介面整理
+
+- 主導覽從左側欄改成頂部 RPG HUD 工具列，11 個主要功能以 icon 按鈕呈現，桌機完整顯示、手機改為橫向滑動
+- 新增公告跑馬燈、同步狀態列與頁面標題列，移動中、HP / MP / 精力 / 金幣等資訊在各頁都能快速看到
+- 全站卡片改成終端面板風格，統一卡片邊框、角標、暗色格線底與青 / 金重點色，讓爬塔、行動、鍛造、商店讀起來一致
+- 行動頁新增 `ACTION PROTOCOL` 指令面板，集中顯示忙碌鎖定、隊列數、精力與所在地，移動中時按鈕會維持不可操作
+
+### 相關檔案
+
+- `shared/events.ts`
+- `server/src/persistence/localStore.ts`
+- `server/src/routes.ts`
+- `client/src/lib/api.ts`
+- `client/src/App.tsx`
+- `client/src/index.css`
+- `docs/game-design.md`
+- `docs/repository-guide.md`
+- `docs/changelog.md`
+
 ## 2026-06-11（第四輪）
 
 ### 亂碼修復 / 場景難度 / 探險遭遇

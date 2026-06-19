@@ -214,6 +214,78 @@ header {
   background: rgba(18, 25, 27, 0.82);
 }
 
+.tuning-panel {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr) minmax(260px, 0.72fr);
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(212, 180, 107, 0.32);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(212, 180, 107, 0.09), transparent 46%),
+    rgba(18, 25, 27, 0.88);
+}
+
+.tuning-score,
+.tuning-metrics > div,
+.tuning-advice {
+  border: 1px solid rgba(151, 176, 164, 0.15);
+  border-radius: 8px;
+  background: rgba(8, 12, 14, 0.44);
+}
+
+.tuning-score {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  padding: 14px;
+}
+
+.tuning-score span,
+.tuning-metrics span {
+  color: #9fb1a8;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.tuning-score strong {
+  color: #d4b46b;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.tuning-score small {
+  color: #cfe0d8;
+}
+
+.tuning-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.tuning-metrics > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+}
+
+.tuning-metrics strong {
+  font-size: 1.12rem;
+}
+
+.tuning-advice {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 12px;
+}
+
+.tuning-advice p {
+  color: #b9c9c1;
+  font-size: 0.9rem;
+}
+
 .panel-title,
 .row-card-title {
   display: flex;
@@ -283,6 +355,14 @@ footer {
 }
 
 @media (max-width: 1180px) {
+  .tuning-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .tuning-metrics {
+    grid-template-columns: repeat(2, minmax(130px, 1fr));
+  }
+
   .field-grid {
     grid-template-columns: repeat(2, minmax(160px, 1fr));
   }
@@ -315,6 +395,10 @@ footer {
 }
 
 @media (max-width: 560px) {
+  .tuning-metrics {
+    grid-template-columns: 1fr;
+  }
+
   .field-grid {
     grid-template-columns: 1fr;
   }
