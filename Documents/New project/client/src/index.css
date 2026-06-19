@@ -84,6 +84,7 @@ input::placeholder {
 .auth-card,
 .sidebar,
 .top-banner,
+.action-lock-panel,
 .notice-strip,
 .page-title-bar,
 .banner,
@@ -582,6 +583,70 @@ button:disabled {
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
+}
+
+.action-lock-panel {
+  margin: 0 0 16px;
+  padding: 14px 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(240px, 0.7fr);
+  gap: 16px;
+  align-items: center;
+  border-color: rgba(241, 211, 79, 0.76);
+  background:
+    linear-gradient(90deg, rgba(241, 211, 79, 0.14), rgba(36, 215, 242, 0.04)),
+    rgba(12, 10, 7, 0.92);
+}
+
+.action-lock-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.action-lock-copy strong {
+  color: var(--gold);
+  font-size: 1.05rem;
+}
+
+.action-lock-countdown {
+  min-width: 118px;
+  padding: 10px 14px;
+  border: 1px solid rgba(241, 211, 79, 0.5);
+  border-radius: 8px;
+  background: rgba(4, 7, 12, 0.76);
+  text-align: right;
+}
+
+.action-lock-countdown span,
+.action-lock-meta span {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.action-lock-countdown strong {
+  display: block;
+  color: var(--gold);
+  font-size: 1.34rem;
+}
+
+.action-lock-meta {
+  display: grid;
+  gap: 6px;
+}
+
+.action-lock-meta span {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(101, 168, 255, 0.18);
+}
+
+.action-lock-meta strong {
+  color: var(--text);
+  text-align: right;
 }
 
 .top-stats {
@@ -1430,10 +1495,36 @@ button:disabled {
   border-color: rgba(36, 215, 242, 0.5);
 }
 
+.battle-command-panel {
+  padding: 16px;
+}
+
 .quick-metric-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+}
+
+.battle-command-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.battle-lock-note {
+  margin-top: 12px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(241, 211, 79, 0.46);
+  border-radius: 8px;
+  background: rgba(35, 29, 10, 0.46);
+  color: #ffe8a8;
+}
+
+.battle-lock-note span {
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .quick-metric-grid > div {
@@ -2199,9 +2290,11 @@ button:disabled {
   }
 
   .top-banner,
+  .action-lock-panel,
   .panel-heading,
   .queue-top,
   .battle-actions,
+  .battle-lock-note,
   .join-inline,
   .battle-stage-top,
   .signin-row,
@@ -2228,6 +2321,18 @@ button:disabled {
 
   .quick-metric-grid {
     grid-template-columns: 1fr;
+  }
+
+  .battle-command-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .action-lock-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .action-lock-countdown {
+    text-align: left;
   }
 
   .notice-strip {

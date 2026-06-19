@@ -273,6 +273,22 @@ function formatDate(value?: string | null) {
   return new Date(value).toLocaleString("zh-TW");
 }
 
+function formatRemainingTime(value: string | null | undefined, now: number) {
+  if (!value) return "-";
+  const diff = new Date(value).getTime() - now;
+  if (!Number.isFinite(diff)) return "-";
+  if (diff <= 0) return "待同步";
+  const totalSeconds = Math.ceil(diff / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    const restMinutes = minutes % 60;
+    return `${hours}h ${restMinutes}m`;
+  }
+  return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+}
+
 function toDateTimeLocalValue(value?: string | null) {
   if (!value) return "";
   const date = new Date(value);
@@ -858,7 +874,7 @@ function App() {
     mine_shallow: 1,
     mine_deep: 1
   });
-  const [, setNowTick] = useState(Date.now());
+  const [nowTick, setNowTick] = useState(Date.now());
 
   const currentForgeOption = forgeOptions.find((entry) => entry.id === forgeRecipeId) || forgeOptions[0] || null;
   const visibleNav = navItems;
@@ -975,6 +991,22 @@ function App() {
   const battleOverlayVisible = Boolean((roomState?.phase === "battle" || roomState?.phase === "ended") && !battleOverlayDismissed);
   const detailModalRoot = typeof document !== "undefined" ? document.body : null;
   const myActivityStatus = character ? activityStatusFor(character, roomState, user?.id) : { label: "閒暇中", tone: "idle" as ActivityStatusTone };
+  const activeActivityItem = character ? activeQueueItem(character) : null;
+  const activityLock = character && !isIdle(character)
+    ? {
+        code: character.movement ? "MOVING" : character.garrisonAssignment ? "GARRISON" : roomState?.phase === "battle" ? "BATTLE" : "ACTION",
+        title: character.movement ? "移動中" : myActivityStatus.label,
+        detail: character.movement
+          ? movementRouteLabel
+          : character.garrisonAssignment
+            ? "駐防中，離開駐防後才能安排其他行動。"
+            : activeActivityItem
+              ? `${activeActivityItem.label} · ${formatDate(activeActivityItem.endsAt)} 完成`
+              : "目前行動尚未同步完成。",
+        endsAt: character.movement?.endsAt || activeActivityItem?.endsAt || null,
+        remaining: formatRemainingTime(character.movement?.endsAt || activeActivityItem?.endsAt || null, nowTick)
+      }
+    : null;
   const partyBlocker = roomState?.members.find((member) => !isIdle(member.character)) || null;
   const canLeadPartyAction = Boolean(roomState && user && roomState.hostId === user.id && roomState.phase === "lobby" && !partyBlocker);
   const canAttackCastle = character ? (!roomState ? isIdle(character) : canLeadPartyAction) : false;
@@ -2023,6 +2055,25 @@ async function bootstrap(nextToken: string) {
             </div>
           </div>
 
+          {activityLock ? (
+            <div className={`action-lock-panel status-${myActivityStatus.tone}`}>
+              <div className="action-lock-copy">
+                <span className="metric-label">/ {activityLock.code}</span>
+                <strong>ACTION LOCK · {activityLock.title}</strong>
+                <div className="muted">{activityLock.detail}</div>
+              </div>
+              <div className="action-lock-countdown">
+                <span>剩餘</span>
+                <strong>{activityLock.remaining}</strong>
+              </div>
+              <div className="action-lock-meta">
+                <span>LOCATION <strong>{currentCastle?.name || "-"}</strong></span>
+                <span>HP <strong>{character.hp}/{character.maxHp}</strong></span>
+                <span>ENERGY <strong>{character.energy}/{character.maxEnergy}</strong></span>
+              </div>
+            </div>
+          ) : null}
+
           <div className="page-title-bar">
             <div>
               <div className="eyebrow">/ {activeNavMeta?.key.toUpperCase() || "PAGE"}</div>
@@ -2380,6 +2431,12 @@ async function bootstrap(nextToken: string) {
                             <button className="primary-button" onClick={() => void handleMoveCastle(selectedTowerCastle.id)} disabled={!isIdle(character)} type="button">
                               <Footprints size={16} /> 前往據點
                             </button>
+                          ) : !isIdle(character) ? (
+                            <div className="banner tower-lock-strip">
+                              <strong>{myActivityStatus.label}</strong>
+                              <span>完成目前行動前不能推進塔層或挑戰 Boss。</span>
+                              {activityLock ? <span>剩餘 {activityLock.remaining}</span> : null}
+                            </div>
                           ) : (
                             <span className="mini-pill is-live">可推進塔層</span>
                           )}
@@ -2466,6 +2523,29 @@ async function bootstrap(nextToken: string) {
 
           {activeNav === "battle" ? (
             <section className="section-stack">
+              <div className="panel command-panel battle-command-panel">
+                <div className="panel-heading">
+                  <div>
+                    <strong>BATTLE HALL</strong>
+                    <div className="muted" style={{ marginTop: 6 }}>可執行戰鬥、隊伍與最近戰報集中在這裡；角色忙碌時只保留檢視功能。</div>
+                  </div>
+                  <span className={`status-pill compact status-${myActivityStatus.tone}`}>{isIdle(character) ? "READY" : "LOCKED"}</span>
+                </div>
+                <div className="quick-metric-grid battle-command-metrics">
+                  <div><span>STATE</span><strong>{myActivityStatus.label}</strong></div>
+                  <div><span>LOCATION</span><strong>{currentCastle?.name || "-"}</strong></div>
+                  <div><span>PARTY</span><strong>{roomState ? roomState.roomId : "SOLO"}</strong></div>
+                  <div><span>RECORDS</span><strong>{battleHistory.length}</strong></div>
+                </div>
+                {activityLock ? (
+                  <div className="battle-lock-note">
+                    <strong>{activityLock.title}</strong>
+                    <span>{activityLock.detail}</span>
+                    <span>剩餘 {activityLock.remaining}</span>
+                  </div>
+                ) : null}
+              </div>
+
               <div className="panel" style={{ padding: 16 }}>
                 <strong>組隊大廳</strong>
                 <div className="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", marginTop: 14 }}>
@@ -2480,8 +2560,8 @@ async function bootstrap(nextToken: string) {
                 </div>
                 <div className="muted" style={{ marginTop: 10 }}>隊伍代碼固定為 6 碼英文或數字。</div>
                 <div className="battle-actions" style={{ marginTop: 12 }}>
-                  <button className="primary-button" onClick={createParty} type="button">建立隊伍</button>
-                  <button className="secondary-button" onClick={() => joinParty()} type="button">加入隊伍</button>
+                  <button className="primary-button" onClick={createParty} disabled={!isIdle(character)} type="button">建立隊伍</button>
+                  <button className="secondary-button" onClick={() => joinParty()} disabled={!isIdle(character)} type="button">加入隊伍</button>
                   {roomState ? <button className="ghost-button" onClick={leaveParty} type="button">離開隊伍</button> : null}
                 </div>
               </div>
@@ -2494,6 +2574,13 @@ async function bootstrap(nextToken: string) {
                   </div>
                   <span className="mini-pill">{isIdle(character) ? "可挑戰" : "角色忙碌中"}</span>
                 </div>
+                {activityLock ? (
+                  <div className="battle-lock-note" style={{ marginTop: 14 }}>
+                    <strong>行動鎖定</strong>
+                    <span>{activityLock.detail}</span>
+                    <span>完成前不能開始探險或 Boss 挑戰。</span>
+                  </div>
+                ) : null}
                 <div
                   className="battle-scene-grid battle-scene-rail"
                   onPointerCancel={handleSceneRailPointerEnd}

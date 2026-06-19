@@ -20,7 +20,7 @@
 - `client/src/App.tsx`
   - 主畫面與大部分頁面邏輯都集中在這裡
   - 包含角色、行動、爬塔、戰鬥、陣營、揹包、鍛造、消息、好友、商店
-  - 頂部 HUD 導覽、公告列、頁面標題列與主要切頁狀態也在這裡
+  - 頂部 HUD 導覽、公告列、頁面標題列、全域行動鎖定與主要切頁狀態也在這裡
   - 登入 / 建立角色畫面已抽成 `AuthScreen`
 - `client/src/lib/api.ts`
   - 所有 HTTP API 呼叫集中處
@@ -156,8 +156,8 @@
 4. `gameConfig.towerRules` 控制公會爬塔步數需求、推進機率、遭遇機率、Boss 強度倍率與獎勵倍率；admin-client 的「爬塔規則」分頁可調。
 5. 世界 Boss 狀態與挑戰分別是 `/factions/world-boss`、`/factions/world-boss/challenge`。
 6. 三類戰鬥都由 `server/src/persistence/localStore.ts` 產生 `BattleRecordSummary`，新資料使用 `battleKind` 標示 `adventure / guildBoss / worldBoss`。
-7. 前端戰鬥頁在 `client/src/App.tsx` 顯示探險、隊伍與世界 Boss；公會爬塔改到獨立「爬塔」導覽頁，Boss 據點卡只導向塔頁。
-8. 前端整體視覺集中在 `client/src/index.css`，目前採頂部 HUD、公告跑馬燈、終端式卡片與手機橫向導航列。
+7. 前端戰鬥頁在 `client/src/App.tsx` 顯示 `BATTLE HALL` 總覽、探險、隊伍與世界 Boss；公會爬塔改到獨立「爬塔」導覽頁，Boss 據點卡只導向塔頁。
+8. 前端整體視覺集中在 `client/src/index.css`，目前採頂部 HUD、公告跑馬燈、全域行動鎖定條、終端式卡片與手機橫向導航列。
 
 ## 哪些檔案是高影響區
 
