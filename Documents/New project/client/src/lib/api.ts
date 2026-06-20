@@ -39,8 +39,10 @@ import type {
   LoginPayload,
   MarketBuyPayload,
   MarketListPayload,
+  NearbyPlayersResult,
   NotificationEntry,
   Announcement,
+  PlayerAttackResult,
   PurchasePayload,
   PurchaseResult,
   QueueActionPayload,
@@ -533,6 +535,21 @@ export function startSoloBattle(token: string, mapNodeId: string) {
 }
 
 export const startAdventureBattle = startSoloBattle;
+
+export function getNearbyPlayers(token: string) {
+  return request<NearbyPlayersResult>("/battles/players/nearby", {}, token);
+}
+
+export function attackNearbyPlayer(token: string, targetUserId: string) {
+  return request<PlayerAttackResult>(
+    "/battles/players/attack",
+    {
+      method: "POST",
+      body: JSON.stringify({ targetUserId })
+    },
+    token
+  );
+}
 
 export function advanceFactionTower(token: string, payload: { castleId?: string; mode: "rush" | "hunt" }) {
   return request<FactionTowerAdvanceResult>(

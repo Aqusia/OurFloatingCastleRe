@@ -1527,6 +1527,342 @@ button:disabled {
   font-size: 0.9rem;
 }
 
+.boss-command-panel {
+  padding: 16px;
+  border-color: rgba(246, 216, 76, 0.36);
+  background:
+    linear-gradient(135deg, rgba(246, 216, 76, 0.08), rgba(36, 215, 242, 0.05)),
+    rgba(9, 14, 24, 0.82);
+}
+
+.boss-command-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.boss-command-card {
+  min-width: 0;
+  min-height: 258px;
+  padding: 14px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: 12px;
+  border: 1px solid rgba(101, 168, 255, 0.24);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(21, 30, 48, 0.74), rgba(8, 13, 24, 0.78)),
+    rgba(8, 13, 24, 0.72);
+}
+
+.boss-command-card.is-ready {
+  border-color: rgba(246, 216, 76, 0.48);
+  box-shadow: inset 0 0 0 1px rgba(246, 216, 76, 0.08);
+}
+
+.boss-command-top {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.boss-command-top strong,
+.boss-command-top .muted {
+  overflow-wrap: anywhere;
+}
+
+.boss-command-icon {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(246, 216, 76, 0.32);
+  border-radius: 8px;
+  color: var(--gold);
+  background: rgba(246, 216, 76, 0.08);
+}
+
+.boss-command-meter {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+}
+
+.boss-command-meter span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.boss-command-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.quick-metric-grid.boss-command-metrics > div {
+  min-height: 58px;
+  padding: 10px;
+}
+
+.quick-metric-grid.boss-command-metrics strong {
+  font-size: 1rem;
+}
+
+.boss-command-rating {
+  min-width: 0;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  border: 1px solid rgba(246, 216, 76, 0.28);
+  border-radius: 8px;
+  background: rgba(246, 216, 76, 0.07);
+}
+
+.boss-command-rating span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.boss-command-rating strong {
+  color: var(--gold);
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.boss-command-rating small {
+  min-width: 0;
+  color: #d8dfd7;
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.boss-command-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.boss-command-actions button {
+  min-width: 0;
+}
+
+.nearby-player-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.nearby-player-card {
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(101, 168, 255, 0.26);
+  border-radius: 8px;
+  background: rgba(8, 13, 24, 0.74);
+}
+
+.nearby-player-card.relation-enemy {
+  border-color: rgba(255, 79, 111, 0.56);
+}
+
+.nearby-player-card.relation-ally,
+.nearby-player-card.relation-same_faction {
+  border-color: rgba(113, 231, 156, 0.4);
+}
+
+.nearby-player-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.nearby-player-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.quick-metric-grid.nearby-player-metrics > div {
+  min-height: 62px;
+  padding: 10px;
+}
+
+.mini-pill.relation-enemy {
+  border-color: rgba(255, 79, 111, 0.74);
+  color: #ffd4dc;
+}
+
+.mini-pill.relation-ally,
+.mini-pill.relation-same_faction {
+  border-color: rgba(113, 231, 156, 0.62);
+  color: #ddffe9;
+}
+
+.mini-pill.relation-neutral {
+  border-color: rgba(101, 168, 255, 0.5);
+  color: #d7e8ff;
+}
+
+.forge-command-panel {
+  padding: 16px;
+}
+
+.forge-workbench-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.76fr) minmax(0, 1.24fr);
+  gap: 14px;
+}
+
+.forge-setup-panel,
+.forge-material-panel {
+  align-content: start;
+}
+
+.forge-summary-card {
+  padding: 14px;
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(246, 216, 76, 0.32);
+  border-radius: 8px;
+  background: rgba(246, 216, 76, 0.07);
+}
+
+.forge-summary-card span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.forge-summary-card strong {
+  color: var(--gold);
+}
+
+.forge-material-list {
+  max-height: 460px;
+  display: grid;
+  gap: 10px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.forge-material-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(101, 168, 255, 0.24);
+  border-radius: 8px;
+  background: rgba(8, 13, 24, 0.72);
+}
+
+.forge-material-row.is-selected {
+  border-color: rgba(246, 216, 76, 0.48);
+  background:
+    linear-gradient(135deg, rgba(246, 216, 76, 0.1), rgba(36, 215, 242, 0.06)),
+    rgba(8, 13, 24, 0.78);
+}
+
+.forge-material-row strong,
+.forge-material-row .muted {
+  overflow-wrap: anywhere;
+}
+
+.skill-command-panel {
+  padding: 16px;
+  border-color: rgba(36, 215, 242, 0.46);
+  background:
+    linear-gradient(135deg, rgba(36, 215, 242, 0.08), rgba(246, 216, 76, 0.05)),
+    rgba(9, 14, 24, 0.84);
+}
+
+.skill-slot-card {
+  margin-top: 12px;
+  padding: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid rgba(246, 216, 76, 0.32);
+  border-radius: 8px;
+  background: rgba(246, 216, 76, 0.07);
+}
+
+.skill-slot-card span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.skill-slot-card strong {
+  display: block;
+  color: var(--gold);
+  font-size: 1.12rem;
+}
+
+.skill-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+  gap: 14px;
+}
+
+.skill-card-grid,
+.skill-auto-list {
+  display: grid;
+  gap: 12px;
+}
+
+.skill-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.skill-card,
+.skill-auto-row {
+  min-width: 0;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(101, 168, 255, 0.24);
+  border-radius: 8px;
+  background: rgba(8, 13, 24, 0.72);
+}
+
+.skill-card.is-equipped {
+  border-color: rgba(246, 216, 76, 0.52);
+  background:
+    linear-gradient(135deg, rgba(246, 216, 76, 0.1), rgba(36, 215, 242, 0.06)),
+    rgba(8, 13, 24, 0.78);
+}
+
+.skill-card-head {
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.skill-card-head strong,
+.skill-card-head .muted,
+.skill-auto-row strong,
+.skill-auto-row .muted {
+  overflow-wrap: anywhere;
+}
+
+.skill-card-head svg {
+  color: var(--gold);
+  flex: 0 0 auto;
+}
+
 .quick-metric-grid > div {
   min-height: 82px;
   padding: 14px;
@@ -2236,8 +2572,11 @@ button:disabled {
   .auth-hero,
   .detail-columns,
   .hero-strip,
+  .boss-command-grid,
   .tower-command-grid,
-  .tower-action-layout {
+  .tower-action-layout,
+  .forge-workbench-layout,
+  .skill-layout {
     grid-template-columns: 1fr;
   }
 
@@ -2285,13 +2624,18 @@ button:disabled {
   .tower-mode-grid,
   .tower-status-row,
   .tower-location-card,
-  .tower-boss-card {
+  .tower-boss-card,
+  .forge-material-row,
+  .boss-command-top {
     grid-template-columns: 1fr;
   }
 
   .top-banner,
   .action-lock-panel,
   .panel-heading,
+  .nearby-player-top,
+  .skill-slot-card,
+  .skill-card-head,
   .queue-top,
   .battle-actions,
   .battle-lock-note,
@@ -2324,6 +2668,14 @@ button:disabled {
   }
 
   .battle-command-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .nearby-player-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .boss-command-metrics {
     grid-template-columns: 1fr;
   }
 

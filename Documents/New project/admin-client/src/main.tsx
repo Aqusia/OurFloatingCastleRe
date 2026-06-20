@@ -277,6 +277,86 @@ const sections: SectionDef[] = [
     ]
   },
   {
+    key: "playerAttackRules",
+    label: "玩家遭遇",
+    description: "調整同地點玩家攻擊的精力成本、回合數、金幣繳獲與勝敗經驗。",
+    groups: () => [
+      {
+        type: "object",
+        key: "",
+        label: "同地點攻擊規則",
+        fields: [
+          { key: "energyCost", label: "發起精力", type: "number", min: 1, step: 1 },
+          { key: "maxRounds", label: "最多回合", type: "number", min: 1, max: 12, step: 1 },
+          { key: "attackerWinBattleExp", label: "攻方勝利經驗", type: "number", min: 0, step: 1 },
+          { key: "attackerLoseBattleExp", label: "攻方失敗經驗", type: "number", min: 0, step: 1 },
+          { key: "defenderWinBattleExp", label: "守方勝利經驗", type: "number", min: 0, step: 1 },
+          { key: "defenderLoseBattleExp", label: "守方失敗經驗", type: "number", min: 0, step: 1 },
+          { key: "baseGoldSteal", label: "基礎繳獲金幣", type: "number", min: 0, step: 1 },
+          { key: "goldStealPerBattleLevel", label: "每戰鬥等級金幣", type: "number", min: 0, step: 0.1 },
+          { key: "goldStealLuckMultiplier", label: "運氣金幣倍率", type: "number", min: 0, step: 0.1 },
+          { key: "minGoldSteal", label: "最低繳獲金幣", type: "number", min: 0, step: 1 },
+          { key: "maxGoldSteal", label: "最高繳獲金幣", type: "number", min: 0, step: 1 }
+        ]
+      }
+    ]
+  },
+  {
+    key: "worldBossRules",
+    label: "世界 Boss",
+    description: "調整世界 Boss 本體強度、回合數、首殺獎勵、重複勝利與失敗參與獎。",
+    groups: (context) => [
+      {
+        type: "object",
+        key: "",
+        label: "世界 Boss 規則",
+        fields: [
+          { key: "bossName", label: "Boss 名稱", type: "text" },
+          { key: "bossHp", label: "Boss HP", type: "number", min: 1, step: 1 },
+          { key: "bossAttack", label: "Boss 攻擊", type: "number", min: 1, step: 1 },
+          { key: "maxRounds", label: "最多回合", type: "number", min: 1, max: 30, step: 1 },
+          { key: "rewardGold", label: "首殺公庫金幣", type: "number", min: 0, step: 1 },
+          { key: "rewardMaterials", label: "首殺材料基數", type: "number", min: 0, step: 1 },
+          { key: "materialType", label: "獎勵材料", type: "select", options: context.resourceOptions },
+          { key: "firstWinPersonalGoldRate", label: "首殺個人金幣率", type: "number", min: 0, max: 1, step: 0.01 },
+          { key: "firstWinMaterialRate", label: "首殺材料率", type: "number", min: 0, max: 1, step: 0.01 },
+          { key: "firstWinBattleExp", label: "首殺戰鬥經驗", type: "number", min: 0, step: 1 },
+          { key: "repeatWinPersonalGold", label: "重複勝利個人金幣", type: "number", min: 0, step: 1 },
+          { key: "repeatWinGuildGold", label: "重複勝利公庫金幣", type: "number", min: 0, step: 1 },
+          { key: "repeatWinBattleExp", label: "重複勝利經驗", type: "number", min: 0, step: 1 },
+          { key: "lossPersonalGold", label: "失敗個人金幣", type: "number", min: 0, step: 1 },
+          { key: "lossGuildGold", label: "失敗公庫金幣", type: "number", min: 0, step: 1 },
+          { key: "lossBattleExp", label: "失敗戰鬥經驗", type: "number", min: 0, step: 1 },
+          { key: "participationMaterials", label: "參與材料數", type: "number", min: 0, step: 1 }
+        ]
+      }
+    ]
+  },
+  {
+    key: "roomBossRules",
+    label: "隊伍 Boss",
+    description: "調整一般隊伍 Boss 的名稱、速度、強度倍率與勝敗獎勵。",
+    groups: () => [
+      {
+        type: "object",
+        key: "",
+        label: "隊伍 Boss 規則",
+        fields: [
+          { key: "bossName", label: "Boss 名稱", type: "text" },
+          { key: "tickIntervalMs", label: "回合間隔 ms", type: "number", min: 500, max: 10000, step: 100 },
+          { key: "hpMultiplier", label: "HP 倍率", type: "number", min: 0.2, max: 5, step: 0.05 },
+          { key: "attackMultiplier", label: "攻擊倍率", type: "number", min: 0.2, max: 5, step: 0.05 },
+          { key: "winBattleExp", label: "勝利戰鬥經驗", type: "number", min: 0, step: 1 },
+          { key: "lossBattleExp", label: "失敗戰鬥經驗", type: "number", min: 0, step: 1 },
+          { key: "winInstinctExp", label: "勝利本能經驗", type: "number", min: 0, step: 1 },
+          { key: "lossInstinctExp", label: "失敗本能經驗", type: "number", min: 0, step: 1 },
+          { key: "winGold", label: "勝利金幣", type: "number", min: 0, step: 1 },
+          { key: "lossGold", label: "失敗金幣", type: "number", min: 0, step: 1 }
+        ]
+      }
+    ]
+  },
+  {
     key: "rewards",
     label: "獎勵活動",
     description: "調整每日獎勵與突發活動的時間、金幣、材料與贈品。",
@@ -598,6 +678,9 @@ function sectionValue(config: AdminGameConfigResponse, section: AdminConfigSecti
   if (section === "specialSkills") return config.gameConfig.specialSkills;
   if (section === "battle") return config.gameConfig.soloDifficulties;
   if (section === "towerRules") return config.gameConfig.towerRules;
+  if (section === "playerAttackRules") return config.gameConfig.playerAttackRules;
+  if (section === "worldBossRules") return config.gameConfig.worldBossRules;
+  if (section === "roomBossRules") return config.gameConfig.roomBossRules;
   if (section === "rewards") return config.rewards;
   if (section === "castles") return config.castles;
   if (section === "factions") return config.factions;
@@ -704,6 +787,223 @@ function evaluateTowerRules(source: AnyRecord) {
     reward,
     advice
   };
+}
+
+function evaluatePlayerAttackRules(source: AnyRecord) {
+  const energyCost = numericRule(source, "energyCost", 12);
+  const maxRounds = numericRule(source, "maxRounds", 5);
+  const attackerWinExp = numericRule(source, "attackerWinBattleExp", 36);
+  const attackerLoseExp = numericRule(source, "attackerLoseBattleExp", 16);
+  const defenderWinExp = numericRule(source, "defenderWinBattleExp", 26);
+  const defenderLoseExp = numericRule(source, "defenderLoseBattleExp", 12);
+  const baseGold = numericRule(source, "baseGoldSteal", 12);
+  const levelGold = numericRule(source, "goldStealPerBattleLevel", 4);
+  const luckGold = numericRule(source, "goldStealLuckMultiplier", 0.8);
+  const minGold = numericRule(source, "minGoldSteal", 8);
+  const maxGold = numericRule(source, "maxGoldSteal", 120);
+  const averageGold = bounded(baseGold + levelGold * 6 + luckGold * 12, minGold, Math.max(minGold, maxGold));
+  const rewardPressure = averageGold / Math.max(1, energyCost);
+  const defenderComfort = defenderWinExp - defenderLoseExp;
+
+  let score =
+    5.8 +
+    bounded((6 - Math.abs(energyCost - 12)) * 0.16, -0.7, 1) +
+    bounded((5 - Math.abs(maxRounds - 5)) * 0.16, -0.6, 0.8) +
+    bounded((attackerWinExp - attackerLoseExp) / 25, -0.6, 1.1) +
+    bounded(defenderComfort / 24, -0.6, 0.9) +
+    bounded((rewardPressure - 1.5) * 0.45, -0.8, 1.1) -
+    bounded(maxGold > 180 ? (maxGold - 180) / 120 : 0, 0, 1);
+  score = Number(bounded(score, 1, 10).toFixed(1));
+
+  const advice: string[] = [];
+  if (energyCost < 8) advice.push("發起成本偏低，玩家可能過度騷擾同地點目標。");
+  if (energyCost > 18) advice.push("發起成本偏高，玩家遭遇會變成很少使用的功能。");
+  if (maxRounds < 3) advice.push("回合數太短，戰力差距不容易被打出來。");
+  if (maxRounds > 8) advice.push("回合數偏長，PVP 會拖慢打王主節奏。");
+  if (attackerWinExp <= attackerLoseExp) advice.push("攻方勝敗經驗差距不明顯，勝利回饋會偏弱。");
+  if (defenderWinExp <= defenderLoseExp) advice.push("守方成功防守的回饋應高於被擊敗，才有防守感。");
+  if (averageGold < 18) advice.push("金幣繳獲偏低，玩家可能只把遭遇當成戰報而不是玩法。");
+  if (maxGold > 220) advice.push("最高繳獲偏高，容易讓高等玩家搶金幣收益過大。");
+  if (!advice.length) advice.push("目前節奏穩定：成本能限制濫用，勝敗經驗與金幣繳獲都有明確差異。");
+
+  return {
+    score,
+    energyCost,
+    maxRounds,
+    averageGold,
+    rewardPressure,
+    attackerWinExp,
+    attackerLoseExp,
+    defenderWinExp,
+    defenderLoseExp,
+    advice
+  };
+}
+
+function evaluateWorldBossRules(source: AnyRecord) {
+  const bossHp = numericRule(source, "bossHp", 520);
+  const bossAttack = numericRule(source, "bossAttack", 34);
+  const maxRounds = numericRule(source, "maxRounds", 12);
+  const rewardGold = numericRule(source, "rewardGold", 420);
+  const rewardMaterials = numericRule(source, "rewardMaterials", 8);
+  const firstGoldRate = numericRule(source, "firstWinPersonalGoldRate", 0.35);
+  const firstMaterialRate = numericRule(source, "firstWinMaterialRate", 0.5);
+  const firstExp = numericRule(source, "firstWinBattleExp", 120);
+  const repeatGold = numericRule(source, "repeatWinPersonalGold", 60);
+  const repeatGuild = numericRule(source, "repeatWinGuildGold", 80);
+  const repeatExp = numericRule(source, "repeatWinBattleExp", 70);
+  const lossGold = numericRule(source, "lossPersonalGold", 24);
+  const lossGuild = numericRule(source, "lossGuildGold", 30);
+  const lossExp = numericRule(source, "lossBattleExp", 32);
+  const participationMaterials = numericRule(source, "participationMaterials", 1);
+  const pressure = (bossHp * bossAttack) / Math.max(1, maxRounds * 1500);
+  const firstPersonalGold = rewardGold * firstGoldRate;
+  const firstMaterials = rewardMaterials * firstMaterialRate;
+  const participationValue = lossGold + lossGuild * 0.35 + lossExp * 0.5 + participationMaterials * 16;
+  const repeatValue = repeatGold + repeatGuild * 0.35 + repeatExp * 0.5;
+
+  let score =
+    5.9 +
+    bounded(1.2 - Math.abs(pressure - 1), -1.2, 1.2) +
+    bounded((firstPersonalGold - 120) / 160, -0.7, 1) +
+    bounded((firstExp - 90) / 90, -0.6, 0.9) +
+    bounded((repeatValue - participationValue) / 120, -0.7, 0.9) +
+    bounded(firstMaterials / 6 - 0.45, -0.5, 0.7) -
+    bounded(maxRounds > 18 ? (maxRounds - 18) * 0.08 : 0, 0, 0.7);
+  score = Number(bounded(score, 1, 10).toFixed(1));
+
+  const advice: string[] = [];
+  if (pressure > 1.35) advice.push("Boss 壓力偏高，可能只有高等或運氣好才打得過。");
+  if (pressure < 0.65) advice.push("Boss 壓力偏低，世界 Boss 競賽可能太快結束。");
+  if (maxRounds < 8) advice.push("回合數偏短，連擊職業和副角色技能不容易展開。");
+  if (maxRounds > 18) advice.push("回合數偏長，單次挑戰會拖慢戰鬥頁節奏。");
+  if (firstPersonalGold < 80) advice.push("首殺個人金幣偏低，玩家可能只感覺公會有賺。");
+  if (repeatValue <= participationValue) advice.push("重複勝利獎應高於失敗參與獎，否則打贏後續挑戰回饋不明顯。");
+  if (participationValue < 35) advice.push("失敗參與獎偏低，玩家可能不願意試打世界 Boss。");
+  if (!advice.length) advice.push("目前節奏穩定：Boss 有壓力，首殺有爆點，失敗也有參與回饋。");
+
+  return {
+    score,
+    pressure,
+    firstPersonalGold,
+    firstMaterials,
+    repeatValue,
+    participationValue,
+    maxRounds,
+    rewardGold,
+    advice
+  };
+}
+
+function WorldBossRulesScorePanel({ rules }: { rules: AnyRecord }) {
+  const result = evaluateWorldBossRules(rules);
+  return (
+    <section className="tuning-panel">
+      <div className="tuning-score">
+        <span>FUN SCORE</span>
+        <strong>{result.score.toFixed(1)} / 10</strong>
+        <small>{result.score >= 8 ? "世界 Boss 有吸引力" : result.score >= 7 ? "可玩性穩定" : "需要調整壓力"}</small>
+      </div>
+      <div className="tuning-metrics">
+        <div><span>Boss 壓力</span><strong>{result.pressure.toFixed(2)}x</strong></div>
+        <div><span>最多回合</span><strong>{result.maxRounds}</strong></div>
+        <div><span>首殺公庫</span><strong>{result.rewardGold}</strong></div>
+        <div><span>首殺個人</span><strong>{Math.round(result.firstPersonalGold)}</strong></div>
+        <div><span>首殺材料</span><strong>{Math.round(result.firstMaterials)}</strong></div>
+        <div><span>勝 / 敗價值</span><strong>{Math.round(result.repeatValue)} / {Math.round(result.participationValue)}</strong></div>
+      </div>
+      <div className="tuning-advice">
+        <strong>調參建議</strong>
+        {result.advice.map((entry) => <p key={entry}>{entry}</p>)}
+      </div>
+    </section>
+  );
+}
+
+function evaluateRoomBossRules(source: AnyRecord) {
+  const tickIntervalMs = numericRule(source, "tickIntervalMs", 2000);
+  const hpMultiplier = numericRule(source, "hpMultiplier", 1);
+  const attackMultiplier = numericRule(source, "attackMultiplier", 1);
+  const winBattleExp = numericRule(source, "winBattleExp", 18);
+  const lossBattleExp = numericRule(source, "lossBattleExp", 8);
+  const winInstinctExp = numericRule(source, "winInstinctExp", 10);
+  const lossInstinctExp = numericRule(source, "lossInstinctExp", 4);
+  const winGold = numericRule(source, "winGold", 36);
+  const lossGold = numericRule(source, "lossGold", 12);
+  const pressure = hpMultiplier * attackMultiplier;
+  const pace = 2000 / Math.max(500, tickIntervalMs);
+  const winValue = winGold + winBattleExp * 1.8 + winInstinctExp * 1.2;
+  const lossValue = lossGold + lossBattleExp * 1.4 + lossInstinctExp;
+
+  let score =
+    5.7 +
+    bounded(1.15 - Math.abs(pressure - 1.05), -1, 1.15) +
+    bounded(0.85 - Math.abs(pace - 1), -0.7, 0.85) +
+    bounded((winValue - lossValue) / 90, -0.6, 1) +
+    bounded((lossValue - 18) / 55, -0.5, 0.7) -
+    bounded(tickIntervalMs < 900 ? (900 - tickIntervalMs) / 600 : 0, 0, 0.7);
+  score = Number(bounded(score, 1, 10).toFixed(1));
+
+  const advice: string[] = [];
+  if (pressure > 1.6) advice.push("Boss 壓力偏高，一般隊伍可能頻繁失敗。");
+  if (pressure < 0.65) advice.push("Boss 壓力偏低，隊伍戰可能太快結束。");
+  if (tickIntervalMs < 1000) advice.push("回合間隔偏短，戰報與連擊動畫可能讀不清楚。");
+  if (tickIntervalMs > 3500) advice.push("回合間隔偏長，隊伍戰等待感會變重。");
+  if (winValue <= lossValue) advice.push("勝利獎應明顯高於失敗獎，否則開打動機會弱。");
+  if (lossValue < 18) advice.push("失敗獎偏低，低等隊伍試打成本感會太高。");
+  if (!advice.length) advice.push("目前節奏穩定：隊伍戰有壓力、回合速度可讀、勝敗獎勵差距明確。");
+
+  return { score, pressure, pace, tickIntervalMs, winValue, lossValue, winBattleExp, lossBattleExp, winGold, lossGold, advice };
+}
+
+function RoomBossRulesScorePanel({ rules }: { rules: AnyRecord }) {
+  const result = evaluateRoomBossRules(rules);
+  return (
+    <section className="tuning-panel">
+      <div className="tuning-score">
+        <span>FUN SCORE</span>
+        <strong>{result.score.toFixed(1)} / 10</strong>
+        <small>{result.score >= 8 ? "隊伍戰節奏好" : result.score >= 7 ? "可玩性穩定" : "需要調整壓力"}</small>
+      </div>
+      <div className="tuning-metrics">
+        <div><span>Boss 壓力</span><strong>{result.pressure.toFixed(2)}x</strong></div>
+        <div><span>回合間隔</span><strong>{result.tickIntervalMs}ms</strong></div>
+        <div><span>節奏倍率</span><strong>{result.pace.toFixed(2)}x</strong></div>
+        <div><span>勝 / 敗價值</span><strong>{Math.round(result.winValue)} / {Math.round(result.lossValue)}</strong></div>
+        <div><span>勝敗 EXP</span><strong>{result.winBattleExp} / {result.lossBattleExp}</strong></div>
+        <div><span>勝敗金幣</span><strong>{result.winGold} / {result.lossGold}</strong></div>
+      </div>
+      <div className="tuning-advice">
+        <strong>調參建議</strong>
+        {result.advice.map((entry) => <p key={entry}>{entry}</p>)}
+      </div>
+    </section>
+  );
+}
+
+function PlayerAttackRulesScorePanel({ rules }: { rules: AnyRecord }) {
+  const result = evaluatePlayerAttackRules(rules);
+  return (
+    <section className="tuning-panel">
+      <div className="tuning-score">
+        <span>FUN SCORE</span>
+        <strong>{result.score.toFixed(1)} / 10</strong>
+        <small>{result.score >= 8 ? "遭遇節奏好" : result.score >= 7 ? "可玩性穩定" : "需要調整風險"}</small>
+      </div>
+      <div className="tuning-metrics">
+        <div><span>發起精力</span><strong>{result.energyCost}</strong></div>
+        <div><span>最多回合</span><strong>{result.maxRounds}</strong></div>
+        <div><span>預估繳獲</span><strong>{Math.round(result.averageGold)}</strong></div>
+        <div><span>金幣 / 精力</span><strong>{result.rewardPressure.toFixed(1)}</strong></div>
+        <div><span>攻方勝敗 EXP</span><strong>{result.attackerWinExp} / {result.attackerLoseExp}</strong></div>
+        <div><span>守方勝敗 EXP</span><strong>{result.defenderWinExp} / {result.defenderLoseExp}</strong></div>
+      </div>
+      <div className="tuning-advice">
+        <strong>調參建議</strong>
+        {result.advice.map((entry) => <p key={entry}>{entry}</p>)}
+      </div>
+    </section>
+  );
 }
 
 function TowerRulesScorePanel({ rules }: { rules: AnyRecord }) {
@@ -875,6 +1175,9 @@ function App() {
           ) : (
             <>
               {activeSection === "towerRules" ? <TowerRulesScorePanel rules={draft as AnyRecord} /> : null}
+              {activeSection === "playerAttackRules" ? <PlayerAttackRulesScorePanel rules={draft as AnyRecord} /> : null}
+              {activeSection === "worldBossRules" ? <WorldBossRulesScorePanel rules={draft as AnyRecord} /> : null}
+              {activeSection === "roomBossRules" ? <RoomBossRulesScorePanel rules={draft as AnyRecord} /> : null}
               {activeDef.groups(editorContext).map((group) => (
                 <EditorGroup key={`${group.type}:${group.key}:${group.label}`} group={group} value={draft} onChange={updateDraft} />
               ))}

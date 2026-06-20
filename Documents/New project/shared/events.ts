@@ -20,7 +20,7 @@ export type RoomPhase = "lobby" | "battle" | "ended";
 
 export type BattleWinner = "players" | "boss";
 
-export type BattleKind = "adventure" | "guildBoss" | "worldBoss";
+export type BattleKind = "adventure" | "guildBoss" | "worldBoss" | "pvp";
 
 export type BattleContext = BattleKind | "raid" | "castle" | "factionBoss" | "solo";
 
@@ -97,6 +97,53 @@ export type TowerRulesConfig = {
   bossHpMultiplier: number;
   bossAttackMultiplier: number;
   rewardMultiplier: number;
+};
+
+export type PlayerAttackRulesConfig = {
+  energyCost: number;
+  maxRounds: number;
+  attackerWinBattleExp: number;
+  attackerLoseBattleExp: number;
+  defenderWinBattleExp: number;
+  defenderLoseBattleExp: number;
+  baseGoldSteal: number;
+  goldStealPerBattleLevel: number;
+  goldStealLuckMultiplier: number;
+  minGoldSteal: number;
+  maxGoldSteal: number;
+};
+
+export type WorldBossRulesConfig = {
+  bossName: string;
+  bossHp: number;
+  bossAttack: number;
+  maxRounds: number;
+  rewardGold: number;
+  rewardMaterials: number;
+  materialType: MaterialType;
+  firstWinPersonalGoldRate: number;
+  firstWinMaterialRate: number;
+  firstWinBattleExp: number;
+  repeatWinPersonalGold: number;
+  repeatWinGuildGold: number;
+  repeatWinBattleExp: number;
+  lossPersonalGold: number;
+  lossGuildGold: number;
+  lossBattleExp: number;
+  participationMaterials: number;
+};
+
+export type RoomBossRulesConfig = {
+  bossName: string;
+  tickIntervalMs: number;
+  hpMultiplier: number;
+  attackMultiplier: number;
+  winBattleExp: number;
+  lossBattleExp: number;
+  winInstinctExp: number;
+  lossInstinctExp: number;
+  winGold: number;
+  lossGold: number;
 };
 
 export type ActionType =
@@ -1017,6 +1064,48 @@ export type WorldBossChallengeResult = {
   battleRecord: BattleRecordSummary;
 };
 
+export type NearbyPlayerRelation = "same_faction" | "ally" | "enemy" | "neutral";
+
+export type NearbyPlayerSummary = {
+  userId: string;
+  characterName: string;
+  displayName: string;
+  className: CharacterClass;
+  factionId: string | null;
+  factionName: string | null;
+  castleId: string | null;
+  castleName: string | null;
+  battleLevel: number;
+  instinctLevel: number;
+  hp: number;
+  maxHp: number;
+  energy: number;
+  maxEnergy: number;
+  relation: NearbyPlayerRelation;
+  canAttack: boolean;
+  reason: string | null;
+};
+
+export type NearbyPlayersResult = {
+  players: NearbyPlayerSummary[];
+};
+
+export type PlayerAttackPayload = {
+  targetUserId: string;
+};
+
+export type PlayerAttackResult = {
+  message: string;
+  character: CharacterProfile;
+  target: NearbyPlayerSummary;
+  battleRecord: BattleRecordSummary;
+  rewards: {
+    gold: number;
+    battleExp: number;
+  };
+  nearbyPlayers: NearbyPlayerSummary[];
+};
+
 export type MarketListPayload = {
   itemId: string;
   quantity?: number;
@@ -1085,6 +1174,9 @@ export type GameConfig = {
   siegeRules: SiegeRulesConfig;
   statRules: StatRulesConfig;
   towerRules: TowerRulesConfig;
+  playerAttackRules: PlayerAttackRulesConfig;
+  worldBossRules: WorldBossRulesConfig;
+  roomBossRules: RoomBossRulesConfig;
 };
 
 export type AdminConfigSection =
@@ -1100,6 +1192,9 @@ export type AdminConfigSection =
   | "siegeRules"
   | "statRules"
   | "towerRules"
+  | "playerAttackRules"
+  | "worldBossRules"
+  | "roomBossRules"
   | "announcements";
 
 export type AdminGameConfigResponse = {

@@ -2,11 +2,44 @@
 
 ## 2026-06-19
 
+### 隊伍 Boss 調參 / 好玩度評分
+
+- 新增 `RoomBossRulesConfig` 與 `gameConfig.roomBossRules`，把一般隊伍 Boss 名稱、回合間隔、HP / 攻擊倍率、勝敗經驗與勝敗金幣改為可調
+- Admin 後台新增「隊伍 Boss」分頁，可直接調整房間 Boss 速度、壓力與勝敗回饋
+- 「隊伍 Boss」分頁新增即時 FUN SCORE、Boss 壓力、回合間隔、勝敗價值、勝敗 EXP 與調參建議
+- Socket 房間建立與 Boss 生成會讀取 `roomBossRules`；raid 戰報結算時會依該規則發放隊伍 Boss 金幣、戰鬥經驗與本能經驗
+
+### 世界 Boss 調參 / 好玩度評分
+
+- 新增 `WorldBossRulesConfig` 與 `gameConfig.worldBossRules`，把世界 Boss 名稱、HP、攻擊、最多回合、材料、首殺獎勵、重複勝利獎與失敗參與獎改為可調
+- Admin 後台新增「世界 Boss」分頁，可直接調整世界 Boss 壓力、首殺公庫 / 個人獎、勝利追加獎與失敗參與獎
+- 「世界 Boss」分頁新增即時 FUN SCORE、Boss 壓力、首殺個人 / 材料、勝利 / 失敗價值與調參建議
+- 更新 `worldBossRules` 時會同步目前 active world boss 的名稱、HP、攻擊與主要獎勵數字，但保留挑戰紀錄與勝利公會狀態
+
+### 玩家遭遇調參 / 好玩度評分
+
+- 新增 `PlayerAttackRulesConfig` 與 `gameConfig.playerAttackRules`，把同地點玩家攻擊的發起精力、最多回合、攻守勝敗經驗與金幣繳獲公式改為可調
+- Admin 後台新增「玩家遭遇」分頁，可直接調整 PVP 風險與回饋，不需要改程式
+- 「玩家遭遇」分頁新增即時 FUN SCORE、核心指標與調參建議，方便判斷成本、回合數、金幣 / 精力與攻守經驗是否合理
+- 同地點玩家遭遇執行時改讀取 `playerAttackRules`，戰報會寫入本次精力成本與最多回合
+
+### 同地點玩家遭遇 / 陣營攻擊限制
+
+- 新增 `pvp` 戰報分類與附近玩家 API：`/battles/players/nearby`、`/battles/players/attack`
+- 戰鬥頁新增「同地點玩家遭遇」面板，列出同據點玩家、陣營關係、HP / 精力與是否可攻擊
+- 後端攻擊判定要求同據點、攻擊者閒暇、目標非忙碌、雙方 HP 足夠、攻擊者精力足夠；同陣營玩家會顯示但不能互相攻擊
+- 玩家遭遇會產生短回合連擊戰報、個人通知、金幣繳獲與雙方戰鬥經驗
+
 ### 參考式行動鎖定 / 攻打頁整理
 
 - 前台新增全域 `ACTION LOCK` 面板，角色移動、挖礦、鍛造、休息、駐防或戰鬥中會固定顯示目前狀態、剩餘時間、所在地、HP 與精力
 - 戰鬥頁新增 `BATTLE HALL` 總覽，集中顯示可否行動、所在地、隊伍狀態與戰報數，忙碌時以 LOCKED 狀態提示原因
+- 戰鬥頁新增 `BOSS COMMAND` 指揮列，集中顯示公會爬塔 Boss、世界 Boss、隊伍 Boss 的狀態、進度、FUN 評分、阻塞原因與主要攻打按鈕
 - 忙碌時戰鬥頁的建立 / 加入隊伍按鈕與場景挑戰維持不可操作，爬塔據點區也改顯示忙碌鎖定，不再誤顯示「可推進塔層」
+- 城池移動、協助工程、公開隊伍卡片、探險 / 公會 Boss / 世界 Boss / 玩家遭遇 handler 都同步套用閒暇檢查，避免移動或其他行動中還能誤觸主要操作
+- ACTION LOCK 擴大到角色配置、技能 / 秘籍、裝備、背包整理、商店與玩家市場，前端按鈕會禁用，後端 API 也會拒絕忙碌中直接呼叫
+- 前台新增「技能」導覽頁與 `SKILL CONSOLE`，集中顯示特殊技能槽、可裝備特殊技能、次要角色自動技能、職業熟練與秘籍 Buff
+- 鍛造頁改成 `FORGE WORKBENCH`：上方集中顯示鍛造等級、材料數、投料數與可命中特殊配方，左側設定裝備與命名，右側投放材料
 - README、game-design 與 repository guide 同步描述全域行動鎖定與戰鬥頁介面分工
 
 ### 爬塔攻打調參 / 好玩度評分
@@ -23,10 +56,12 @@
 - `shared/events.ts`
 - `server/src/utils.ts`
 - `server/src/persistence/localStore.ts`
+- `server/src/routes.ts`
 - `admin-client/src/main.tsx`
 - `admin-client/src/style.css`
 - `client/src/App.tsx`
 - `client/src/index.css`
+- `client/src/lib/api.ts`
 - `README.md`
 - `docs/game-design.md`
 - `docs/repository-guide.md`

@@ -27,6 +27,7 @@ import type {
   InventorySortPayload,
   MarketBuyPayload,
   MarketListPayload,
+  PlayerAttackPayload,
   PurchasePayload,
   QueueActionPayload,
   RepairPayload,
@@ -42,6 +43,7 @@ import { getPublicRoomState, getRoomForUser, listRoomSummaries, refreshRoomMembe
 import {
   addFriend,
   advanceFactionTower,
+  attackNearbyPlayer,
   adminAdjustResources,
   adminAdjustTreasury,
   adminAssignLeader,
@@ -94,6 +96,7 @@ import {
   learnManual,
   leaveGarrison,
   leaveFactionProject,
+  listNearbyPlayers,
   listBattleRecordsForUser,
   listFactionMarket,
   listFactions,
@@ -419,6 +422,24 @@ export function createApiRouter() {
       response.json(await upgradeFactionTech(request.auth!.user.id, request.body as FactionTechUpgradePayload));
     } catch (error) {
       response.status(400).json({ error: error instanceof Error ? error.message : "科技升級失敗。" });
+    }
+  });
+
+  router.get("/battles/players/nearby", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      await processCharacterQueue(request.auth!.user.id, true);
+      response.json(await listNearbyPlayers(request.auth!.user.id));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "讀取同地點玩家失敗。" });
+    }
+  });
+
+  router.post("/battles/players/attack", requireAuth(), async (request: AuthedRequest, response) => {
+    try {
+      await processCharacterQueue(request.auth!.user.id, true);
+      response.json(await attackNearbyPlayer(request.auth!.user.id, request.body as PlayerAttackPayload));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "玩家遭遇攻擊失敗。" });
     }
   });
 

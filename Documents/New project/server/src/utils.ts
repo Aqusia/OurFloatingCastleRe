@@ -900,6 +900,71 @@ export function gameplayTowerRules(): GameConfig["towerRules"] {
   return runtimeGameConfig?.towerRules || defaultTowerRules();
 }
 
+export function defaultPlayerAttackRules(): GameConfig["playerAttackRules"] {
+  return {
+    energyCost: 12,
+    maxRounds: 5,
+    attackerWinBattleExp: 36,
+    attackerLoseBattleExp: 16,
+    defenderWinBattleExp: 26,
+    defenderLoseBattleExp: 12,
+    baseGoldSteal: 12,
+    goldStealPerBattleLevel: 4,
+    goldStealLuckMultiplier: 0.8,
+    minGoldSteal: 8,
+    maxGoldSteal: 120
+  };
+}
+
+export function gameplayPlayerAttackRules(): GameConfig["playerAttackRules"] {
+  return runtimeGameConfig?.playerAttackRules || defaultPlayerAttackRules();
+}
+
+export function defaultWorldBossRules(): GameConfig["worldBossRules"] {
+  return {
+    bossName: "裂界魔龍",
+    bossHp: 520,
+    bossAttack: 34,
+    maxRounds: 12,
+    rewardGold: 420,
+    rewardMaterials: 8,
+    materialType: "stardust",
+    firstWinPersonalGoldRate: 0.35,
+    firstWinMaterialRate: 0.5,
+    firstWinBattleExp: 120,
+    repeatWinPersonalGold: 60,
+    repeatWinGuildGold: 80,
+    repeatWinBattleExp: 70,
+    lossPersonalGold: 24,
+    lossGuildGold: 30,
+    lossBattleExp: 32,
+    participationMaterials: 1
+  };
+}
+
+export function gameplayWorldBossRules(): GameConfig["worldBossRules"] {
+  return runtimeGameConfig?.worldBossRules || defaultWorldBossRules();
+}
+
+export function defaultRoomBossRules(): GameConfig["roomBossRules"] {
+  return {
+    bossName: "裂岩巨像",
+    tickIntervalMs: 2000,
+    hpMultiplier: 1,
+    attackMultiplier: 1,
+    winBattleExp: 18,
+    lossBattleExp: 8,
+    winInstinctExp: 10,
+    lossInstinctExp: 4,
+    winGold: 36,
+    lossGold: 12
+  };
+}
+
+export function gameplayRoomBossRules(): GameConfig["roomBossRules"] {
+  return runtimeGameConfig?.roomBossRules || defaultRoomBossRules();
+}
+
 export function defaultStatRules(): GameConfig["statRules"] {
   return {
     attack: { attackPower: 3, defensePower: 0.4, sustain: 0, siege: 1.8, growth: 1, summary: "提高攻方破防與對守軍傷害。" },
@@ -923,7 +988,10 @@ export function defaultGameConfig(): GameConfig {
     forgeRecipes: defaultForgeRecipes(),
     siegeRules: defaultSiegeRules(),
     statRules: defaultStatRules(),
-    towerRules: defaultTowerRules()
+    towerRules: defaultTowerRules(),
+    playerAttackRules: defaultPlayerAttackRules(),
+    worldBossRules: defaultWorldBossRules(),
+    roomBossRules: defaultRoomBossRules()
   };
 }
 

@@ -66,7 +66,11 @@ import type {
   MarketListPayload,
   MarketListing,
   MaterialType,
+  NearbyPlayerSummary,
+  NearbyPlayersResult,
   NotificationEntry,
+  PlayerAttackPayload,
+  PlayerAttackResult,
   PurchaseResult,
   QueueMutationResult,
   QueuedAction,
@@ -121,6 +125,7 @@ import {
   equipmentSlotLabel,
   forgeOptions,
   defaultGameConfig,
+  defaultWorldBossRules,
   defaultSoloDifficulties,
   gameplayTowerRules,
   materialCatalog,
@@ -206,14 +211,14 @@ const GAME_LIMITS = {
   monsterAttack: 9999
 };
 
-function defaultWorldBoss(): WorldBossState {
+function defaultWorldBoss(rules = defaultWorldBossRules()): WorldBossState {
   return {
     activeBossId: randomId("world_boss"),
-    bossName: "裂界魔龍",
-    bossHp: 520,
-    bossAttack: 34,
-    rewardGold: 420,
-    rewardMaterials: 8,
+    bossName: rules.bossName,
+    bossHp: rules.bossHp,
+    bossAttack: rules.bossAttack,
+    rewardGold: rules.rewardGold,
+    rewardMaterials: rules.rewardMaterials,
     winnerFactionId: null,
     rewardClaimed: false,
     attempts: [],
@@ -362,6 +367,17 @@ function normalizeGameConfig(rawConfig: any): GameConfig {
   const rawSiege = rawConfig?.siegeRules || {};
   const towerFallback = fallback.towerRules;
   const rawTowerRules = rawConfig?.towerRules || {};
+  const playerAttackFallback = fallback.playerAttackRules;
+  const rawPlayerAttackRules = rawConfig?.playerAttackRules || {};
+  const minGoldSteal = clampedInt(rawPlayerAttackRules.minGoldSteal, 0, GAME_LIMITS.grantGold, playerAttackFallback.minGoldSteal);
+  const maxGoldSteal = Math.max(minGoldSteal, clampedInt(rawPlayerAttackRules.maxGoldSteal, 0, GAME_LIMITS.grantGold, playerAttackFallback.maxGoldSteal));
+  const worldBossFallback = fallback.worldBossRules;
+  const rawWorldBossRules = rawConfig?.worldBossRules || {};
+  const worldBossMaterialType = materialCatalog().some((entry) => entry.type === rawWorldBossRules.materialType)
+    ? (rawWorldBossRules.materialType as MaterialType)
+    : worldBossFallback.materialType;
+  const roomBossFallback = fallback.roomBossRules;
+  const rawRoomBossRules = rawConfig?.roomBossRules || {};
   const statFallback = fallback.statRules;
   const rawStats = rawConfig?.statRules || {};
   const statRules = (Object.keys(statFallback) as CharacterStatKey[]).reduce<GameConfig["statRules"]>((next, key) => {
@@ -422,12 +438,56 @@ function normalizeGameConfig(rawConfig: any): GameConfig {
       bossHpMultiplier: Number.isFinite(Number(rawTowerRules.bossHpMultiplier)) ? clamp(Number(rawTowerRules.bossHpMultiplier), 0.2, 5) : towerFallback.bossHpMultiplier,
       bossAttackMultiplier: Number.isFinite(Number(rawTowerRules.bossAttackMultiplier)) ? clamp(Number(rawTowerRules.bossAttackMultiplier), 0.2, 5) : towerFallback.bossAttackMultiplier,
       rewardMultiplier: Number.isFinite(Number(rawTowerRules.rewardMultiplier)) ? clamp(Number(rawTowerRules.rewardMultiplier), 0.1, 5) : towerFallback.rewardMultiplier
+    },
+    playerAttackRules: {
+      energyCost: clampedInt(rawPlayerAttackRules.energyCost, 1, 100, playerAttackFallback.energyCost),
+      maxRounds: clampedInt(rawPlayerAttackRules.maxRounds, 1, 12, playerAttackFallback.maxRounds),
+      attackerWinBattleExp: clampedInt(rawPlayerAttackRules.attackerWinBattleExp, 0, 999999, playerAttackFallback.attackerWinBattleExp),
+      attackerLoseBattleExp: clampedInt(rawPlayerAttackRules.attackerLoseBattleExp, 0, 999999, playerAttackFallback.attackerLoseBattleExp),
+      defenderWinBattleExp: clampedInt(rawPlayerAttackRules.defenderWinBattleExp, 0, 999999, playerAttackFallback.defenderWinBattleExp),
+      defenderLoseBattleExp: clampedInt(rawPlayerAttackRules.defenderLoseBattleExp, 0, 999999, playerAttackFallback.defenderLoseBattleExp),
+      baseGoldSteal: clampedInt(rawPlayerAttackRules.baseGoldSteal, 0, GAME_LIMITS.grantGold, playerAttackFallback.baseGoldSteal),
+      goldStealPerBattleLevel: Number.isFinite(Number(rawPlayerAttackRules.goldStealPerBattleLevel)) ? clamp(Number(rawPlayerAttackRules.goldStealPerBattleLevel), 0, 9999) : playerAttackFallback.goldStealPerBattleLevel,
+      goldStealLuckMultiplier: Number.isFinite(Number(rawPlayerAttackRules.goldStealLuckMultiplier)) ? clamp(Number(rawPlayerAttackRules.goldStealLuckMultiplier), 0, 9999) : playerAttackFallback.goldStealLuckMultiplier,
+      minGoldSteal,
+      maxGoldSteal
+    },
+    worldBossRules: {
+      bossName: String(rawWorldBossRules.bossName || worldBossFallback.bossName).trim() || worldBossFallback.bossName,
+      bossHp: clampedInt(rawWorldBossRules.bossHp, 1, GAME_LIMITS.monsterHp, worldBossFallback.bossHp),
+      bossAttack: clampedInt(rawWorldBossRules.bossAttack, 1, GAME_LIMITS.monsterAttack, worldBossFallback.bossAttack),
+      maxRounds: clampedInt(rawWorldBossRules.maxRounds, 1, 30, worldBossFallback.maxRounds),
+      rewardGold: clampedInt(rawWorldBossRules.rewardGold, 0, GAME_LIMITS.grantGold, worldBossFallback.rewardGold),
+      rewardMaterials: clampedInt(rawWorldBossRules.rewardMaterials, 0, GAME_LIMITS.resourceQuantity, worldBossFallback.rewardMaterials),
+      materialType: worldBossMaterialType,
+      firstWinPersonalGoldRate: Number.isFinite(Number(rawWorldBossRules.firstWinPersonalGoldRate)) ? clamp(Number(rawWorldBossRules.firstWinPersonalGoldRate), 0, 1) : worldBossFallback.firstWinPersonalGoldRate,
+      firstWinMaterialRate: Number.isFinite(Number(rawWorldBossRules.firstWinMaterialRate)) ? clamp(Number(rawWorldBossRules.firstWinMaterialRate), 0, 1) : worldBossFallback.firstWinMaterialRate,
+      firstWinBattleExp: clampedInt(rawWorldBossRules.firstWinBattleExp, 0, 999999, worldBossFallback.firstWinBattleExp),
+      repeatWinPersonalGold: clampedInt(rawWorldBossRules.repeatWinPersonalGold, 0, GAME_LIMITS.grantGold, worldBossFallback.repeatWinPersonalGold),
+      repeatWinGuildGold: clampedInt(rawWorldBossRules.repeatWinGuildGold, 0, GAME_LIMITS.grantGold, worldBossFallback.repeatWinGuildGold),
+      repeatWinBattleExp: clampedInt(rawWorldBossRules.repeatWinBattleExp, 0, 999999, worldBossFallback.repeatWinBattleExp),
+      lossPersonalGold: clampedInt(rawWorldBossRules.lossPersonalGold, 0, GAME_LIMITS.grantGold, worldBossFallback.lossPersonalGold),
+      lossGuildGold: clampedInt(rawWorldBossRules.lossGuildGold, 0, GAME_LIMITS.grantGold, worldBossFallback.lossGuildGold),
+      lossBattleExp: clampedInt(rawWorldBossRules.lossBattleExp, 0, 999999, worldBossFallback.lossBattleExp),
+      participationMaterials: clampedInt(rawWorldBossRules.participationMaterials, 0, GAME_LIMITS.resourceQuantity, worldBossFallback.participationMaterials)
+    },
+    roomBossRules: {
+      bossName: String(rawRoomBossRules.bossName || roomBossFallback.bossName).trim() || roomBossFallback.bossName,
+      tickIntervalMs: clampedInt(rawRoomBossRules.tickIntervalMs, 500, 10000, roomBossFallback.tickIntervalMs),
+      hpMultiplier: Number.isFinite(Number(rawRoomBossRules.hpMultiplier)) ? clamp(Number(rawRoomBossRules.hpMultiplier), 0.2, 5) : roomBossFallback.hpMultiplier,
+      attackMultiplier: Number.isFinite(Number(rawRoomBossRules.attackMultiplier)) ? clamp(Number(rawRoomBossRules.attackMultiplier), 0.2, 5) : roomBossFallback.attackMultiplier,
+      winBattleExp: clampedInt(rawRoomBossRules.winBattleExp, 0, 999999, roomBossFallback.winBattleExp),
+      lossBattleExp: clampedInt(rawRoomBossRules.lossBattleExp, 0, 999999, roomBossFallback.lossBattleExp),
+      winInstinctExp: clampedInt(rawRoomBossRules.winInstinctExp, 0, 999999, roomBossFallback.winInstinctExp),
+      lossInstinctExp: clampedInt(rawRoomBossRules.lossInstinctExp, 0, 999999, roomBossFallback.lossInstinctExp),
+      winGold: clampedInt(rawRoomBossRules.winGold, 0, GAME_LIMITS.grantGold, roomBossFallback.winGold),
+      lossGold: clampedInt(rawRoomBossRules.lossGold, 0, GAME_LIMITS.grantGold, roomBossFallback.lossGold)
     }
   };
 }
 
-function normalizeWorldBoss(rawBoss: any): WorldBossState {
-  const fallback = defaultWorldBoss();
+function normalizeWorldBoss(rawBoss: any, rules = defaultWorldBossRules()): WorldBossState {
+  const fallback = defaultWorldBoss(rules);
   const attempts = Array.isArray(rawBoss?.attempts)
     ? rawBoss.attempts
         .map((attempt: any) => ({
@@ -454,6 +514,20 @@ function normalizeWorldBoss(rawBoss: any): WorldBossState {
     attempts,
     startedAt: String(rawBoss?.startedAt || fallback.startedAt)
   };
+}
+
+function applyWorldBossRulesToState(rawBoss: WorldBossState, rules: GameConfig["worldBossRules"]) {
+  return normalizeWorldBoss(
+    {
+      ...rawBoss,
+      bossName: rules.bossName,
+      bossHp: rules.bossHp,
+      bossAttack: rules.bossAttack,
+      rewardGold: rules.rewardGold,
+      rewardMaterials: rules.rewardMaterials
+    },
+    rules
+  );
 }
 
 function createEmptyQueue(): ActionQueueState {
@@ -1512,7 +1586,7 @@ async function ensureLoaded() {
   }));
   cachedData.gameConfig = normalizeGameConfig(cachedData.gameConfig);
   setRuntimeGameConfig(cachedData.gameConfig);
-  cachedData.worldBoss = normalizeWorldBoss(cachedData.worldBoss);
+  cachedData.worldBoss = normalizeWorldBoss(cachedData.worldBoss, cachedData.gameConfig.worldBossRules);
   cachedData.characters = (cachedData.characters || []).map(normalizeCharacter);
   for (const character of cachedData.characters) {
     if (character.factionId && !character.currentCastleId) {
@@ -2004,6 +2078,220 @@ function buildFactionState(data: StoreData, userId: string): FactionState {
   };
 }
 
+function nearbyPlayerRelation(data: StoreData, viewer: CharacterProfile, target: CharacterProfile): NearbyPlayerSummary["relation"] {
+  if (viewer.factionId && target.factionId && viewer.factionId === target.factionId) return "same_faction";
+  const viewerFaction = viewer.factionId ? data.factions.find((entry) => entry.id === viewer.factionId) : null;
+  const targetFaction = target.factionId ? data.factions.find((entry) => entry.id === target.factionId) : null;
+  if (viewerFaction && target.factionId && viewerFaction.allyIds.includes(target.factionId)) return "ally";
+  if (targetFaction && viewer.factionId && targetFaction.allyIds.includes(viewer.factionId)) return "ally";
+  if (viewerFaction && target.factionId && viewerFaction.warTargetIds.includes(target.factionId)) return "enemy";
+  if (targetFaction && viewer.factionId && targetFaction.warTargetIds.includes(viewer.factionId)) return "enemy";
+  return "neutral";
+}
+
+function nearbyAttackReason(data: StoreData, actor: CharacterProfile, target: CharacterProfile) {
+  if (actor.userId === target.userId) return "不能攻擊自己。";
+  if (!actor.currentCastleId) return "你尚未位於任何據點。";
+  if (target.currentCastleId !== actor.currentCastleId) return "目標不在同一個據點。";
+  if (isCharacterBusy(actor)) return "你正在移動或忙碌中，不能攻擊。";
+  if (isCharacterBusy(target)) return "目標正在移動或忙碌中。";
+  if (actor.hp <= 0) return "你的 HP 不足，請先恢復。";
+  if (target.hp <= 0) return "目標 HP 不足，不能攻擊。";
+  const energyCost = data.gameConfig.playerAttackRules.energyCost;
+  if (actor.energy < energyCost) return `精力不足，需要 ${energyCost}。`;
+  if (nearbyPlayerRelation(data, actor, target) === "same_faction") return "同陣營不能互相攻擊。";
+  return null;
+}
+
+function buildNearbyPlayerSummary(data: StoreData, actor: CharacterProfile, target: CharacterProfile): NearbyPlayerSummary {
+  const user = data.users.find((entry) => entry.id === target.userId) || null;
+  const faction = target.factionId ? data.factions.find((entry) => entry.id === target.factionId) || null : null;
+  const castle = target.currentCastleId ? data.castles.find((entry) => entry.id === target.currentCastleId) || null : null;
+  const reason = nearbyAttackReason(data, actor, target);
+  return {
+    userId: target.userId,
+    characterName: target.name,
+    displayName: user?.displayName || target.name,
+    className: target.className,
+    factionId: target.factionId,
+    factionName: faction?.name || null,
+    castleId: target.currentCastleId,
+    castleName: castle?.name || null,
+    battleLevel: target.battleLevel,
+    instinctLevel: target.instinctLevel,
+    hp: target.hp,
+    maxHp: target.maxHp,
+    energy: target.energy,
+    maxEnergy: target.maxEnergy,
+    relation: nearbyPlayerRelation(data, actor, target),
+    canAttack: !reason,
+    reason
+  };
+}
+
+function listNearbyPlayerSummaries(data: StoreData, actor: CharacterProfile): NearbyPlayerSummary[] {
+  if (!actor.currentCastleId) return [];
+  return data.characters
+    .filter((target) => target.userId !== actor.userId && target.currentCastleId === actor.currentCastleId)
+    .map((target) => buildNearbyPlayerSummary(data, actor, target))
+    .sort((left, right) => Number(right.canAttack) - Number(left.canAttack) || right.battleLevel - left.battleLevel || left.characterName.localeCompare(right.characterName))
+    .slice(0, 80);
+}
+
+function pvpStrike(attacker: CharacterProfile, defender: CharacterProfile, round: number) {
+  attacker.mp = clamp(attacker.mp + Math.floor(attacker.stats.spirit / 8), 0, attacker.maxMp);
+  attacker.energy = clamp(attacker.energy + Math.floor(attacker.stats.vitality / 10), 0, attacker.maxEnergy);
+  const usesMp = attacker.className === "mage";
+  const combo = resolveComboAttack({
+    actorUserId: attacker.userId,
+    actorName: attacker.name,
+    className: attacker.className,
+    targetName: defender.name,
+    stats: attacker.stats,
+    battleLevel: Math.max(1, attacker.battleLevel || 1),
+    baseDamage: comboBaseDamageFor(attacker.className, attacker.stats, Math.max(1, attacker.battleLevel || 1)),
+    availableResource: usesMp ? attacker.mp : attacker.energy
+  });
+  if (usesMp) {
+    attacker.mp = clamp(attacker.mp - combo.resourceSpent, 0, attacker.maxMp);
+  } else {
+    attacker.energy = clamp(attacker.energy - combo.resourceSpent, 0, attacker.maxEnergy);
+  }
+  const damage = Math.max(1, mitigateIncomingDamage(combo.totalDamage, defender.stats));
+  defender.hp = clamp(defender.hp - damage, 0, defender.maxHp);
+  attacker.energy = clamp(attacker.energy - 2, 0, attacker.maxEnergy);
+  return {
+    damage,
+    logs: [`第 ${round} 回合：${attacker.name} 攻擊 ${defender.name}。`, ...combo.logs, `${defender.name} 防禦後承受 ${damage} 點傷害。`]
+  };
+}
+
+function runPlayerSkirmish(attacker: CharacterProfile, defender: CharacterProfile, maxRounds: number) {
+  const logs = [`【玩家遭遇】${attacker.name} 向 ${defender.name} 發起同地點攻擊。`];
+  let attackerDamage = 0;
+  let defenderDamage = 0;
+  let attackerTaken = 0;
+  let defenderTaken = 0;
+  let rounds = 0;
+  for (let round = 1; round <= maxRounds; round += 1) {
+    if (attacker.hp <= 0 || defender.hp <= 0) break;
+    rounds = round;
+    const attack = pvpStrike(attacker, defender, round);
+    attackerDamage += attack.damage;
+    defenderTaken += attack.damage;
+    logs.push(...attack.logs);
+    if (defender.hp <= 0) break;
+
+    const counter = pvpStrike(defender, attacker, round);
+    defenderDamage += counter.damage;
+    attackerTaken += counter.damage;
+    logs.push(...counter.logs);
+  }
+  const attackerWon = defender.hp <= 0 || (attacker.hp > 0 && attackerDamage >= defenderDamage);
+  logs.push(attackerWon ? `${attacker.name} 壓制 ${defender.name}，取得遭遇戰勝利。` : `${defender.name} 守住攻勢，${attacker.name} 撤退。`);
+  return {
+    attackerWon,
+    rounds: Math.max(1, rounds),
+    logs,
+    attackerDamage,
+    defenderDamage,
+    attackerTaken,
+    defenderTaken
+  };
+}
+
+export async function listNearbyPlayers(userId: string): Promise<NearbyPlayersResult> {
+  const { data, character } = await findCharacterForUpdate(userId);
+  if (processWorldProgress(data)) await persist();
+  return { players: listNearbyPlayerSummaries(data, character) };
+}
+
+export async function attackNearbyPlayer(userId: string, payload: PlayerAttackPayload): Promise<PlayerAttackResult> {
+  const { data, character } = await findCharacterForUpdate(userId);
+  processWorldProgress(data);
+  const targetUserId = String(payload.targetUserId || "").trim();
+  const target = data.characters.find((entry) => entry.userId === targetUserId);
+  if (!target) throw new Error("找不到目標玩家。");
+  const reason = nearbyAttackReason(data, character, target);
+  if (reason) throw new Error(reason);
+
+  const castle = data.castles.find((entry) => entry.id === character.currentCastleId) || null;
+  const rules = data.gameConfig.playerAttackRules;
+  character.energy = clamp(character.energy - rules.energyCost, 0, character.maxEnergy);
+  const result = runPlayerSkirmish(character, target, rules.maxRounds);
+  const goldStealCap = Math.max(rules.minGoldSteal, rules.maxGoldSteal);
+  const rawGoldSteal = rules.baseGoldSteal + character.battleLevel * rules.goldStealPerBattleLevel + character.stats.luck * rules.goldStealLuckMultiplier;
+  const gold = result.attackerWon ? Math.min(target.gold, Math.round(clamp(rawGoldSteal, rules.minGoldSteal, goldStealCap))) : 0;
+  const attackerBattleExp = result.attackerWon ? rules.attackerWinBattleExp : rules.attackerLoseBattleExp;
+  const defenderBattleExp = result.attackerWon ? rules.defenderLoseBattleExp : rules.defenderWinBattleExp;
+
+  if (gold > 0) {
+    target.gold = clamp(target.gold - gold, 0, GAME_LIMITS.goldBalance);
+    character.gold = clamp(character.gold + gold, 0, GAME_LIMITS.goldBalance);
+  }
+  awardBattleExperience(character, attackerBattleExp);
+  awardInstinctExperience(character, result.attackerWon ? 8 : 4);
+  awardClassMasteryExperience(character, Math.max(3, Math.round(attackerBattleExp * 0.45)));
+  awardSecondaryExperience(character, Math.max(4, Math.round(attackerBattleExp * 0.5)));
+  awardBattleExperience(target, defenderBattleExp);
+  awardInstinctExperience(target, result.attackerWon ? 4 : 8);
+  awardClassMasteryExperience(target, Math.max(3, Math.round(defenderBattleExp * 0.45)));
+  awardSecondaryExperience(target, Math.max(4, Math.round(defenderBattleExp * 0.5)));
+  damageEquippedForBattle(character, result.attackerTaken > 0);
+  damageEquippedForBattle(target, result.defenderTaken > 0);
+
+  const record: BattleRecordSummary = {
+    id: randomId("battle"),
+    roomId: randomId("pvp"),
+    bossName: target.name,
+    winner: result.attackerWon ? "players" : "boss",
+    durationMs: result.rounds * 1000,
+    totalTicks: result.rounds,
+    createdAt: nowIso(),
+    battleContext: "pvp",
+    battleKind: "pvp",
+    castleId: character.currentCastleId,
+    targetFactionId: target.factionId,
+    participants: [
+      {
+        userId: character.userId,
+        displayName: character.name,
+        className: character.className,
+        damageDealt: result.attackerDamage,
+        healingDone: 0,
+        damageTaken: result.attackerTaken
+      },
+      {
+        userId: target.userId,
+        displayName: target.name,
+        className: target.className,
+        damageDealt: result.defenderDamage,
+        healingDone: 0,
+        damageTaken: result.defenderTaken
+      }
+    ],
+    logs: [
+      `地點：${castle?.name || "未知據點"}。`,
+      `規則：同一據點可遭遇玩家，同陣營不可攻擊；發起消耗 ${rules.energyCost} 精力，最多 ${rules.maxRounds} 回合。`,
+      ...result.logs,
+      `獎勵：${character.name} ${gold > 0 ? `獲得 ${gold} 金幣、` : ""}戰鬥經驗 ${attackerBattleExp}；${target.name} 戰鬥經驗 ${defenderBattleExp}。`
+    ]
+  };
+  data.battleRecords.unshift(record);
+  data.battleRecords = data.battleRecords.slice(0, 120);
+  appendNotification(character, "battle", "玩家遭遇", result.attackerWon ? `擊敗 ${target.name}，獲得 ${gold} 金幣。` : `${target.name} 守住了你的攻勢。`);
+  appendNotification(target, "battle", "玩家遭遇", result.attackerWon ? `${character.name} 在 ${castle?.name || "同據點"} 擊敗了你。` : `你守住了 ${character.name} 的攻擊。`);
+  await persist();
+  return {
+    message: result.attackerWon ? `擊敗 ${target.name}` : `${target.name} 守住攻勢`,
+    character: toPublicCharacter(character),
+    target: buildNearbyPlayerSummary(data, character, target),
+    battleRecord: record,
+    rewards: { gold, battleExp: attackerBattleExp },
+    nearbyPlayers: listNearbyPlayerSummaries(data, character)
+  };
+}
+
 function damageEquippedForMining(character: CharacterProfile, hours: number) {
   for (const slot of ["weapon", "kneepad"] as EquipmentSlotKey[]) {
     const item = character.equipmentSlots[slot];
@@ -2281,6 +2569,7 @@ export async function updateCharacter(character: CharacterProfile) {
 
 export async function changeCharacterClass(userId: string, className: CharacterClass) {
   const { data, character } = await findCharacterForUpdate(userId);
+  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法切換職業。");
   if (character.classChangedOn === taipeiDayKey()) {
     throw new Error("今天已經切換過職業。");
   }
@@ -2317,11 +2606,28 @@ export async function recordBattle(record: BattleRecordSummary) {
   data.battleRecords.unshift(record);
   data.battleRecords = data.battleRecords.slice(0, 120);
   const participantIds = new Set(record.participants.map((participant) => participant.userId));
+  const isRoomBoss = record.battleContext === "raid";
+  const roomBossRules = data.gameConfig.roomBossRules;
   for (const character of data.characters) {
     if (!participantIds.has(character.userId)) continue;
-    const battleExp = record.winner === "players" ? 18 : 8;
+    const battleExp = isRoomBoss
+      ? record.winner === "players"
+        ? roomBossRules.winBattleExp
+        : roomBossRules.lossBattleExp
+      : record.winner === "players"
+        ? 18
+        : 8;
+    const instinctExp = isRoomBoss
+      ? record.winner === "players"
+        ? roomBossRules.winInstinctExp
+        : roomBossRules.lossInstinctExp
+      : record.winner === "players"
+        ? 10
+        : 4;
+    const gold = isRoomBoss ? (record.winner === "players" ? roomBossRules.winGold : roomBossRules.lossGold) : 0;
+    if (gold > 0) character.gold = clamp(character.gold + gold, 0, GAME_LIMITS.goldBalance);
     awardBattleExperience(character, battleExp);
-    awardInstinctExperience(character, record.winner === "players" ? 10 : 4);
+    awardInstinctExperience(character, instinctExp);
     awardClassMasteryExperience(character, Math.max(3, Math.round(battleExp * 0.45)));
     awardSecondaryExperience(character, Math.max(4, Math.round(battleExp * 0.55)));
     appendNotification(
@@ -2446,6 +2752,7 @@ export async function listShopItems(): Promise<ShopItem[]> {
 
 export async function purchaseShopItem(userId: string, itemId: string): Promise<PurchaseResult> {
   const { character } = await findCharacterForUpdate(userId);
+  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法購買物品。");
   const item = staticShopItems().find((entry) => entry.id === itemId);
   if (!item) throw new Error("找不到商店物品。");
   if (character.gold < item.price) throw new Error("金幣不足。");
@@ -2633,6 +2940,7 @@ export async function getCharacterCatalog() {
 
 export async function selectSecondaryCharacter(userId: string, payload: { slot: number; characterId: string | null }) {
   const { character } = await findCharacterForUpdate(userId);
+  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法調整次要角色。");
   const slotNumber = Number(payload.slot);
   if (![1, 2, 3].includes(slotNumber)) throw new Error("次要角色欄位必須是 1 到 3。");
   const nextCharacterId = payload.characterId || null;
@@ -2667,6 +2975,7 @@ export async function selectSecondaryCharacter(userId: string, payload: { slot: 
 
 export async function equipSpecialSkill(userId: string, payload: { skillId: string | null }) {
   const { character } = await findCharacterForUpdate(userId);
+  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法調整特殊技能。");
   const nextSkillId = payload.skillId || null;
   const previous = character.specialSkillSlot ? gameplaySpecialSkillCatalog().find((entry) => entry.id === character.specialSkillSlot) : null;
   const next = nextSkillId ? unlockedSpecialSkills(character).find((entry) => entry.id === nextSkillId) : null;
@@ -2683,6 +2992,7 @@ export async function equipSpecialSkill(userId: string, payload: { skillId: stri
 
 export async function learnManual(userId: string, payload: { itemId: string }) {
   const { character } = await findCharacterForUpdate(userId);
+  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法學習秘籍。");
   const index = character.inventory.findIndex((item) => item.id === payload.itemId);
   if (index === -1) throw new Error("找不到秘籍物品。");
   const item = character.inventory[index];
@@ -2707,6 +3017,7 @@ export async function learnManual(userId: string, payload: { itemId: string }) {
 
 export async function equipManual(userId: string, payload: { manualId: string }) {
   const { character } = await findCharacterForUpdate(userId);
+  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法裝備秘籍。");
   const manual = character.learnedManuals.find((entry) => entry.manualId === payload.manualId);
   if (!manual) throw new Error("尚未學會這本秘籍。");
   if (character.equippedManuals.includes(manual.manualId)) throw new Error("這本秘籍已經裝備。");
@@ -2722,6 +3033,7 @@ export async function equipManual(userId: string, payload: { manualId: string })
 
 export async function unequipManual(userId: string, payload: { manualId: string }) {
   const { character } = await findCharacterForUpdate(userId);
+  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法卸下秘籍。");
   const manual = character.learnedManuals.find((entry) => entry.manualId === payload.manualId);
   if (!manual || !character.equippedManuals.includes(payload.manualId)) throw new Error("這本秘籍目前沒有裝備。");
   character.equippedManuals = character.equippedManuals.filter((manualId) => manualId !== payload.manualId);
@@ -2742,6 +3054,7 @@ export async function getAchievements(userId: string) {
 
 export async function updateInventorySortOrder(userId: string, payload: InventorySortPayload): Promise<InventoryResult> {
   const { character } = await findCharacterForUpdate(userId);
+  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法整理背包。");
   const orderedIds = payload.orderedItemIds.filter(Boolean);
   const orderedIdSet = new Set(orderedIds);
   const groupedItems = character.inventory.filter((item) => {
@@ -2779,6 +3092,7 @@ export async function updateInventorySortOrder(userId: string, payload: Inventor
 
 export async function equipInventoryItem(userId: string, payload: EquipItemPayload): Promise<InventoryResult> {
   const { character } = await findCharacterForUpdate(userId);
+  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法裝備物品。");
   const index = character.inventory.findIndex((item) => item.id === payload.itemId);
   if (index === -1) throw new Error("找不到背包物品。");
   const item = character.inventory[index];
@@ -2800,6 +3114,7 @@ export async function equipInventoryItem(userId: string, payload: EquipItemPaylo
 
 export async function unequipInventoryItem(userId: string, payload: UnequipItemPayload): Promise<InventoryResult> {
   const { character } = await findCharacterForUpdate(userId);
+  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法卸下裝備。");
   const item = character.equipmentSlots[payload.slot];
   if (!item) throw new Error("這個欄位沒有裝備。");
   removeItemBonus(character, item);
@@ -2886,6 +3201,7 @@ export async function craftEquipment(userId: string, payload: CraftPayload) {
 
 export async function repairEquipment(userId: string, payload: RepairPayload) {
   const { character } = await findCharacterForUpdate(userId);
+  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法修復裝備。");
   const item =
     payload.source === "equipment" && payload.slot
       ? character.equipmentSlots[payload.slot]
@@ -2922,6 +3238,7 @@ export async function getFactionState(userId: string): Promise<FactionState> {
 
 export async function selectFaction(userId: string, payload: SelectFactionPayload) {
   const { data, character } = await findCharacterForUpdate(userId);
+  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法選擇陣營。");
   if (character.factionId) throw new Error("已經加入陣營，若要重選請使用 admin 功能。");
   getFactionById(data, payload.factionId);
   character.factionId = payload.factionId;
@@ -3207,6 +3524,7 @@ export async function listFactionMarket(userId: string) {
 
 export async function createMarketListing(userId: string, payload: MarketListPayload) {
   const { data, character, user } = await findCharacterForUpdate(userId);
+  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法上架物品。");
   if (!character.factionId) throw new Error("請先加入陣營才能使用玩家市場。");
   const source = character.inventory.find((item) => item.id === payload.itemId);
   if (!source) throw new Error("找不到要上架的物品。");
@@ -3234,6 +3552,7 @@ export async function createMarketListing(userId: string, payload: MarketListPay
 
 export async function buyMarketListing(userId: string, payload: MarketBuyPayload) {
   const { data, character } = await findCharacterForUpdate(userId);
+  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法購買掛單。");
   if (!character.factionId) throw new Error("請先加入陣營才能使用玩家市場。");
   const index = data.marketListings.findIndex((listing) => listing.id === payload.listingId);
   if (index === -1) throw new Error("找不到市場商品。");
@@ -3255,6 +3574,7 @@ export async function buyMarketListing(userId: string, payload: MarketBuyPayload
 
 export async function cancelMarketListing(userId: string, listingId: string) {
   const { data, character } = await findCharacterForUpdate(userId);
+  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法取消掛單。");
   const index = data.marketListings.findIndex((listing) => listing.id === listingId && listing.sellerUserId === userId);
   if (index === -1) throw new Error("找不到可取消的市場商品。");
   const [listing] = data.marketListings.splice(index, 1);
@@ -3925,7 +4245,7 @@ export async function startFactionTowerBattle(userId: string, payload: FactionTo
 
 export async function getWorldBossState(): Promise<WorldBossStateResult> {
   const data = await ensureLoaded();
-  data.worldBoss = normalizeWorldBoss(data.worldBoss);
+  data.worldBoss = normalizeWorldBoss(data.worldBoss, data.gameConfig.worldBossRules);
   return { worldBoss: data.worldBoss };
 }
 
@@ -3935,28 +4255,29 @@ export async function challengeWorldBoss(userId: string): Promise<WorldBossChall
   if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法挑戰世界 Boss。");
   if (!character.factionId) throw new Error("請先加入陣營。");
   const faction = getFactionById(data, character.factionId);
-  data.worldBoss = normalizeWorldBoss(data.worldBoss);
+  data.worldBoss = normalizeWorldBoss(data.worldBoss, data.gameConfig.worldBossRules);
   const worldBoss = data.worldBoss;
+  const rules = data.gameConfig.worldBossRules;
   const config: InstantBattleConfig = {
     context: "worldBoss",
     bossName: worldBoss.bossName,
     bossHp: worldBoss.bossHp,
     bossAttack: worldBoss.bossAttack,
-    maxRounds: 12,
+    maxRounds: rules.maxRounds,
     rewardGold: worldBoss.rewardGold,
-    battleExp: 120,
-    materialType: "stardust",
-    materialQuantity: Math.max(1, Math.floor(worldBoss.rewardMaterials / 2))
+    battleExp: rules.firstWinBattleExp,
+    materialType: rules.materialType,
+    materialQuantity: Math.max(1, Math.floor(worldBoss.rewardMaterials * rules.firstWinMaterialRate))
   };
   const result = runInstantBattle(character, config);
   const isFirstWinner = result.won && !worldBoss.winnerFactionId;
-  const personalGold = isFirstWinner ? Math.floor(worldBoss.rewardGold * 0.35) : result.won ? 60 : 24;
-  const guildGold = isFirstWinner ? worldBoss.rewardGold : result.won ? 80 : 30;
-  const materialQuantity = isFirstWinner ? Math.max(1, Math.floor(worldBoss.rewardMaterials / 2)) : 1;
-  const battleExp = isFirstWinner ? 120 : result.won ? 70 : 32;
+  const personalGold = isFirstWinner ? Math.floor(worldBoss.rewardGold * rules.firstWinPersonalGoldRate) : result.won ? rules.repeatWinPersonalGold : rules.lossPersonalGold;
+  const guildGold = isFirstWinner ? worldBoss.rewardGold : result.won ? rules.repeatWinGuildGold : rules.lossGuildGold;
+  const materialQuantity = isFirstWinner ? Math.max(1, Math.floor(worldBoss.rewardMaterials * rules.firstWinMaterialRate)) : rules.participationMaterials;
+  const battleExp = isFirstWinner ? rules.firstWinBattleExp : result.won ? rules.repeatWinBattleExp : rules.lossBattleExp;
 
   character.gold = clamp(character.gold + personalGold, 0, GAME_LIMITS.goldBalance);
-  mergeInventoryStack(character, createMaterialItem("stardust", materialQuantity));
+  if (materialQuantity > 0) mergeInventoryStack(character, createMaterialItem(rules.materialType, materialQuantity));
   awardBattleExperience(character, battleExp);
   faction.treasury.gold = clamp(faction.treasury.gold + guildGold, 0, GAME_LIMITS.goldBalance);
   if (isFirstWinner) {
@@ -3995,7 +4316,7 @@ export async function challengeWorldBoss(userId: string): Promise<WorldBossChall
           : worldBoss.winnerFactionId
             ? `本輪世界 Boss 已由其他公會率先擊敗，本次取得參與獎。`
             : `本次未能擊敗世界 Boss，取得安慰獎。`,
-      `獎勵：個人金幣 ${personalGold}、星砂 x${materialQuantity}、戰鬥經驗 ${battleExp}；公庫金幣 ${guildGold}。`
+      `獎勵：個人金幣 ${personalGold}、${materialName(rules.materialType)} x${materialQuantity}、戰鬥經驗 ${battleExp}；公庫金幣 ${guildGold}。`
     ]
   };
   worldBoss.attempts.unshift({
@@ -4009,7 +4330,7 @@ export async function challengeWorldBoss(userId: string): Promise<WorldBossChall
     battleRecordId: record.id
   });
   worldBoss.attempts = worldBoss.attempts.slice(0, 30);
-  appendNotification(character, "battle", "世界 Boss", `個人獲得 ${personalGold} 金幣、星砂 x${materialQuantity}、戰鬥經驗 ${battleExp}。`);
+  appendNotification(character, "battle", "世界 Boss", `個人獲得 ${personalGold} 金幣、${materialName(rules.materialType)} x${materialQuantity}、戰鬥經驗 ${battleExp}。`);
   await recordBattle(record);
   await persist();
   return {
@@ -4530,6 +4851,13 @@ export async function adminUpdateGameConfigSection(section: AdminConfigSection, 
     data.gameConfig = normalizeGameConfig({ ...data.gameConfig, statRules: payload });
   } else if (section === "towerRules") {
     data.gameConfig = normalizeGameConfig({ ...data.gameConfig, towerRules: payload });
+  } else if (section === "playerAttackRules") {
+    data.gameConfig = normalizeGameConfig({ ...data.gameConfig, playerAttackRules: payload });
+  } else if (section === "worldBossRules") {
+    data.gameConfig = normalizeGameConfig({ ...data.gameConfig, worldBossRules: payload });
+    data.worldBoss = applyWorldBossRulesToState(data.worldBoss, data.gameConfig.worldBossRules);
+  } else if (section === "roomBossRules") {
+    data.gameConfig = normalizeGameConfig({ ...data.gameConfig, roomBossRules: payload });
   } else if (section === "announcements") {
     data.announcements = Array.isArray(payload) ? payload : data.announcements;
   }
@@ -4559,6 +4887,12 @@ export async function adminResetGameConfigSection(section: AdminConfigSection): 
   if (section === "siegeRules") data.gameConfig.siegeRules = defaults.siegeRules;
   if (section === "statRules") data.gameConfig.statRules = defaults.statRules;
   if (section === "towerRules") data.gameConfig.towerRules = defaults.towerRules;
+  if (section === "playerAttackRules") data.gameConfig.playerAttackRules = defaults.playerAttackRules;
+  if (section === "worldBossRules") {
+    data.gameConfig.worldBossRules = defaults.worldBossRules;
+    data.worldBoss = applyWorldBossRulesToState(data.worldBoss, defaults.worldBossRules);
+  }
+  if (section === "roomBossRules") data.gameConfig.roomBossRules = defaults.roomBossRules;
   if (section === "announcements") data.announcements = [];
   data.gameConfig = normalizeGameConfig(data.gameConfig);
   await persist();

@@ -30,6 +30,7 @@ import {
   capLogs,
   cloneCharacter,
   gameplaySecondaryCharacterCatalog,
+  gameplayRoomBossRules,
   gameplaySpecialSkillCatalog,
   maxEnergyForCharacter,
   maxHpForCharacter,
@@ -78,13 +79,14 @@ function toMember(user: AuthUser, character: CharacterProfile, socketId: string,
 }
 
 function createBoss(memberCount: number, battleContext: BattleContext = "raid", averageLevel = 1): BossState {
-  const hp = bossBaseHp(memberCount, battleContext, averageLevel);
+  const roomBossRules = gameplayRoomBossRules();
+  const hp = Math.round(bossBaseHp(memberCount, battleContext, averageLevel) * (battleContext === "raid" ? roomBossRules.hpMultiplier : 1));
   return {
     id: randomId("boss"),
-    name: battleContext === "raid" ? "裂岩巨像" : battleContext === "castle" ? "守城統領" : "陣營領主",
+    name: battleContext === "raid" ? roomBossRules.bossName : battleContext === "castle" ? "守城統領" : "陣營領主",
     hp,
     maxHp: hp,
-    attackPower: bossBaseAttack(memberCount, battleContext, averageLevel)
+    attackPower: Math.round(bossBaseAttack(memberCount, battleContext, averageLevel) * (battleContext === "raid" ? roomBossRules.attackMultiplier : 1))
   };
 }
 
@@ -195,6 +197,7 @@ export function leaveRoom(socketId: string) {
 
 export function createRoom(user: AuthUser, character: CharacterProfile, socketId: string, requestedRoomId?: string) {
   leaveRoom(socketId);
+  const roomBossRules = gameplayRoomBossRules();
   const sanitizedCode = sanitizePartyCode(requestedRoomId);
   let roomId = sanitizedCode || randomRoomId();
   if (sanitizedCode && rooms.has(roomId)) {
@@ -213,8 +216,8 @@ export function createRoom(user: AuthUser, character: CharacterProfile, socketId
     logs: ["房間已建立，等待隊友加入。"],
     createdAt: nowIso(),
     battleConfig: {
-      tickIntervalMs: 2000,
-      bossName: "裂岩巨像",
+      tickIntervalMs: roomBossRules.tickIntervalMs,
+      bossName: roomBossRules.bossName,
       battleContext: "raid"
     },
     battleSummary: null,
@@ -554,6 +557,10 @@ async function finalizeBattle(room: RoomInternal, winner: BattleWinner) {
     room.interval = undefined;
   }
 
+  const roomBossRules = gameplayRoomBossRules();
+  const isRaidBattle = (room.battleConfig?.battleContext || "raid") === "raid";
+  const rewardGold = isRaidBattle ? (winner === "players" ? roomBossRules.winGold : roomBossRules.lossGold) : 0;
+
   await Promise.all(
     room.members.map(async (member) => {
       member.character.hp = member.currentHp;
@@ -587,7 +594,10 @@ async function finalizeBattle(room: RoomInternal, winner: BattleWinner) {
       healingDone: member.battleStats.healingDone,
       damageTaken: member.battleStats.damageTaken
     })),
-    logs: [...room.logs]
+    logs: [
+      ...room.logs,
+      ...(isRaidBattle ? [`隊伍 Boss 獎勵：每名成員金幣 ${rewardGold}，戰鬥經驗 ${winner === "players" ? roomBossRules.winBattleExp : roomBossRules.lossBattleExp}。`] : [])
+    ]
   };
 
   await recordBattle(record);
