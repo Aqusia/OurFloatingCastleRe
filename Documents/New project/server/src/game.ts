@@ -32,6 +32,7 @@ import {
   gameplaySecondaryCharacterCatalog,
   gameplayRoomBossRules,
   gameplaySpecialSkillCatalog,
+  hasEquippedTimeManual,
   maxEnergyForCharacter,
   maxHpForCharacter,
   maxMpForCharacter,
@@ -39,6 +40,7 @@ import {
   randomFrom,
   randomId,
   randomRoomId,
+  resolveTimeStopWindow,
   sanitizePartyCode,
   setPreferredRole
 } from "./utils";
@@ -80,13 +82,18 @@ function toMember(user: AuthUser, character: CharacterProfile, socketId: string,
 
 function createBoss(memberCount: number, battleContext: BattleContext = "raid", averageLevel = 1): BossState {
   const roomBossRules = gameplayRoomBossRules();
-  const hp = Math.round(bossBaseHp(memberCount, battleContext, averageLevel) * (battleContext === "raid" ? roomBossRules.hpMultiplier : 1));
+  const hp = Math.round(
+    bossBaseHp(memberCount, battleContext, averageLevel) * (battleContext === "raid" ? roomBossRules.hpMultiplier : 1)
+  );
   return {
     id: randomId("boss"),
     name: battleContext === "raid" ? roomBossRules.bossName : battleContext === "castle" ? "守城統領" : "陣營領主",
     hp,
     maxHp: hp,
-    attackPower: Math.round(bossBaseAttack(memberCount, battleContext, averageLevel) * (battleContext === "raid" ? roomBossRules.attackMultiplier : 1))
+    attackPower: Math.round(
+      bossBaseAttack(memberCount, battleContext, averageLevel) *
+        (battleContext === "raid" ? roomBossRules.attackMultiplier : 1)
+    )
   };
 }
 
@@ -320,7 +327,11 @@ export function startBattle(roomId: string, userId: string) {
   room.tick = 0;
   room.battleSummary = null;
   prepareRoomMembers(room);
-  room.boss = createBoss(room.members.length, room.battleConfig?.battleContext || "raid", averageBattleLevel(room.members));
+  room.boss = createBoss(
+    room.members.length,
+    room.battleConfig?.battleContext || "raid",
+    averageBattleLevel(room.members)
+  );
   if (room.battleConfig?.bossName) {
     room.boss.name = room.battleConfig.bossName;
   }
@@ -363,9 +374,19 @@ function applyAttackSpecials(member: RoomMemberState, room: RoomInternal, baseDa
   return result.events;
 }
 
-function secondaryPreferenceMultiplier(member: RoomMemberState, preferredSlots?: Array<keyof CharacterProfile["equipmentSlots"]>) {
+function secondaryPreferenceMultiplier(
+  member: RoomMemberState,
+  preferredSlots?: Array<keyof CharacterProfile["equipmentSlots"]>
+) {
   if (!preferredSlots?.length) return 1;
   return preferredSlots.some((slot) => Boolean(member.character.equipmentSlots[slot])) ? 1.18 : 1;
+}
+
+function equippedSpecialSkillIds(character: CharacterProfile) {
+  const source = Array.isArray(character.specialSkillSlots)
+    ? character.specialSkillSlots
+    : [character.specialSkillSlot];
+  return new Set(source.filter((skillId): skillId is string => typeof skillId === "string" && skillId.length > 0));
 }
 
 function rollSecondaryCharacterSkills(member: RoomMemberState, room: RoomInternal): BattleActionResult {
@@ -374,6 +395,7 @@ function rollSecondaryCharacterSkills(member: RoomMemberState, room: RoomInterna
   const messages: string[] = [];
   const definitions = gameplaySecondaryCharacterCatalog();
   const skills = gameplaySpecialSkillCatalog();
+  const equippedSkillIds = equippedSpecialSkillIds(member.character);
   const allies = livingMembers(room);
   const lowestAlly = [...allies].sort((a, b) => a.currentHp / a.maxHp - b.currentHp / b.maxHp)[0] || null;
 
@@ -381,10 +403,12 @@ function rollSecondaryCharacterSkills(member: RoomMemberState, room: RoomInterna
     if (!slot.characterId || (slot.cooldownUntilTick || 0) > room.tick || boss.hp <= 0) continue;
     const definition = definitions.find((entry) => entry.id === slot.characterId);
     if (!definition) continue;
-    const unlocked = (slot.unlockedSkillIds?.length ? slot.unlockedSkillIds : definition.unlockedSkillIds).filter((skillId) => {
-      const skill = skills.find((entry) => entry.id === skillId);
-      return skill && (skill.unlockLevel || 1) <= slot.level;
-    });
+    const unlocked = (slot.unlockedSkillIds?.length ? slot.unlockedSkillIds : definition.unlockedSkillIds).filter(
+      (skillId) => {
+        const skill = skills.find((entry) => entry.id === skillId);
+        return skill && equippedSkillIds.has(skillId) && (skill.unlockLevel || 1) <= slot.level;
+      }
+    );
     if (!unlocked.length) continue;
     const availableSkills = unlocked
       .map((skillId) => skills.find((entry) => entry.id === skillId))
@@ -392,7 +416,14 @@ function rollSecondaryCharacterSkills(member: RoomMemberState, room: RoomInterna
     const skill = randomFrom(availableSkills);
     const affinity = definition.classAffinity?.[member.character.className] ?? 1;
     const equipmentMultiplier = secondaryPreferenceMultiplier(member, definition.preferredEquipmentSlots);
-    const chance = Math.min(0.86, (skill.baseChance || 0.38) + 0.18 + (slot.level - 1) * 0.025 + (affinity - 1) * 0.14 + (equipmentMultiplier - 1) * 0.08);
+    const chance = Math.min(
+      0.86,
+      (skill.baseChance || 0.38) +
+        0.18 +
+        (slot.level - 1) * 0.025 +
+        (affinity - 1) * 0.14 +
+        (equipmentMultiplier - 1) * 0.08
+    );
     if (Math.random() >= chance) continue;
 
     const levelMultiplier = 1 + (slot.level - 1) * 0.12;
@@ -401,7 +432,12 @@ function rollSecondaryCharacterSkills(member: RoomMemberState, room: RoomInterna
       member.character.stats.technique +
       Math.floor(member.character.stats.intelligence * 0.7) +
       Math.floor(member.character.stats.luck * 0.5);
-    const damage = Math.max(8, Math.round((10 + damageBase) * levelMultiplier * affinity * equipmentMultiplier));
+    const timeManualActive = skill.id.includes("time_stop") && hasEquippedTimeManual(member.character);
+    const skillDamageMultiplier = skill.id.includes("time_stop") ? 1.04 : skill.id.includes("ora_ora") ? 1.12 : 1;
+    const damage = Math.max(
+      8,
+      Math.round((10 + damageBase) * levelMultiplier * affinity * equipmentMultiplier * skillDamageMultiplier)
+    );
     boss.hp = Math.max(0, boss.hp - damage);
     member.battleStats.damageDealt += damage;
 
@@ -411,7 +447,13 @@ function rollSecondaryCharacterSkills(member: RoomMemberState, room: RoomInterna
       lowestAlly.currentHp = Math.min(lowestAlly.maxHp, lowestAlly.currentHp + healing);
       member.battleStats.healingDone += healing;
     }
-    const bossAttackModifier = skill.id.includes("infinity") || skill.id.includes("parry") ? 0.92 : undefined;
+    let bossAttackModifier = skill.id.includes("time_stop")
+      ? 1
+      : skill.id.includes("opening_thread")
+        ? 0.88
+        : skill.id.includes("infinity") || skill.id.includes("parry")
+          ? 0.92
+          : undefined;
     slot.lastTriggeredSkillId = skill.id;
     slot.cooldownUntilTick = room.tick + (skill.cooldownTurns || 2);
     const logLines = buildSkillLogLines({
@@ -423,6 +465,30 @@ function rollSecondaryCharacterSkills(member: RoomMemberState, room: RoomInterna
       healing,
       healingTargetName: lowestAlly?.displayName
     });
+    let extraDamage = 0;
+    if (skill.id.includes("time_stop")) {
+      const followUpSkillNames = gameplaySpecialSkillCatalog()
+        .filter((entry) => equippedSkillIds.has(entry.id) && entry.id !== skill.id)
+        .map((entry) => entry.name);
+      const window = resolveTimeStopWindow({
+        actorName: member.displayName,
+        targetName: boss.name,
+        stats: member.character.stats,
+        battleLevel: member.character.battleLevel,
+        slotLevel: slot.level,
+        manualActive: timeManualActive,
+        followUpSkillNames
+      });
+      extraDamage = window.damage;
+      bossAttackModifier = window.bossAttackModifier;
+      boss.hp = Math.max(0, boss.hp - extraDamage);
+      member.battleStats.damageDealt += extraDamage;
+      member.currentEnergy = Math.min(member.maxEnergy, member.currentEnergy + window.recoveredEnergy);
+      if (window.recoveredMp > 0) {
+        member.currentMp = Math.min(member.maxMp, member.currentMp + window.recoveredMp);
+      }
+      logLines.push(...window.logs);
+    }
     messages.push(...logLines);
     events.push({
       kind: "secondary_skill",
@@ -430,7 +496,7 @@ function rollSecondaryCharacterSkills(member: RoomMemberState, room: RoomInterna
       label: skill.name,
       message: logLines.join("\n"),
       impact: {
-        damage,
+        damage: damage + extraDamage,
         ...(healing ? { healing } : {}),
         ...(bossAttackModifier ? { bossAttackModifier } : {})
       }
@@ -457,9 +523,12 @@ function chooseRoleAction(member: RoomMemberState, room: RoomInternal): BattleAc
   const allies = livingMembers(room);
   const lowestAlly = [...allies].sort((a, b) => a.currentHp / a.maxHp - b.currentHp / b.maxHp)[0];
 
-  // 精神回魔、體力回精力：讓資源型屬性支撐連擊持久度
+  // 速度回魔、體力回精力：讓資源型屬性支撐連擊持久度
   member.currentMp = Math.min(member.maxMp, member.currentMp + Math.floor(member.character.stats.spirit / 6));
-  member.currentEnergy = Math.min(member.maxEnergy, member.currentEnergy + Math.floor(member.character.stats.vitality / 8));
+  member.currentEnergy = Math.min(
+    member.maxEnergy,
+    member.currentEnergy + Math.floor(member.character.stats.vitality / 8)
+  );
 
   if ((role === "healer" || member.character.className === "priest") && lowestAlly && member.currentMp >= 10) {
     if (lowestAlly.currentHp / lowestAlly.maxHp < 0.72) {
@@ -518,7 +587,11 @@ function bossAttack(room: RoomInternal, attackModifier = 1) {
 
   const weightedTargets = targets.flatMap((member) => {
     const repeats =
-      member.character.loadout.preferredRole === "tank" ? 3 : member.character.loadout.preferredRole === "healer" ? 1 : 2;
+      member.character.loadout.preferredRole === "tank"
+        ? 3
+        : member.character.loadout.preferredRole === "healer"
+          ? 1
+          : 2;
     return Array.from({ length: repeats }, () => member);
   });
 
@@ -596,7 +669,11 @@ async function finalizeBattle(room: RoomInternal, winner: BattleWinner) {
     })),
     logs: [
       ...room.logs,
-      ...(isRaidBattle ? [`隊伍 Boss 獎勵：每名成員金幣 ${rewardGold}，戰鬥經驗 ${winner === "players" ? roomBossRules.winBattleExp : roomBossRules.lossBattleExp}。`] : [])
+      ...(isRaidBattle
+        ? [
+            `隊伍 Boss 獎勵：每名成員金幣 ${rewardGold}，戰鬥經驗 ${winner === "players" ? roomBossRules.winBattleExp : roomBossRules.lossBattleExp}。`
+          ]
+        : [])
     ]
   };
 
@@ -651,7 +728,10 @@ export async function runBattleTick(roomId: string) {
         recentLogs.push(`${room.boss.name} 的反制對全隊造成 ${pressureDamage} 點基礎壓力。`);
       }
     }
-    const bossAttackModifier = specialEvents.reduce((modifier, event) => modifier * (event.impact.bossAttackModifier || 1), 1);
+    const bossAttackModifier = specialEvents.reduce(
+      (modifier, event) => modifier * (event.impact.bossAttackModifier || 1),
+      1
+    );
     const attack = bossAttack(room, bossAttackModifier);
     recentLogs.push(attack.message);
     specialEvents.push(...attack.events);

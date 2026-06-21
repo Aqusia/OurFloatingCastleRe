@@ -137,6 +137,10 @@ export function registerSocketServer(io: Server<ClientToServerEvents, ServerToCl
       }
 
       try {
+        if (isCharacterBusy(auth.character)) {
+          socket.emit("app:error", "角色正在移動或行動中，不能建立隊伍。");
+          return;
+        }
         syncSocketDeparture(io, socket, false);
         const room = createRoom(auth.user, auth.character, socket.id, requestedRoomId);
         socket.join(room.roomId);
@@ -155,6 +159,10 @@ export function registerSocketServer(io: Server<ClientToServerEvents, ServerToCl
       }
 
       try {
+        if (isCharacterBusy(auth.character)) {
+          socket.emit("app:error", "角色正在移動或行動中，不能加入隊伍。");
+          return;
+        }
         syncSocketDeparture(io, socket, false);
         const room = joinRoom(roomId.trim().toUpperCase(), auth.user, auth.character, socket.id);
         socket.join(room.roomId);

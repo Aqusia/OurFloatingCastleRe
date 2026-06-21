@@ -145,7 +145,20 @@ import {
 import { getSocket } from "./lib/socket";
 import { getStoredToken, setStoredToken } from "./lib/storage";
 
-type NavKey = "character" | "skills" | "actions" | "tower" | "battle" | "faction" | "inventory" | "forge" | "achievements" | "messages" | "friends" | "shop" | "admin";
+type NavKey =
+  | "character"
+  | "skills"
+  | "actions"
+  | "tower"
+  | "battle"
+  | "faction"
+  | "inventory"
+  | "forge"
+  | "achievements"
+  | "messages"
+  | "friends"
+  | "shop"
+  | "admin";
 type InventoryTab = "equipment" | "material" | "manual" | "other";
 type ShopTab = "npc" | "market";
 type ShopCategoryFilter = "all" | "weapon" | "offhand" | "armor" | "material" | "other";
@@ -209,11 +222,11 @@ const initialRegister: RegisterPayload = {
 };
 
 const trainingActions: Array<{ type: ActionType; title: string; detail: string }> = [
-  { type: "fishing", title: "釣魚", detail: "技巧、精神、少量智力" },
+  { type: "fishing", title: "釣魚", detail: "技巧、速度、少量智力" },
   { type: "jump_rope", title: "跳繩", detail: "體力、技巧、攻防" },
   { type: "reading", title: "讀書", detail: "智力、技巧" },
   { type: "push_ups", title: "伏地挺身", detail: "體力、攻、防" },
-  { type: "meditation", title: "沉思", detail: "運氣、少量精神" },
+  { type: "meditation", title: "沉思", detail: "運氣、少量速度" },
   { type: "boxing", title: "拳擊", detail: "攻擊、體力、技巧" }
 ];
 
@@ -270,6 +283,18 @@ function activityStatusFor(character: CharacterProfile, room?: RoomState | null,
 
 function isIdle(character: CharacterProfile) {
   return character.actionQueue.items.length === 0 && !character.movement && !character.garrisonAssignment;
+}
+
+function isRoomBattleActiveFor(room: RoomState | null | undefined, userId?: string) {
+  return Boolean(room?.phase === "battle" && room.members.some((member) => member.userId === userId));
+}
+
+function canUseCharacterAction(character: CharacterProfile, room: RoomState | null | undefined, userId?: string) {
+  return isIdle(character) && !isRoomBattleActiveFor(room, userId);
+}
+
+function canQueueNextAction(character: CharacterProfile, room: RoomState | null | undefined, userId?: string) {
+  return !character.movement && !character.garrisonAssignment && !isRoomBattleActiveFor(room, userId);
 }
 
 function formatDate(value?: string | null) {
@@ -329,7 +354,8 @@ function shopCategoryOf(item: ShopItem | MarketListing["item"]): ShopCategoryFil
   if (item.category === "material") return "material";
   if (item.equipmentSlot === "weapon") return "weapon";
   if (item.equipmentSlot === "offhand") return "offhand";
-  if (item.equipmentSlot === "helmet" || item.equipmentSlot === "armor" || item.equipmentSlot === "kneepad") return "armor";
+  if (item.equipmentSlot === "helmet" || item.equipmentSlot === "armor" || item.equipmentSlot === "kneepad")
+    return "armor";
   return "other";
 }
 
@@ -338,7 +364,10 @@ function emptyRewardTemplate(): RewardTemplate {
 }
 
 function sanitizePartyCodeInput(value: string) {
-  return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+  return value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 6);
 }
 
 function itemSummaryLine(item: InventoryItem) {
@@ -347,7 +376,8 @@ function itemSummaryLine(item: InventoryItem) {
   if (item.defenseBonus) pieces.push(`防 ${item.defenseBonus}`);
   if (item.luckBonus) pieces.push(`運 ${item.luckBonus}`);
   if (item.tenacityBonus) pieces.push(`韌 ${item.tenacityBonus}`);
-  if (item.durability != null && item.maxDurability != null) pieces.push(`耐久 ${item.durability}/${item.maxDurability}`);
+  if (item.durability != null && item.maxDurability != null)
+    pieces.push(`耐久 ${item.durability}/${item.maxDurability}`);
   if (item.quantity && item.quantity > 1) pieces.push(`數量 ${item.quantity}`);
   return pieces.join(" · ") || item.effectSummary;
 }
@@ -379,7 +409,7 @@ function statBonusSummary(statBonus?: Partial<CharacterProfile["stats"]>) {
     ["luck", "運"],
     ["intelligence", "智"],
     ["vitality", "體"],
-    ["spirit", "精"],
+    ["spirit", "速"],
     ["technique", "技"],
     ["tenacity", "韌"]
   ];
@@ -523,7 +553,8 @@ function soloDifficultySummary(difficulty: SoloBattleDifficulty, layer: number) 
 function sceneDifficulty(castle: CastleState): SoloBattleDifficulty {
   if (castle.mapNodePurpose === "guild_boss") return "elite";
   if (castle.mapNodePurpose === "mining") return castle.layer >= 3 ? "elite" : "hard";
-  if (castle.mapNodePurpose === "trade" || castle.mapNodePurpose === "solo_combat") return castle.layer >= 3 ? "hard" : "normal";
+  if (castle.mapNodePurpose === "trade" || castle.mapNodePurpose === "solo_combat")
+    return castle.layer >= 3 ? "hard" : "normal";
   if (castle.mapNodePurpose === "capital") return "normal";
   return castle.layer >= 2 ? "normal" : "easy";
 }
@@ -562,7 +593,9 @@ function towerModeLabel(mode: TowerAdvanceMode) {
 }
 
 function towerModeDetail(mode: TowerAdvanceMode) {
-  return mode === "rush" ? "較高機率前進，適合快速找 Boss。" : "前進較慢，但較容易遇到小王與素材。";
+  return mode === "rush"
+    ? "較高機率前進，每次都會遭遇巡邏怪或小王；進度滿後低機率鎖定 Boss。"
+    : "前進較慢，每次都會清怪，較容易遇到小王與素材。";
 }
 
 function towerFunRating(tower: FactionTowerProgress | null, canAct: boolean, isAtTowerCastle: boolean) {
@@ -576,33 +609,44 @@ function towerFunRating(tower: FactionTowerProgress | null, canAct: boolean, isA
   return Math.max(1, Math.min(10, Number(score.toFixed(1))));
 }
 
-function towerFunSummary(score: number, tower: FactionTowerProgress | null) {
-  if (tower?.bossUnlocked) return "王戰已開，刺激度最高。";
-  if (score >= 8) return "推進節奏佳，刷怪與找王平衡。";
-  if (score >= 7) return "節奏穩定，可以繼續推進。";
-  if (score >= 6) return "偏暖機，需要更多遭遇或進度。";
-  return "目前受位置或忙碌狀態限制。";
-}
-
 function clampFunScore(score: number) {
   return Math.max(1, Math.min(10, Number(score.toFixed(1))));
 }
 
-function worldBossFunRating(worldBoss: WorldBossState | null, character: CharacterProfile | null, canChallenge: boolean, finished: boolean) {
+function worldBossFunRating(
+  worldBoss: WorldBossState | null,
+  character: CharacterProfile | null,
+  canChallenge: boolean,
+  finished: boolean
+) {
   if (!worldBoss) return { score: 4.8, summary: "正在讀取世界 Boss 狀態。" };
   if (finished) return { score: 5.2, summary: "本輪已結束，等待下一輪世界 Boss。" };
   if (!character?.factionId) return { score: 4.2, summary: "尚未加入陣營，不能參與世界 Boss。" };
   if (!isIdle(character)) return { score: 4.8, summary: "角色忙碌中，只能查看戰況。" };
   const statPressure =
     character.battleLevel * 0.22 +
-    (character.stats.attack + character.stats.defense + character.stats.technique + character.stats.tenacity + character.stats.intelligence + character.stats.spirit) / 95;
+    (character.stats.attack +
+      character.stats.defense +
+      character.stats.technique +
+      character.stats.tenacity +
+      character.stats.intelligence +
+      character.stats.spirit) /
+      95;
   const bossPressure = Math.min(2.1, worldBoss.bossAttack / 55 + worldBoss.bossHp / 1800);
   const rewardPulse = Math.min(1.1, (worldBoss.rewardGold || 0) / 900 + (worldBoss.rewardMaterials || 0) / 16);
   const score = 6.5 + statPressure + rewardPulse - bossPressure + (canChallenge ? 0.4 : -0.8);
-  return { score: clampFunScore(score), summary: score >= 7.6 ? "獎勵與壓力接近王戰主菜。" : "可打，但收益或壓力還有調整空間。" };
+  return {
+    score: clampFunScore(score),
+    summary: score >= 7.6 ? "獎勵與壓力接近王戰主菜。" : "可打，但收益或壓力還有調整空間。"
+  };
 }
 
-function roomBossFunRating(roomState: RoomState | null, canLeadPartyAction: boolean, blockerName: string | null, character: CharacterProfile | null) {
+function roomBossFunRating(
+  roomState: RoomState | null,
+  canLeadPartyAction: boolean,
+  blockerName: string | null,
+  character: CharacterProfile | null
+) {
   if (!character || !isIdle(character)) return { score: 4.6, summary: "角色忙碌中，暫時只能查看隊伍。" };
   if (!roomState) return { score: 6.2, summary: "可建立隊伍，適合準備多人 Boss。" };
   if (roomState.phase === "battle") return { score: 8.1, summary: "隊伍 Boss 戰進行中。" };
@@ -610,14 +654,18 @@ function roomBossFunRating(roomState: RoomState | null, canLeadPartyAction: bool
   if (blockerName) return { score: 5.2, summary: `${blockerName} 不是閒暇中，暫不能開戰。` };
   const memberBonus = Math.min(1.1, Math.max(0, roomState.members.length - 1) * 0.35);
   const hostBonus = canLeadPartyAction ? 0.7 : 0.1;
-  return { score: clampFunScore(6.8 + memberBonus + hostBonus), summary: canLeadPartyAction ? "隊伍可開戰，節奏良好。" : "等待隊長開戰。" };
+  return {
+    score: clampFunScore(6.8 + memberBonus + hostBonus),
+    summary: canLeadPartyAction ? "隊伍可開戰，節奏良好。" : "等待隊長開戰。"
+  };
 }
 
 function battleLogTone(log: string) {
   if (/終結技|連擊收尾/.test(log)) return "finisher";
   if (/暴擊/.test(log)) return "crit";
   if (/連擊 x|第 \d+ 擊|連擊中斷/.test(log)) return "combo";
-  if (/角色技能|自動施放|幸運暴擊|技巧連擊|精準破防|隊友支援|危急閃避|Boss 反制|特殊事件/.test(log)) return "special";
+  if (/角色技能|自動施放|幸運事故|幸運暴擊|技巧連擊|精準破防|隊友支援|危急閃避|Boss 反制|特殊事件/.test(log))
+    return "special";
   if (/獎勵|獲得|公庫|勝利|倒下/.test(log)) return "reward";
   if (/Boss|首領|反擊|撤退|失敗|攻擊/.test(log)) return "boss";
   return "normal";
@@ -650,7 +698,8 @@ function ComboBurst({ event }: { event: BattleSpecialEvent }) {
             key={`${hit.index}-${index}`}
             style={{ animationDelay: `${index * 0.12}s` }}
           >
-            {hit.moveName} {hit.damage}{hit.crit ? "!" : ""}
+            {hit.moveName} {hit.damage}
+            {hit.crit ? "!" : ""}
           </span>
         ))}
       </div>
@@ -770,10 +819,18 @@ function AuthScreen({
         </div>
 
         <div className="auth-tabs">
-          <button className={authMode === "login" ? "is-active" : ""} onClick={() => onAuthModeChange("login")} type="button">
+          <button
+            className={authMode === "login" ? "is-active" : ""}
+            onClick={() => onAuthModeChange("login")}
+            type="button"
+          >
             登入
           </button>
-          <button className={authMode === "register" ? "is-active" : ""} onClick={() => onAuthModeChange("register")} type="button">
+          <button
+            className={authMode === "register" ? "is-active" : ""}
+            onClick={() => onAuthModeChange("register")}
+            type="button"
+          >
             建立角色
           </button>
         </div>
@@ -786,7 +843,11 @@ function AuthScreen({
             </label>
             <label className="field">
               <span>密碼</span>
-              <input type="password" value={loginPassword} onChange={(event) => onLoginPasswordChange(event.target.value)} />
+              <input
+                type="password"
+                value={loginPassword}
+                onChange={(event) => onLoginPasswordChange(event.target.value)}
+              />
             </label>
           </div>
         ) : (
@@ -797,19 +858,32 @@ function AuthScreen({
             </label>
             <label className="field">
               <span>密碼</span>
-              <input type="password" value={registerForm.password} onChange={(event) => onRegisterChange({ password: event.target.value })} />
+              <input
+                type="password"
+                value={registerForm.password}
+                onChange={(event) => onRegisterChange({ password: event.target.value })}
+              />
             </label>
             <label className="field">
               <span>顯示名稱</span>
-              <input value={registerForm.displayName} onChange={(event) => onRegisterChange({ displayName: event.target.value })} />
+              <input
+                value={registerForm.displayName}
+                onChange={(event) => onRegisterChange({ displayName: event.target.value })}
+              />
             </label>
             <label className="field">
               <span>角色名稱</span>
-              <input value={registerForm.characterName} onChange={(event) => onRegisterChange({ characterName: event.target.value })} />
+              <input
+                value={registerForm.characterName}
+                onChange={(event) => onRegisterChange({ characterName: event.target.value })}
+              />
             </label>
             <label className="field">
               <span>初始職業</span>
-              <select value={registerForm.className} onChange={(event) => onRegisterChange({ className: event.target.value as CharacterClass })}>
+              <select
+                value={registerForm.className}
+                onChange={(event) => onRegisterChange({ className: event.target.value as CharacterClass })}
+              >
                 {classOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
@@ -882,7 +956,10 @@ function App() {
   const [factionState, setFactionState] = useState<FactionState | null>(null);
   const [worldBoss, setWorldBoss] = useState<WorldBossState | null>(null);
   const [nearbyPlayers, setNearbyPlayers] = useState<NearbyPlayerSummary[]>([]);
-  const [characterCatalog, setCharacterCatalog] = useState<CharacterCatalogPayload>({ secondaryCharacters: [], specialSkills: [] });
+  const [characterCatalog, setCharacterCatalog] = useState<CharacterCatalogPayload>({
+    secondaryCharacters: [],
+    specialSkills: []
+  });
   const [achievements, setAchievements] = useState<AchievementProgress[]>([]);
   const [adminState, setAdminState] = useState<AdminState | null>(null);
   const [adminAnnouncements, setAdminAnnouncements] = useState<Announcement[]>([]);
@@ -935,11 +1012,13 @@ function App() {
   const currentForgeOption = forgeOptions.find((entry) => entry.id === forgeRecipeId) || forgeOptions[0] || null;
   const visibleNav = navItems;
   const activeNavMeta = visibleNav.find((item) => item.key === activeNav);
-  const noticeItems = announcements.length > 0 ? announcements.slice(0, 5) : [{ id: "empty", title: "NOTICE", body: "目前沒有公告。" }];
+  const noticeItems =
+    announcements.length > 0 ? announcements.slice(0, 5) : [{ id: "empty", title: "NOTICE", body: "目前沒有公告。" }];
   const visibleListings = useMemo(
     () =>
       (factionState?.marketListings || []).filter((listing) => {
-        const sellerMatch = !marketSellerFilter || listing.sellerCharacterName.toLowerCase().includes(marketSellerFilter.toLowerCase());
+        const sellerMatch =
+          !marketSellerFilter || listing.sellerCharacterName.toLowerCase().includes(marketSellerFilter.toLowerCase());
         const categoryMatch = shopCategoryFilter === "all" || shopCategoryOf(listing.item) === shopCategoryFilter;
         return sellerMatch && categoryMatch;
       }),
@@ -952,7 +1031,9 @@ function App() {
   const inventoryGroups = useMemo(() => {
     const keyword = inventorySearch.trim().toLowerCase();
     const matches = (item: InventoryItem) =>
-      !keyword || item.name.toLowerCase().includes(keyword) || (item.effectSummary || "").toLowerCase().includes(keyword);
+      !keyword ||
+      item.name.toLowerCase().includes(keyword) ||
+      (item.effectSummary || "").toLowerCase().includes(keyword);
     const items = (character?.inventory || []).filter(matches);
     return {
       equipment: items.filter((item) => item.category === "equipment"),
@@ -972,18 +1053,21 @@ function App() {
   const readyForgeRecipeCount = useMemo(
     () =>
       forgeRecipesList.filter((recipe) =>
-        (Object.entries(recipe.ingredients) as Array<[MaterialType, number]>).every(([type, qty]) =>
-          (inventoryGroups.material.find((item) => item.materialType === type)?.quantity || 0) >= (qty || 0)
+        (Object.entries(recipe.ingredients) as Array<[MaterialType, number]>).every(
+          ([type, qty]) =>
+            (inventoryGroups.material.find((item) => item.materialType === type)?.quantity || 0) >= (qty || 0)
         )
       ).length,
     [forgeRecipesList, inventoryGroups.material]
   );
-  const canStartForge = Boolean(character && currentForgeOption && isIdle(character) && selectedForgeMaterialCount > 0);
+  const canStartForge = Boolean(character && currentForgeOption && selectedForgeMaterialCount > 0);
   const selectedInventoryItems = inventoryGroups[inventoryTab];
   const selectedInventoryItem = selectedInventoryItems.find((item) => item.id === selectedInventoryItemId) || null;
   const currentCastle = factionState?.castles.find((castle) => castle.id === character?.currentCastleId) || null;
-  const movementFromCastle = factionState?.castles.find((castle) => castle.id === character?.movement?.fromCastleId) || null;
-  const movementToCastle = factionState?.castles.find((castle) => castle.id === character?.movement?.toCastleId) || null;
+  const movementFromCastle =
+    factionState?.castles.find((castle) => castle.id === character?.movement?.fromCastleId) || null;
+  const movementToCastle =
+    factionState?.castles.find((castle) => castle.id === character?.movement?.toCastleId) || null;
   const movementRouteLabel = character?.movement
     ? `${movementFromCastle?.name || "未知據點"} → ${movementToCastle?.name || "未知據點"}`
     : "";
@@ -996,12 +1080,16 @@ function App() {
         items: equipmentItems.filter((item) => item.equipmentSlot === slot)
       }))
       .filter((group) => group.items.length > 0);
-    const otherItems = equipmentItems.filter((item) => !item.equipmentSlot || !equipmentGroupOrder.includes(item.equipmentSlot));
+    const otherItems = equipmentItems.filter(
+      (item) => !item.equipmentSlot || !equipmentGroupOrder.includes(item.equipmentSlot)
+    );
     return otherItems.length > 0 ? [...groups, { slot: null, label: "其他裝備", items: otherItems }] : groups;
   }, [inventoryGroups.equipment]);
   const visibleCastles = useMemo(() => {
     if (!factionState?.castles?.length) return [];
-    return [...factionState.castles].sort((left, right) => left.layer - right.layer || left.name.localeCompare(right.name));
+    return [...factionState.castles].sort(
+      (left, right) => left.layer - right.layer || left.name.localeCompare(right.name)
+    );
   }, [factionState?.castles]);
   const selectedMapCastle =
     visibleCastles.find((castle) => castle.id === selectedMapCastleId) ||
@@ -1026,7 +1114,10 @@ function App() {
         .sort((left, right) => left.layer - right.layer || left.name.localeCompare(right.name)),
     [character?.factionId, factionState?.castles]
   );
-  const towerCastles = useMemo(() => battleScenes.filter((castle) => castle.mapNodePurpose === "guild_boss"), [battleScenes]);
+  const towerCastles = useMemo(
+    () => battleScenes.filter((castle) => castle.mapNodePurpose === "guild_boss"),
+    [battleScenes]
+  );
   const selectedTowerCastle =
     towerCastles.find((castle) => castle.id === selectedTowerCastleId) ||
     towerCastles.find((castle) => castle.id === character?.currentCastleId) ||
@@ -1034,7 +1125,9 @@ function App() {
     null;
   const towerProgress = factionState?.selectedFaction?.tower || null;
   const isAtTowerCastle = Boolean(selectedTowerCastle && character?.currentCastleId === selectedTowerCastle.id);
-  const canUseTowerAction = Boolean(character && selectedTowerCastle && isAtTowerCastle && isIdle(character));
+  const canUseTowerAction = Boolean(
+    character && selectedTowerCastle && isAtTowerCastle && canUseCharacterAction(character, roomState, user?.id)
+  );
   const towerFunScore = towerFunRating(towerProgress, canUseTowerAction, isAtTowerCastle);
   const selectedSecondaryCharacters = useMemo(
     () =>
@@ -1045,7 +1138,10 @@ function App() {
     [character?.secondaryCharacters, characterCatalog.secondaryCharacters]
   );
   const classMasteryRows = useMemo(
-    () => classOptions.map((option) => character?.classMastery?.[option.value]).filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)),
+    () =>
+      classOptions
+        .map((option) => character?.classMastery?.[option.value])
+        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)),
     [character?.classMastery]
   );
   const unlockedSpecialSkills = useMemo(() => {
@@ -1054,38 +1150,92 @@ function App() {
     characterCatalog.specialSkills.forEach((skill) => {
       if (skill.source === "class" && skill.requiredClass === character.className) skillIds.add(skill.id);
     });
-    selectedSecondaryCharacters.forEach(({ slot }) => slot.unlockedSkillIds.forEach((skillId) => skillIds.add(skillId)));
+    selectedSecondaryCharacters.forEach(({ slot }) =>
+      slot.unlockedSkillIds.forEach((skillId) => skillIds.add(skillId))
+    );
     character.learnedManuals.forEach((manual) => {
       if (manual.unlockedSkillId) skillIds.add(manual.unlockedSkillId);
     });
     return characterCatalog.specialSkills.filter((skill) => skillIds.has(skill.id));
   }, [character, characterCatalog.specialSkills, selectedSecondaryCharacters]);
-  const equippedSpecialSkill = unlockedSpecialSkills.find((skill) => skill.id === character?.specialSkillSlot) || null;
-  const secondaryAutoSkillCount = selectedSecondaryCharacters.reduce((total, { slot }) => total + slot.unlockedSkillIds.length, 0);
+  const specialSkillSlots = useMemo<Array<string | null>>(() => {
+    const rawSlots = character?.specialSkillSlots?.length
+      ? character.specialSkillSlots
+      : [character?.specialSkillSlot ?? null];
+    return Array.from({ length: 3 }, (_, index) => {
+      const skillId = rawSlots[index];
+      return typeof skillId === "string" && skillId.length ? skillId : null;
+    });
+  }, [character?.specialSkillSlot, character?.specialSkillSlots]);
+  const equippedSpecialSkillIds = specialSkillSlots.filter((skillId): skillId is string => Boolean(skillId));
+  const equippedSpecialSkills = specialSkillSlots.map(
+    (skillId) => unlockedSpecialSkills.find((skill) => skill.id === skillId) || null
+  );
+  const specialSkillSlotsFull = equippedSpecialSkillIds.length >= 3;
+  const secondaryAutoSkillCount = selectedSecondaryCharacters.reduce(
+    (total, { slot }) => total + slot.unlockedSkillIds.length,
+    0
+  );
   const activeManualCount = character?.equippedManuals.length || 0;
 
-  const battleOverlayVisible = Boolean((roomState?.phase === "battle" || roomState?.phase === "ended") && !battleOverlayDismissed);
+  const battleOverlayVisible = Boolean(
+    (roomState?.phase === "battle" || roomState?.phase === "ended") && !battleOverlayDismissed
+  );
   const detailModalRoot = typeof document !== "undefined" ? document.body : null;
-  const myActivityStatus = character ? activityStatusFor(character, roomState, user?.id) : { label: "閒暇中", tone: "idle" as ActivityStatusTone };
+  const myActivityStatus = character
+    ? activityStatusFor(character, roomState, user?.id)
+    : { label: "閒暇中", tone: "idle" as ActivityStatusTone };
+  const roomBattleLocked = isRoomBattleActiveFor(roomState, user?.id);
+  const canActNow = Boolean(character && canUseCharacterAction(character, roomState, user?.id));
+  const canQueueNow = Boolean(character && canQueueNextAction(character, roomState, user?.id));
   const activeActivityItem = character ? activeQueueItem(character) : null;
-  const activityLock = character && !isIdle(character)
+  const activityLock =
+    character && !canActNow
+      ? {
+          code: roomBattleLocked
+            ? "BATTLE"
+            : character.movement
+              ? "MOVING"
+              : character.garrisonAssignment
+                ? "GARRISON"
+                : "ACTION",
+          title: roomBattleLocked ? "隊伍戰鬥中" : character.movement ? "移動中" : myActivityStatus.label,
+          detail: roomBattleLocked
+            ? "隊伍 Boss 戰鬥中，結束前不能安排其他行動。"
+            : character.movement
+              ? movementRouteLabel
+              : character.garrisonAssignment
+                ? "駐防中，離開駐防後才能安排其他行動。"
+                : activeActivityItem
+                  ? `${activeActivityItem.label} · ${formatDate(activeActivityItem.endsAt)} 完成`
+                  : "目前行動尚未同步完成。",
+          endsAt: character.movement?.endsAt || activeActivityItem?.endsAt || null,
+          remaining: roomBattleLocked
+            ? "戰鬥中"
+            : formatRemainingTime(character.movement?.endsAt || activeActivityItem?.endsAt || null, nowTick)
+        }
+      : null;
+  const commandState = activityLock
     ? {
-        code: character.movement ? "MOVING" : character.garrisonAssignment ? "GARRISON" : roomState?.phase === "battle" ? "BATTLE" : "ACTION",
-        title: character.movement ? "移動中" : myActivityStatus.label,
-        detail: character.movement
-          ? movementRouteLabel
-          : character.garrisonAssignment
-            ? "駐防中，離開駐防後才能安排其他行動。"
-            : activeActivityItem
-              ? `${activeActivityItem.label} · ${formatDate(activeActivityItem.endsAt)} 完成`
-              : "目前行動尚未同步完成。",
-        endsAt: character.movement?.endsAt || activeActivityItem?.endsAt || null,
-        remaining: formatRemainingTime(character.movement?.endsAt || activeActivityItem?.endsAt || null, nowTick)
+        code: `${activityLock.code} · ${activityLock.title}`,
+        title: activityLock.code === "MOVING" ? "移動中不可操作" : "行動鎖定中",
+        detail: activityLock.detail,
+        remaining: activityLock.remaining,
+        mode: "locked"
       }
-    : null;
+    : {
+        code: "READY · 可操作",
+        title: feedback,
+        detail: `今日隊列 ${character?.actionQueue.items.length ?? 0} 項${currentCastle ? ` · 目前位置 ${currentCastle.name}` : ""}`,
+        remaining: "待命",
+        mode: "ready"
+      };
+  const lockSummary = activityLock ? "行動鎖定中，完成後可操作。" : "可操作。";
   const partyBlocker = roomState?.members.find((member) => !isIdle(member.character)) || null;
-  const canLeadPartyAction = Boolean(roomState && user && roomState.hostId === user.id && roomState.phase === "lobby" && !partyBlocker);
-  const canAttackCastle = character ? (!roomState ? isIdle(character) : canLeadPartyAction) : false;
+  const canLeadPartyAction = Boolean(
+    roomState && user && roomState.hostId === user.id && roomState.phase === "lobby" && !partyBlocker
+  );
+  const canAttackCastle = character ? (!roomState ? canActNow : canLeadPartyAction) : false;
   const towerBossReady = Boolean(towerProgress?.bossUnlocked);
   const worldBossFinished = Boolean(worldBoss?.winnerFactionId);
   const roomBossLabel =
@@ -1096,9 +1246,107 @@ function App() {
         : roomState
           ? "隊伍待命"
           : "未組隊";
-  const worldBossCanChallenge = Boolean(character && isIdle(character) && character.factionId && worldBoss && !worldBossFinished);
+  const worldBossCanChallenge = Boolean(
+    character && canActNow && character.factionId && worldBoss && !worldBossFinished
+  );
   const worldBossFun = worldBossFunRating(worldBoss, character, worldBossCanChallenge, worldBossFinished);
   const roomBossFun = roomBossFunRating(roomState, canLeadPartyAction, partyBlocker?.displayName || null, character);
+  const towerProgressRatio =
+    (towerProgress?.stepsRequired || 0) > 0 ? (towerProgress?.steps || 0) / (towerProgress?.stepsRequired || 1) : 0;
+  const attackDirector = activityLock
+    ? {
+        tone: "locked",
+        code: activityLock.code,
+        title: "先等行動完成",
+        detail: lockSummary,
+        score: Math.max(1, towerFunScore - 1.2),
+        action: "wait" as const,
+        actionLabel: "查看目前狀態"
+      }
+    : !character?.factionId
+      ? {
+          tone: "locked",
+          code: "FACTION",
+          title: "先加入陣營",
+          detail: "打王、爬塔、世界 Boss 與玩家遭遇都需要陣營據點資料。",
+          score: 4.8,
+          action: "faction" as const,
+          actionLabel: "前往陣營"
+        }
+      : towerBossReady && canUseTowerAction
+        ? {
+            tone: "ready",
+            code: "BOSS READY",
+            title: "挑戰公會爬塔 Boss",
+            detail: `${towerProgress?.bossName || "當層 Boss"} 已遇到，現在是本輪爬塔最高價值行動。`,
+            score: towerFunScore,
+            action: "tower" as const,
+            actionLabel: "進入挑戰區"
+          }
+        : towerBossReady
+          ? {
+              tone: "locked",
+              code: "BOSS LOCKED",
+              title: isAtTowerCastle ? "Boss 已開，等角色閒暇" : "Boss 已開，先去據點",
+              detail: isAtTowerCastle
+                ? "角色完成目前行動後即可挑戰或撤退。"
+                : `需要抵達 ${selectedTowerCastle?.name || "Boss 據點"} 才能挑戰當層 Boss。`,
+              score: Math.max(1, towerFunScore - 0.6),
+              action: "tower" as const,
+              actionLabel: "查看爬塔"
+            }
+          : worldBossCanChallenge && worldBossFun.score >= towerFunScore
+            ? {
+                tone: "ready",
+                code: "WORLD BOSS",
+                title: "挑戰世界 Boss",
+                detail: `${worldBoss?.bossName || "世界 Boss"} 仍在競賽中，首殺與參與獎都會回饋公會。`,
+                score: worldBossFun.score,
+                action: "worldBoss" as const,
+                actionLabel: "直接挑戰"
+              }
+            : selectedTowerCastle && !isAtTowerCastle
+              ? {
+                  tone: "route",
+                  code: "MOVE",
+                  title: "前往 Boss 據點",
+                  detail: `主要玩法是打王；先移動到 ${selectedTowerCastle.name} 才能推進爬塔與挑戰當層 Boss。`,
+                  score: Math.max(5, towerFunScore - 0.4),
+                  action: "tower" as const,
+                  actionLabel: "查看路線"
+                }
+              : canUseTowerAction
+                ? {
+                    tone: "ready",
+                    code: towerProgressRatio >= 0.6 ? "RUSH" : "HUNT",
+                    title: towerProgressRatio >= 0.6 ? "趕路找王" : "攻擊刷獎勵",
+                    detail:
+                      towerProgressRatio >= 0.6
+                        ? "本層進度已接近門檻，趕路模式前進較快，但仍要清巡邏怪，Boss 只會低機率鎖定。"
+                        : "本層還在推進前段，攻擊模式較適合刷小王與累積獎勵。",
+                    score: towerFunScore,
+                    action: towerProgressRatio >= 0.6 ? ("towerRush" as const) : ("towerHunt" as const),
+                    actionLabel: towerProgressRatio >= 0.6 ? "切到趕路" : "切到攻擊"
+                  }
+                : roomState?.phase === "lobby" && canLeadPartyAction
+                  ? {
+                      tone: "ready",
+                      code: "PARTY",
+                      title: "開始隊伍 Boss",
+                      detail: "隊伍已待命且你是隊長，可以開啟一般隊伍 Boss 戰。",
+                      score: roomBossFun.score,
+                      action: "roomBoss" as const,
+                      actionLabel: "開始隊伍 Boss"
+                    }
+                  : {
+                      tone: "route",
+                      code: "SETUP",
+                      title: "先建立打王條件",
+                      detail: "目前沒有立即可打的 Boss；可以前往爬塔據點、建立隊伍或等待世界 Boss 狀態更新。",
+                      score: Math.max(5, Math.max(towerFunScore, worldBossFun.score, roomBossFun.score) - 0.8),
+                      action: "tower" as const,
+                      actionLabel: "進入爬塔"
+                    };
 
   function handleSceneRailPointerDown(event: PointerEvent<HTMLDivElement>) {
     const rail = sceneRailRef.current;
@@ -1230,7 +1478,7 @@ function App() {
     void bootstrap(token);
   }, [token]);
 
-async function bootstrap(nextToken: string) {
+  async function bootstrap(nextToken: string) {
     try {
       const me = await getMe(nextToken);
       setUser(me.user);
@@ -1370,7 +1618,7 @@ async function bootstrap(nextToken: string) {
 
   function requireIdleForAction(message: string) {
     if (!character) return false;
-    if (!isIdle(character)) {
+    if (!canUseCharacterAction(character, roomState, user?.id)) {
       setFeedback(message);
       return false;
     }
@@ -1392,8 +1640,8 @@ async function bootstrap(nextToken: string) {
 
   async function handleQueue(actionType: ActionType, durationHours?: number) {
     if (!token || !character) return;
-    if (!isIdle(character)) {
-      setFeedback("角色目前忙碌中，移動或行動完成前不能加入新行動。");
+    if (!canQueueNextAction(character, roomState, user?.id)) {
+      setFeedback("角色目前移動、駐防或隊伍戰鬥中，不能加入新行動。");
       return;
     }
     try {
@@ -1474,13 +1722,31 @@ async function bootstrap(nextToken: string) {
     }
   }
 
-  async function handleEquipSpecialSkill(skillId: string) {
+  async function handleEquipSpecialSkill(skillId: string, slotIndex?: number) {
     if (!token) return;
     if (!requireIdleForAction("角色目前忙碌中，不能調整特殊技能。")) return;
+    const nextSlots = [...specialSkillSlots];
+    if (slotIndex != null) {
+      nextSlots[slotIndex] = skillId || null;
+    } else if (!skillId) {
+      nextSlots.fill(null);
+    } else {
+      const existingIndex = nextSlots.indexOf(skillId);
+      if (existingIndex >= 0) {
+        nextSlots[existingIndex] = null;
+      } else {
+        const emptyIndex = nextSlots.findIndex((slot) => !slot);
+        if (emptyIndex === -1) {
+          setFeedback("特殊技能槽已滿");
+          return;
+        }
+        nextSlots[emptyIndex] = skillId;
+      }
+    }
     try {
-      const result = await equipSpecialSkill(token, { skillId: skillId || null });
+      const result = await equipSpecialSkill(token, { skillIds: nextSlots });
       setCharacter(result);
-      setFeedback(skillId ? "特殊技能已裝備" : "特殊技能已卸下");
+      setFeedback(skillId ? "特殊技能已更新" : "特殊技能已卸下");
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : "特殊技能更新失敗");
     }
@@ -1534,7 +1800,6 @@ async function bootstrap(nextToken: string) {
 
   async function handleRepairInventory(itemId: string) {
     if (!token) return;
-    if (!requireIdleForAction("角色目前忙碌中，不能修復裝備。")) return;
     try {
       const result = await repairItem(token, { itemId, source: "inventory" });
       setCharacter(result.character);
@@ -1546,7 +1811,6 @@ async function bootstrap(nextToken: string) {
 
   async function handleRepairEquipment(slot: EquipmentSlotKey, itemId: string) {
     if (!token) return;
-    if (!requireIdleForAction("角色目前忙碌中，不能修復裝備。")) return;
     try {
       const result = await repairItem(token, { itemId, source: "equipment", slot });
       setCharacter(result.character);
@@ -1574,10 +1838,6 @@ async function bootstrap(nextToken: string) {
 
   async function handleForge() {
     if (!token || !character || !currentForgeOption) return;
-    if (!isIdle(character)) {
-      setFeedback("角色目前忙碌中，移動或行動完成前不能鍛造。");
-      return;
-    }
     try {
       const materialItemIds = character.inventory
         .filter((item) => item.category === "material")
@@ -1650,7 +1910,7 @@ async function bootstrap(nextToken: string) {
 
   async function handleMoveCastle(castleId: string) {
     if (!token || !character) return;
-    if (!isIdle(character)) {
+    if (!canUseCharacterAction(character, roomState, user?.id)) {
       setFeedback("角色目前忙碌中，行動完成前不能移動。");
       return;
     }
@@ -1666,7 +1926,7 @@ async function bootstrap(nextToken: string) {
 
   async function handleBuildFacility(castleId: string) {
     if (!token || !character) return;
-    if (!isIdle(character)) {
+    if (!canUseCharacterAction(character, roomState, user?.id)) {
       setFeedback("角色目前忙碌中，移動或行動完成前不能建設。");
       return;
     }
@@ -1688,7 +1948,7 @@ async function bootstrap(nextToken: string) {
 
   async function handleRepairCastle(castleId: string) {
     if (!token || !character) return;
-    if (!isIdle(character)) {
+    if (!canUseCharacterAction(character, roomState, user?.id)) {
       setFeedback("角色目前忙碌中，移動或行動完成前不能修建。");
       return;
     }
@@ -1714,7 +1974,7 @@ async function bootstrap(nextToken: string) {
 
   async function handleJoinProject(projectId: string) {
     if (!token || !character) return;
-    if (!isIdle(character)) {
+    if (!canUseCharacterAction(character, roomState, user?.id)) {
       setFeedback("角色目前忙碌中，移動或行動完成前不能協助工程。");
       return;
     }
@@ -1817,7 +2077,12 @@ async function bootstrap(nextToken: string) {
         adminGrantResources(token, {
           targetCharacterName: adminTargetName.trim(),
           gold: toClampedInt(adminGrantGold, 0, numberLimits.grantGold, 0),
-          resources: [{ materialType: adminResourceType, quantity: toClampedInt(adminResourceQuantity, 0, numberLimits.resourceQuantity, 0) }]
+          resources: [
+            {
+              materialType: adminResourceType,
+              quantity: toClampedInt(adminResourceQuantity, 0, numberLimits.resourceQuantity, 0)
+            }
+          ]
         }),
       "資源已發送。"
     );
@@ -1937,7 +2202,7 @@ async function bootstrap(nextToken: string) {
 
   async function handleSoloBattle(castleId: string) {
     if (!token || !character) return;
-    if (!isIdle(character)) {
+    if (!canUseCharacterAction(character, roomState, user?.id)) {
       setFeedback("角色目前忙碌中，行動完成前不能探險。");
       return;
     }
@@ -1956,7 +2221,7 @@ async function bootstrap(nextToken: string) {
 
   async function handleFactionTowerBattle(castleId: string, mode: "skirmish" | "boss") {
     if (!token || !character) return;
-    if (!isIdle(character)) {
+    if (!canUseCharacterAction(character, roomState, user?.id)) {
       setFeedback("角色目前忙碌中，行動完成前不能挑戰公會 Boss。");
       return;
     }
@@ -1986,7 +2251,11 @@ async function bootstrap(nextToken: string) {
         setDetailBattleRecord(result.battleRecord);
       }
       setActiveNav("tower");
-      setFeedback(result.message);
+      setFeedback(
+        result.encounter.checkpointsPassed > 0
+          ? `${result.message} 通過 ${result.encounter.checkpointsPassed} 個小關節點。`
+          : result.message
+      );
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : "塔層推進失敗");
     }
@@ -2007,7 +2276,7 @@ async function bootstrap(nextToken: string) {
 
   async function handleWorldBossChallenge() {
     if (!token || !character) return;
-    if (!isIdle(character)) {
+    if (!canUseCharacterAction(character, roomState, user?.id)) {
       setFeedback("角色目前忙碌中，行動完成前不能挑戰世界 Boss。");
       return;
     }
@@ -2036,7 +2305,7 @@ async function bootstrap(nextToken: string) {
 
   async function handleAttackNearbyPlayer(targetUserId: string) {
     if (!token || !character) return;
-    if (!isIdle(character)) {
+    if (!canUseCharacterAction(character, roomState, user?.id)) {
       setFeedback("角色目前忙碌中，行動完成前不能攻擊玩家。");
       return;
     }
@@ -2095,7 +2364,7 @@ async function bootstrap(nextToken: string) {
   }
 
   function createParty() {
-    if (!character || !isIdle(character)) {
+    if (!character || !canUseCharacterAction(character, roomState, user?.id)) {
       setFeedback("角色目前忙碌中，不能建立隊伍。");
       return;
     }
@@ -2109,7 +2378,7 @@ async function bootstrap(nextToken: string) {
   }
 
   function joinParty(code?: string) {
-    if (!character || !isIdle(character)) {
+    if (!character || !canUseCharacterAction(character, roomState, user?.id)) {
       setFeedback("角色目前忙碌中，不能加入隊伍。");
       return;
     }
@@ -2133,6 +2402,29 @@ async function bootstrap(nextToken: string) {
       return;
     }
     socket.emit("room:start", roomState.roomId);
+  }
+
+  function handleAttackDirectorAction() {
+    if (attackDirector.action === "faction") {
+      setActiveNav("faction");
+      return;
+    }
+    if (attackDirector.action === "wait") {
+      setActiveNav(character?.movement ? "faction" : "actions");
+      return;
+    }
+    if (attackDirector.action === "worldBoss") {
+      void handleWorldBossChallenge();
+      return;
+    }
+    if (attackDirector.action === "roomBoss") {
+      startBattle();
+      return;
+    }
+    if (attackDirector.action === "towerRush" || attackDirector.action === "towerHunt") {
+      setTowerAdvanceMode(attackDirector.action === "towerRush" ? "rush" : "hunt");
+    }
+    setActiveNav("tower");
   }
 
   if (!token || !user || !character) {
@@ -2160,7 +2452,9 @@ async function bootstrap(nextToken: string) {
             <div className="brand-panel">
               <div className="eyebrow">角色</div>
               <h3 style={{ marginBottom: 4 }}>{character.name}</h3>
-              <div className="muted">{user.displayName} · {classOptions.find((option) => option.value === character.className)?.label}</div>
+              <div className="muted">
+                {user.displayName} · {classOptions.find((option) => option.value === character.className)?.label}
+              </div>
             </div>
             <div className="status-stack">
               <span className={`status-pill compact ${connected ? "is-live" : ""}`}>
@@ -2168,24 +2462,35 @@ async function bootstrap(nextToken: string) {
                 {connected ? "連線中" : "離線"}
               </span>
               <span className="status-pill compact">等級 Lv.{character.instinctLevel}</span>
-              <span className={`status-pill compact status-${myActivityStatus.tone}`}>狀態 {myActivityStatus.label}</span>
+              <span className={`status-pill compact status-${myActivityStatus.tone}`}>
+                狀態 {myActivityStatus.label}
+              </span>
             </div>
             <div className="nav-stack">
               {Array.from(new Set(visibleNav.map((item) => item.group))).map((groupName) => (
                 <div className="nav-group" key={groupName}>
                   <div className="nav-group-label">{groupName}</div>
-                  {visibleNav.filter((item) => item.group === groupName).map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <button key={item.key} className={`nav-button ${activeNav === item.key ? "is-active" : ""}`} onClick={() => setActiveNav(item.key)} type="button">
-                        <span className="nav-icon"><Icon size={18} /></span>
-                        <span className="nav-copy">
-                          <strong>{item.label}</strong>
-                          <small>{item.hint}</small>
-                        </span>
-                      </button>
-                    );
-                  })}
+                  {visibleNav
+                    .filter((item) => item.group === groupName)
+                    .map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.key}
+                          className={`nav-button ${activeNav === item.key ? "is-active" : ""}`}
+                          onClick={() => setActiveNav(item.key)}
+                          type="button"
+                        >
+                          <span className="nav-icon">
+                            <Icon size={18} />
+                          </span>
+                          <span className="nav-copy">
+                            <strong>{item.label}</strong>
+                            <small>{item.hint}</small>
+                          </span>
+                        </button>
+                      );
+                    })}
                 </div>
               ))}
             </div>
@@ -2202,47 +2507,60 @@ async function bootstrap(nextToken: string) {
             <div className="notice-track">
               <div className="notice-marquee">
                 {[...noticeItems, ...noticeItems].map((announcement, index) => (
-                  <span key={`${announcement.id}-${index}`}>{announcement.title}：{announcement.body}</span>
+                  <span key={`${announcement.id}-${index}`}>
+                    {announcement.title}：{announcement.body}
+                  </span>
                 ))}
               </div>
             </div>
           </div>
 
-          <div className="top-banner" style={{ marginBottom: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+          <div className={`command-strip is-${commandState.mode} status-${myActivityStatus.tone}`}>
+            <div className="command-strip-main">
+              <span className="command-code">{commandState.code}</span>
+              <strong>{commandState.title}</strong>
+              <p>{commandState.detail}</p>
+            </div>
+            <div className="command-route">
+              <span>{character.movement ? "ROUTE" : "LOCATION"}</span>
+              <strong>{character.movement ? movementRouteLabel : currentCastle?.name || "未抵達據點"}</strong>
+              <small>
+                {character.movement ? `抵達 ${formatDate(character.movement.endsAt)}` : myActivityStatus.label}
+              </small>
+            </div>
+            <div className="command-timer">
+              <span>{activityLock ? "剩餘" : "狀態"}</span>
+              <strong>{commandState.remaining}</strong>
+            </div>
+            <div className="command-resource-grid">
               <div>
-                <strong>{feedback}</strong>
-                <div className="muted" style={{ marginTop: 4 }}>
-                  {character.movement ? `目前行動：移動中 · ${movementRouteLabel} · 抵達 ${formatDate(character.movement.endsAt)}` : `今日隊列 ${character.actionQueue.items.length} 項`}
-                </div>
+                <HeartPulse size={14} />
+                <span>HP</span>
+                <strong>
+                  {character.hp}/{character.maxHp}
+                </strong>
               </div>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <span className="mini-pill"><HeartPulse size={15} />HP {character.hp}/{character.maxHp}</span>
-                <span className="mini-pill"><Sparkles size={15} />MP {character.mp}/{character.maxMp}</span>
-                <span className="mini-pill"><BatteryCharging size={15} />精力 {character.energy}/{character.maxEnergy}</span>
-                <span className="mini-pill"><Coins size={15} />金幣 {character.gold}</span>
+              <div>
+                <Sparkles size={14} />
+                <span>MP</span>
+                <strong>
+                  {character.mp}/{character.maxMp}
+                </strong>
+              </div>
+              <div>
+                <BatteryCharging size={14} />
+                <span>精力</span>
+                <strong>
+                  {character.energy}/{character.maxEnergy}
+                </strong>
+              </div>
+              <div>
+                <Coins size={14} />
+                <span>金幣</span>
+                <strong>{character.gold}</strong>
               </div>
             </div>
           </div>
-
-          {activityLock ? (
-            <div className={`action-lock-panel status-${myActivityStatus.tone}`}>
-              <div className="action-lock-copy">
-                <span className="metric-label">/ {activityLock.code}</span>
-                <strong>ACTION LOCK · {activityLock.title}</strong>
-                <div className="muted">{activityLock.detail}</div>
-              </div>
-              <div className="action-lock-countdown">
-                <span>剩餘</span>
-                <strong>{activityLock.remaining}</strong>
-              </div>
-              <div className="action-lock-meta">
-                <span>LOCATION <strong>{currentCastle?.name || "-"}</strong></span>
-                <span>HP <strong>{character.hp}/{character.maxHp}</strong></span>
-                <span>ENERGY <strong>{character.energy}/{character.maxEnergy}</strong></span>
-              </div>
-            </div>
-          ) : null}
 
           <div className="page-title-bar">
             <div>
@@ -2262,11 +2580,15 @@ async function bootstrap(nextToken: string) {
                     announcements.slice(0, 3).map((announcement) => (
                       <div key={announcement.id} className="history-card" style={{ padding: 12 }}>
                         <strong>{announcement.title}</strong>
-                        <div className="muted" style={{ marginTop: 6 }}>{announcement.body}</div>
+                        <div className="muted" style={{ marginTop: 6 }}>
+                          {announcement.body}
+                        </div>
                       </div>
                     ))
                   ) : (
-                    <div className="empty-card" style={{ padding: 14 }}>目前沒有公告。</div>
+                    <div className="empty-card" style={{ padding: 14 }}>
+                      目前沒有公告。
+                    </div>
                   )}
                 </div>
               </div>
@@ -2285,9 +2607,15 @@ async function bootstrap(nextToken: string) {
                 <div className="form-grid two-col" style={{ marginTop: 14 }}>
                   <label className="field">
                     <span>主定位</span>
-                    <select value={character.className} onChange={(event) => void handleChangeClass(event.target.value as CharacterClass)} disabled={!isIdle(character)}>
+                    <select
+                      value={character.className}
+                      onChange={(event) => void handleChangeClass(event.target.value as CharacterClass)}
+                      disabled={!isIdle(character)}
+                    >
                       {classOptions.map((option) => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
                       ))}
                     </select>
                   </label>
@@ -2298,10 +2626,24 @@ async function bootstrap(nextToken: string) {
                 <div className="member-grid role-card-grid" style={{ marginTop: 14 }}>
                   {classMasteryRows.map((mastery) => (
                     <div key={mastery.className} className="member-card" style={{ padding: 14 }}>
-                      <strong>{classOptions.find((option) => option.value === mastery.className)?.label || mastery.className}熟練度</strong>
-                      <div className="muted">Lv.{mastery.level} · EXP {mastery.exp} / {Math.max(40, mastery.level * 70)}</div>
-                      <div className="progress-bar"><div className="progress-fill" style={{ width: `${percent(mastery.exp, Math.max(40, mastery.level * 70))}%` }} /></div>
-                      <div className="muted">{mastery.className === character.className ? "目前主定位，行動與戰鬥會累積熟練度。" : "切換後使用這個職業自己的熟練等級。"}</div>
+                      <strong>
+                        {classOptions.find((option) => option.value === mastery.className)?.label || mastery.className}
+                        熟練度
+                      </strong>
+                      <div className="muted">
+                        Lv.{mastery.level} · EXP {mastery.exp} / {Math.max(40, mastery.level * 70)}
+                      </div>
+                      <div className="progress-bar">
+                        <div
+                          className="progress-fill"
+                          style={{ width: `${percent(mastery.exp, Math.max(40, mastery.level * 70))}%` }}
+                        />
+                      </div>
+                      <div className="muted">
+                        {mastery.className === character.className
+                          ? "目前主定位，行動與戰鬥會累積熟練度。"
+                          : "切換後使用這個職業自己的熟練等級。"}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -2310,10 +2652,20 @@ async function bootstrap(nextToken: string) {
                     <div key={slot.slot} className="member-card" style={{ padding: 14 }}>
                       <label className="field">
                         <span>次要角色 {slot.slot}</span>
-                        <select value={slot.characterId || ""} onChange={(event) => void handleSelectSecondary(slot.slot, event.target.value)} disabled={!isIdle(character)}>
+                        <select
+                          value={slot.characterId || ""}
+                          onChange={(event) => void handleSelectSecondary(slot.slot, event.target.value)}
+                          disabled={!isIdle(character)}
+                        >
                           <option value="">未選擇</option>
                           {characterCatalog.secondaryCharacters.map((entry) => (
-                            <option key={entry.id} value={entry.id} disabled={character.secondaryCharacters.some((selected) => selected.slot !== slot.slot && selected.characterId === entry.id)}>
+                            <option
+                              key={entry.id}
+                              value={entry.id}
+                              disabled={character.secondaryCharacters.some(
+                                (selected) => selected.slot !== slot.slot && selected.characterId === entry.id
+                              )}
+                            >
                               {entry.name}
                             </option>
                           ))}
@@ -2321,20 +2673,40 @@ async function bootstrap(nextToken: string) {
                       </label>
                       {definition ? (
                         <>
-                          <strong>{definition.name} · {definition.origin}</strong>
-                          <div className="muted">Lv.{slot.level} · EXP {slot.exp} / {Math.max(35, slot.level * 55)}</div>
-                          <div className="progress-bar"><div className="progress-fill" style={{ width: `${percent(slot.exp, Math.max(35, slot.level * 55))}%` }} /></div>
-                          <div className="muted">{definition.role} · {definition.weapon}</div>
+                          <strong>
+                            {definition.name} · {definition.origin}
+                          </strong>
+                          <div className="muted">
+                            Lv.{slot.level} · EXP {slot.exp} / {Math.max(35, slot.level * 55)}
+                          </div>
+                          <div className="progress-bar">
+                            <div
+                              className="progress-fill"
+                              style={{ width: `${percent(slot.exp, Math.max(35, slot.level * 55))}%` }}
+                            />
+                          </div>
+                          <div className="muted">
+                            {definition.role} · {definition.weapon}
+                          </div>
                           <div className="muted">{definition.detail}</div>
                           <div className="muted">
-                            適配 {classOptions.map((option) => `${option.label} x${definition.classAffinity?.[option.value] ?? 1}`).join(" · ")}
+                            適配{" "}
+                            {classOptions
+                              .map((option) => `${option.label} x${definition.classAffinity?.[option.value] ?? 1}`)
+                              .join(" · ")}
                           </div>
-                          <div className="muted">偏好裝備 {definition.preferredEquipmentSlots?.map(slotLabel).join("、") || "無"}</div>
+                          <div className="muted">
+                            偏好裝備 {definition.preferredEquipmentSlots?.map(slotLabel).join("、") || "無"}
+                          </div>
                           <div className="tag-row">
                             <span className="tag is-buff">{statBonusSummary(definition.statBonus)}</span>
                             {slot.unlockedSkillIds.map((skillId) => {
                               const skill = characterCatalog.specialSkills.find((entry) => entry.id === skillId);
-                              return skill ? <span key={skill.id} className="tag">{skill.name} Lv.{skill.unlockLevel || 1}</span> : null;
+                              return skill ? (
+                                <span key={skill.id} className="tag">
+                                  {skill.name} Lv.{skill.unlockLevel || 1}
+                                </span>
+                              ) : null;
                             })}
                           </div>
                         </>
@@ -2349,29 +2721,57 @@ async function bootstrap(nextToken: string) {
               <div className="stat-cards" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
                 <div className="stat-card" style={{ padding: 16 }}>
                   <strong>資源</strong>
-                  <div className="muted" style={{ marginTop: 8 }}>HP {character.hp} / {character.maxHp}</div>
-                  <div className="progress-bar"><div className="progress-fill" style={{ width: `${percent(character.hp, character.maxHp)}%` }} /></div>
-                  <div className="muted" style={{ marginTop: 8 }}>MP {character.mp} / {character.maxMp}</div>
-                  <div className="progress-bar"><div className="progress-fill is-mp" style={{ width: `${percent(character.mp, character.maxMp)}%` }} /></div>
-                  <div className="muted" style={{ marginTop: 8 }}>精力 {character.energy} / {character.maxEnergy}</div>
-                  <div className="progress-bar"><div className="progress-fill is-energy" style={{ width: `${percent(character.energy, character.maxEnergy)}%` }} /></div>
+                  <div className="muted" style={{ marginTop: 8 }}>
+                    HP {character.hp} / {character.maxHp}
+                  </div>
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: `${percent(character.hp, character.maxHp)}%` }} />
+                  </div>
+                  <div className="muted" style={{ marginTop: 8 }}>
+                    MP {character.mp} / {character.maxMp}
+                  </div>
+                  <div className="progress-bar">
+                    <div
+                      className="progress-fill is-mp"
+                      style={{ width: `${percent(character.mp, character.maxMp)}%` }}
+                    />
+                  </div>
+                  <div className="muted" style={{ marginTop: 8 }}>
+                    精力 {character.energy} / {character.maxEnergy}
+                  </div>
+                  <div className="progress-bar">
+                    <div
+                      className="progress-fill is-energy"
+                      style={{ width: `${percent(character.energy, character.maxEnergy)}%` }}
+                    />
+                  </div>
                 </div>
                 <div className="stat-card" style={{ padding: 16 }}>
                   <strong>8 個屬性</strong>
                   <div className="muted" style={{ marginTop: 10 }}>
                     攻 {character.stats.attack} · 防 {character.stats.defense} · 運 {character.stats.luck}
                   </div>
-                  <div className="muted">智 {character.stats.intelligence} · 體 {character.stats.vitality} · 精 {character.stats.spirit}</div>
-                  <div className="muted">技 {character.stats.technique} · 韌 {character.stats.tenacity}</div>
-                  <div className="muted" style={{ marginTop: 8 }}>攻城：攻/智/技破防，體/韌降低精力損耗。</div>
-                  <div className="muted">守城：防/精/韌提高存活，運氣降低戰損。</div>
+                  <div className="muted">
+                    智 {character.stats.intelligence} · 體 {character.stats.vitality} · 速 {character.stats.spirit}
+                  </div>
+                  <div className="muted">
+                    技 {character.stats.technique} · 韌 {character.stats.tenacity}
+                  </div>
+                  <div className="muted" style={{ marginTop: 8 }}>
+                    攻城：攻/智/技破防，體/韌降低精力損耗。
+                  </div>
+                  <div className="muted">守城：防/速/韌提高存活，運氣降低戰損。</div>
                 </div>
                 {currentCastle ? (
                   <div className="stat-card" style={{ padding: 16 }}>
                     <strong>目前位置</strong>
-                    <div className="muted" style={{ marginTop: 10 }}>{currentCastle.name}</div>
+                    <div className="muted" style={{ marginTop: 10 }}>
+                      {currentCastle.name}
+                    </div>
                     <div className="muted">{currentCastle.layerName}</div>
-                    <div className="muted">距核心 {currentCastle.distanceFromCapital} 層 · {castleSpecialtyLabel(currentCastle.specialty)}</div>
+                    <div className="muted">
+                      距核心 {currentCastle.distanceFromCapital} 層 · {castleSpecialtyLabel(currentCastle.specialty)}
+                    </div>
                     {character.movement ? (
                       <div className="banner" style={{ padding: 10, marginTop: 10 }}>
                         移動中：{movementRouteLabel}
@@ -2383,10 +2783,20 @@ async function bootstrap(nextToken: string) {
                 <div className="stat-card" style={{ padding: 16 }}>
                   <strong>簽到</strong>
                   <div className="battle-actions" style={{ marginTop: 10 }}>
-                    <button className="primary-button" onClick={() => void handleClaimDaily()} disabled={Boolean(signInStatus?.dailyClaimedToday)} type="button">
+                    <button
+                      className="primary-button"
+                      onClick={() => void handleClaimDaily()}
+                      disabled={Boolean(signInStatus?.dailyClaimedToday)}
+                      type="button"
+                    >
                       {signInStatus?.dailyClaimedToday ? "今日已簽到" : "每日簽到"}
                     </button>
-                    <button className="secondary-button" onClick={() => void handleClaimFlash()} disabled={!signInStatus?.flashEventActive || Boolean(signInStatus?.flashClaimedToday)} type="button">
+                    <button
+                      className="secondary-button"
+                      onClick={() => void handleClaimFlash()}
+                      disabled={!signInStatus?.flashEventActive || Boolean(signInStatus?.flashClaimedToday)}
+                      type="button"
+                    >
                       {signInStatus?.flashEventActive ? "突發簽到" : "無活動"}
                     </button>
                   </div>
@@ -2399,7 +2809,9 @@ async function bootstrap(nextToken: string) {
                   return (
                     <div className="equipment-card" key={slot} style={{ padding: 14 }}>
                       <strong>{slotLabel(slot)}</strong>
-                      <div className="muted" style={{ marginTop: 8 }}>{item ? item.name : "未裝備"}</div>
+                      <div className="muted" style={{ marginTop: 8 }}>
+                        {item ? item.name : "未裝備"}
+                      </div>
                       {item ? (
                         <div className="muted" style={{ marginTop: 6 }}>
                           耐久 {item.durability ?? "-"} / {item.maxDurability ?? "-"}
@@ -2418,27 +2830,69 @@ async function bootstrap(nextToken: string) {
                 <div className="panel-heading">
                   <div>
                     <strong>SKILL CONSOLE</strong>
-                    <div className="muted" style={{ marginTop: 6 }}>特殊技能、角色自動技能、職業熟練與秘籍 Buff 集中管理。</div>
+                    <div className="muted" style={{ marginTop: 6 }}>
+                      特殊技能、角色自動技能、職業熟練與秘籍 Buff 集中管理。
+                    </div>
                   </div>
-                  <span className={`mini-pill ${equippedSpecialSkill ? "is-live" : ""}`}>
-                    {equippedSpecialSkill ? `已裝備 ${equippedSpecialSkill.name}` : "未裝備特殊技能"}
+                  <span className={`mini-pill ${equippedSpecialSkillIds.length ? "is-live" : ""}`}>
+                    {equippedSpecialSkillIds.length ? `已裝備 ${equippedSpecialSkillIds.length}/3` : "未裝備特殊技能"}
                   </span>
                 </div>
                 <div className="quick-metric-grid battle-command-metrics">
-                  <div><span>SPECIAL</span><strong>{unlockedSpecialSkills.length}</strong></div>
-                  <div><span>AUTO SKILLS</span><strong>{secondaryAutoSkillCount}</strong></div>
-                  <div><span>MANUAL BUFF</span><strong>{activeManualCount}/3</strong></div>
-                  <div><span>CLASS</span><strong>{classOptions.find((option) => option.value === character.className)?.label || character.className}</strong></div>
+                  <div>
+                    <span>SPECIAL</span>
+                    <strong>{unlockedSpecialSkills.length}</strong>
+                  </div>
+                  <div>
+                    <span>SLOTS</span>
+                    <strong>{equippedSpecialSkillIds.length}/3</strong>
+                  </div>
+                  <div>
+                    <span>AUTO SKILLS</span>
+                    <strong>{secondaryAutoSkillCount}</strong>
+                  </div>
+                  <div>
+                    <span>MANUAL BUFF</span>
+                    <strong>{activeManualCount}/3</strong>
+                  </div>
                 </div>
                 <div className="skill-slot-card">
-                  <div>
-                    <span>特殊技能槽</span>
-                    <strong>{equippedSpecialSkill?.name || "空槽"}</strong>
-                    <div className="muted">{equippedSpecialSkill?.detail || "可從下方已解鎖技能選一個裝備，提供立即套用的屬性加成。"}</div>
+                  <div className="skill-slot-header">
+                    <div>
+                      <span>特殊技能槽</span>
+                      <strong>{equippedSpecialSkillIds.length}/3 已裝備</strong>
+                      <div className="muted">可從下方已解鎖技能裝備最多 3 個，屬性加成會立即套用。</div>
+                    </div>
+                    <button
+                      className="secondary-button"
+                      onClick={() => void handleEquipSpecialSkill("")}
+                      disabled={!equippedSpecialSkillIds.length || !isIdle(character)}
+                      type="button"
+                    >
+                      卸下全部
+                    </button>
                   </div>
-                  <button className="secondary-button" onClick={() => void handleEquipSpecialSkill("")} disabled={!equippedSpecialSkill || !isIdle(character)} type="button">
-                    卸下特殊技能
-                  </button>
+                  <div className="special-slot-grid">
+                    {equippedSpecialSkills.map((skill, index) => (
+                      <div key={index} className={`special-slot ${skill ? "is-equipped" : ""}`}>
+                        <div className="special-slot-top">
+                          <span>Slot {index + 1}</span>
+                          {skill ? (
+                            <button
+                              className="ghost-button"
+                              onClick={() => void handleEquipSpecialSkill("", index)}
+                              disabled={!isIdle(character)}
+                              type="button"
+                            >
+                              卸下
+                            </button>
+                          ) : null}
+                        </div>
+                        <strong>{skill?.name || "空槽"}</strong>
+                        <div className="muted">{skill?.detail || "尚未裝備技能。"}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -2450,15 +2904,20 @@ async function bootstrap(nextToken: string) {
                   </div>
                   <div className="skill-card-grid">
                     {unlockedSpecialSkills.map((skill) => {
-                      const equipped = character.specialSkillSlot === skill.id;
+                      const equipped = equippedSpecialSkillIds.includes(skill.id);
+                      const canEquip = equipped || !specialSkillSlotsFull;
                       return (
                         <div key={skill.id} className={`skill-card ${equipped ? "is-equipped" : ""}`}>
                           <div className="skill-card-head">
                             <div>
                               <strong>{skill.name}</strong>
-                              <div className="muted">{specialSkillSourceLabel(skill.source)} · {specialSkillTiming(skill)}</div>
+                              <div className="muted">
+                                {specialSkillSourceLabel(skill.source)} · {specialSkillTiming(skill)}
+                              </div>
                             </div>
-                            <span className={`mini-pill ${equipped ? "is-live" : ""}`}>{equipped ? "裝備中" : "可裝備"}</span>
+                            <span className={`mini-pill ${equipped ? "is-live" : ""}`}>
+                              {equipped ? "裝備中" : specialSkillSlotsFull ? "槽滿" : "可裝備"}
+                            </span>
                           </div>
                           <div className="muted">{skill.detail}</div>
                           <div className="tag-row">
@@ -2467,16 +2926,20 @@ async function bootstrap(nextToken: string) {
                           </div>
                           <button
                             className={equipped ? "secondary-button" : "primary-button"}
-                            onClick={() => void handleEquipSpecialSkill(equipped ? "" : skill.id)}
-                            disabled={!isIdle(character)}
+                            onClick={() => void handleEquipSpecialSkill(skill.id)}
+                            disabled={!isIdle(character) || !canEquip}
                             type="button"
                           >
-                            {equipped ? "卸下" : "裝備"}
+                            {equipped ? "卸下" : specialSkillSlotsFull ? "槽滿" : "裝備"}
                           </button>
                         </div>
                       );
                     })}
-                    {unlockedSpecialSkills.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>尚未解鎖特殊技能。</div> : null}
+                    {unlockedSpecialSkills.length === 0 ? (
+                      <div className="empty-card" style={{ padding: 14 }}>
+                        尚未解鎖特殊技能。
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 
@@ -2485,11 +2948,16 @@ async function bootstrap(nextToken: string) {
                     <span>/ AUTO</span>
                     <strong>角色自動技能</strong>
                   </div>
+                  <div className="muted" style={{ marginBottom: 10 }}>
+                    已解鎖技能需要放進特殊技能槽，戰鬥中才會自動施放。
+                  </div>
                   <div className="skill-auto-list">
                     {selectedSecondaryCharacters.map(({ slot, definition }) => (
                       <div key={slot.slot} className="skill-auto-row">
                         <div>
-                          <strong>槽 {slot.slot} · {definition?.name || "未配置"}</strong>
+                          <strong>
+                            槽 {slot.slot} · {definition?.name || "未配置"}
+                          </strong>
                           <div className="muted">
                             {definition
                               ? `${definition.role} · Lv.${slot.level} · ${slot.unlockedSkillIds.length} 個自動技能`
@@ -2499,9 +2967,15 @@ async function bootstrap(nextToken: string) {
                         <div className="tag-row">
                           {slot.unlockedSkillIds.map((skillId) => {
                             const skill = characterCatalog.specialSkills.find((entry) => entry.id === skillId);
-                            return skill ? <span key={skill.id} className="mini-pill">{skill.name}</span> : null;
+                            return skill ? (
+                              <span key={skill.id} className="mini-pill">
+                                {skill.name}
+                              </span>
+                            ) : null;
                           })}
-                          {definition && slot.unlockedSkillIds.length === 0 ? <span className="mini-pill">尚未解鎖</span> : null}
+                          {definition && slot.unlockedSkillIds.length === 0 ? (
+                            <span className="mini-pill">尚未解鎖</span>
+                          ) : null}
                         </div>
                       </div>
                     ))}
@@ -2517,16 +2991,33 @@ async function bootstrap(nextToken: string) {
                   </div>
                   <div className="skill-card-grid">
                     {classMasteryRows.map((mastery) => (
-                      <div key={mastery.className} className={`skill-card ${mastery.className === character.className ? "is-equipped" : ""}`}>
+                      <div
+                        key={mastery.className}
+                        className={`skill-card ${mastery.className === character.className ? "is-equipped" : ""}`}
+                      >
                         <div className="skill-card-head">
                           <div>
-                            <strong>{classOptions.find((option) => option.value === mastery.className)?.label || mastery.className}</strong>
-                            <div className="muted">Lv.{mastery.level} · EXP {mastery.exp} / {Math.max(40, mastery.level * 70)}</div>
+                            <strong>
+                              {classOptions.find((option) => option.value === mastery.className)?.label ||
+                                mastery.className}
+                            </strong>
+                            <div className="muted">
+                              Lv.{mastery.level} · EXP {mastery.exp} / {Math.max(40, mastery.level * 70)}
+                            </div>
                           </div>
                           <ShieldCheck size={18} />
                         </div>
-                        <div className="progress-bar"><div className="progress-fill" style={{ width: `${percent(mastery.exp, Math.max(40, mastery.level * 70))}%` }} /></div>
-                        <div className="muted">{mastery.className === character.className ? "目前主定位，戰鬥與行動會累積熟練度。" : "切換主定位後會使用這個職業自己的熟練等級。"}</div>
+                        <div className="progress-bar">
+                          <div
+                            className="progress-fill"
+                            style={{ width: `${percent(mastery.exp, Math.max(40, mastery.level * 70))}%` }}
+                          />
+                        </div>
+                        <div className="muted">
+                          {mastery.className === character.className
+                            ? "目前主定位，戰鬥與行動會累積熟練度。"
+                            : "切換主定位後會使用這個職業自己的熟練等級。"}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -2547,7 +3038,9 @@ async function bootstrap(nextToken: string) {
                               <strong>{manual.name}</strong>
                               <div className="muted">{manual.effectSummary}</div>
                             </div>
-                            <span className={`mini-pill ${equipped ? "is-live" : ""}`}>{equipped ? "套用中" : "未套用"}</span>
+                            <span className={`mini-pill ${equipped ? "is-live" : ""}`}>
+                              {equipped ? "套用中" : "未套用"}
+                            </span>
                           </div>
                           <div className="tag-row">
                             <span className="tag is-buff">{statBonusSummary(manual.statBonus)}</span>
@@ -2555,7 +3048,11 @@ async function bootstrap(nextToken: string) {
                           </div>
                           <button
                             className={equipped ? "secondary-button" : "primary-button"}
-                            onClick={() => void (equipped ? handleUnequipManual(manual.manualId) : handleEquipManual(manual.manualId))}
+                            onClick={() =>
+                              void (equipped
+                                ? handleUnequipManual(manual.manualId)
+                                : handleEquipManual(manual.manualId))
+                            }
                             disabled={!isIdle(character) || (!equipped && character.equippedManuals.length >= 3)}
                             type="button"
                           >
@@ -2564,7 +3061,11 @@ async function bootstrap(nextToken: string) {
                         </div>
                       );
                     })}
-                    {character.learnedManuals.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>尚未學會任何秘籍。</div> : null}
+                    {character.learnedManuals.length === 0 ? (
+                      <div className="empty-card" style={{ padding: 14 }}>
+                        尚未學會任何秘籍。
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -2578,15 +3079,32 @@ async function bootstrap(nextToken: string) {
                   <div>
                     <strong>ACTION PROTOCOL</strong>
                     <div className="muted" style={{ marginTop: 6 }}>
-                      {isIdle(character) ? "角色閒暇中，可以安排下一個行動。" : `目前狀態：${myActivityStatus.label}，完成前不能插入新行動。`}
+                      {canQueueNow
+                        ? canActNow
+                          ? "角色閒暇中，可以安排下一個行動。"
+                          : `目前狀態：${myActivityStatus.label}，新行動會排在隊列尾端。`
+                        : "移動、駐防或隊伍戰鬥中不能加入新行動。"}
                     </div>
                   </div>
-                  <span className={`status-pill compact status-${myActivityStatus.tone}`}>{myActivityStatus.label}</span>
+                  <span className={`status-pill compact status-${myActivityStatus.tone}`}>
+                    {myActivityStatus.label}
+                  </span>
                 </div>
                 <div className="quick-metric-grid">
-                  <div><span>QUEUE</span><strong>{character.actionQueue.items.length}</strong></div>
-                  <div><span>ENERGY</span><strong>{character.energy}/{character.maxEnergy}</strong></div>
-                  <div><span>LOCATION</span><strong>{currentCastle?.name || "-"}</strong></div>
+                  <div>
+                    <span>QUEUE</span>
+                    <strong>{character.actionQueue.items.length}</strong>
+                  </div>
+                  <div>
+                    <span>ENERGY</span>
+                    <strong>
+                      {character.energy}/{character.maxEnergy}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>LOCATION</span>
+                    <strong>{currentCastle?.name || "-"}</strong>
+                  </div>
                 </div>
               </div>
 
@@ -2594,16 +3112,32 @@ async function bootstrap(nextToken: string) {
                 {trainingActions.map((entry) => (
                   <div className="action-card" key={entry.type} style={{ padding: 16 }}>
                     <strong>{entry.title}</strong>
-                    <div className="muted" style={{ marginTop: 6 }}>{entry.detail}</div>
-                    <button className="primary-button" style={{ marginTop: 14 }} onClick={() => void handleQueue(entry.type)} disabled={!isIdle(character)} type="button">
+                    <div className="muted" style={{ marginTop: 6 }}>
+                      {entry.detail}
+                    </div>
+                    <button
+                      className="primary-button"
+                      style={{ marginTop: 14 }}
+                      onClick={() => void handleQueue(entry.type)}
+                      disabled={!canQueueNow}
+                      type="button"
+                    >
                       加入隊列
                     </button>
                   </div>
                 ))}
                 <div className="action-card" style={{ padding: 16 }}>
                   <strong>恢復</strong>
-                  <div className="muted" style={{ marginTop: 6 }}>安排一段休息時間，專心回復狀態。</div>
-                  <button className="primary-button" style={{ marginTop: 14 }} onClick={() => void handleQueue("rest")} disabled={!isIdle(character)} type="button">
+                  <div className="muted" style={{ marginTop: 6 }}>
+                    安排一段休息時間，專心回復狀態。
+                  </div>
+                  <button
+                    className="primary-button"
+                    style={{ marginTop: 14 }}
+                    onClick={() => void handleQueue("rest")}
+                    disabled={!canQueueNow}
+                    type="button"
+                  >
                     加入隊列
                   </button>
                 </div>
@@ -2611,36 +3145,85 @@ async function bootstrap(nextToken: string) {
 
               <div className="panel" style={{ padding: 16 }}>
                 <strong>挖礦與恢復</strong>
-                <div className="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", marginTop: 14 }}>
+                <div
+                  className="form-grid"
+                  style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", marginTop: 14 }}
+                >
                   <label className="field">
                     <span>淺層挖礦時數</span>
-                    <select value={miningHours.mine_shallow} onChange={(event) => setMiningHours((current) => ({ ...current, mine_shallow: Number(event.target.value) }))}>
-                      {[1, 2, 4, 8, 12].map((hours) => <option key={hours} value={hours}>{hours} 小時</option>)}
+                    <select
+                      value={miningHours.mine_shallow}
+                      onChange={(event) =>
+                        setMiningHours((current) => ({ ...current, mine_shallow: Number(event.target.value) }))
+                      }
+                    >
+                      {[1, 2, 4, 8, 12].map((hours) => (
+                        <option key={hours} value={hours}>
+                          {hours} 小時
+                        </option>
+                      ))}
                     </select>
                   </label>
                   <label className="field">
                     <span>深層挖礦時數</span>
-                    <select value={miningHours.mine_deep} onChange={(event) => setMiningHours((current) => ({ ...current, mine_deep: Number(event.target.value) }))}>
-                      {[1, 2, 4, 8, 12].map((hours) => <option key={hours} value={hours}>{hours} 小時</option>)}
+                    <select
+                      value={miningHours.mine_deep}
+                      onChange={(event) =>
+                        setMiningHours((current) => ({ ...current, mine_deep: Number(event.target.value) }))
+                      }
+                    >
+                      {[1, 2, 4, 8, 12].map((hours) => (
+                        <option key={hours} value={hours}>
+                          {hours} 小時
+                        </option>
+                      ))}
                     </select>
                   </label>
                 </div>
                 <div className="battle-actions" style={{ marginTop: 12 }}>
-                  <button className="primary-button" onClick={() => void handleQueue("mine_shallow", miningHours.mine_shallow)} disabled={!isIdle(character)} type="button">淺層挖礦</button>
-                  <button className="secondary-button" onClick={() => void handleQueue("mine_deep", miningHours.mine_deep)} disabled={!isIdle(character)} type="button">深層挖礦</button>
+                  <button
+                    className="primary-button"
+                    onClick={() => void handleQueue("mine_shallow", miningHours.mine_shallow)}
+                    disabled={!canQueueNow}
+                    type="button"
+                  >
+                    淺層挖礦
+                  </button>
+                  <button
+                    className="secondary-button"
+                    onClick={() => void handleQueue("mine_deep", miningHours.mine_deep)}
+                    disabled={!canQueueNow}
+                    type="button"
+                  >
+                    深層挖礦
+                  </button>
                 </div>
               </div>
 
               <div className="panel" style={{ padding: 16 }}>
                 <div className="panel-heading">
                   <strong>目前隊列</strong>
-                  <button className="ghost-button" onClick={() => void handleCancelQueuedActions()} disabled={character.actionQueue.items.length <= 1} type="button">
+                  <button
+                    className="ghost-button"
+                    onClick={() => void handleCancelQueuedActions()}
+                    disabled={character.actionQueue.items.length <= 1}
+                    type="button"
+                  >
                     全部取消
                   </button>
                 </div>
                 <div className="queue-list" style={{ marginTop: 12 }}>
                   {character.movement ? (
-                    <div className="queue-card is-active" style={{ padding: 12, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                    <div
+                      className="queue-card is-active"
+                      style={{
+                        padding: 12,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        alignItems: "center"
+                      }}
+                    >
                       <div>
                         <strong>據點移動中</strong>
                         <div className="muted">{movementRouteLabel}</div>
@@ -2651,13 +3234,29 @@ async function bootstrap(nextToken: string) {
                   ) : null}
                   {character.actionQueue.items.length > 0 ? (
                     character.actionQueue.items.map((item, index) => (
-                      <div className="queue-card" key={item.id} style={{ padding: 12, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                      <div
+                        className="queue-card"
+                        key={item.id}
+                        style={{
+                          padding: 12,
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          alignItems: "center"
+                        }}
+                      >
                         <div>
                           <strong>{item.label}</strong>
-                          <div className="muted">開始 {formatDate(item.startAt)} · 結束 {formatDate(item.endsAt)}</div>
+                          <div className="muted">
+                            開始 {formatDate(item.startAt)} · 結束 {formatDate(item.endsAt)}
+                          </div>
                         </div>
                         {index > 0 ? (
-                          <button className="ghost-button" onClick={() => void handleCancelQueue(item.id)} type="button">
+                          <button
+                            className="ghost-button"
+                            onClick={() => void handleCancelQueue(item.id)}
+                            type="button"
+                          >
                             取消
                           </button>
                         ) : (
@@ -2666,7 +3265,9 @@ async function bootstrap(nextToken: string) {
                       </div>
                     ))
                   ) : !character.movement ? (
-                    <div className="empty-card" style={{ padding: 14 }}>目前沒有隊列。</div>
+                    <div className="empty-card" style={{ padding: 14 }}>
+                      目前沒有隊列。
+                    </div>
                   ) : null}
                 </div>
               </div>
@@ -2708,7 +3309,10 @@ async function bootstrap(nextToken: string) {
                         </span>
                       </div>
                       <div className="progress-bar">
-                        <div className="progress-fill is-energy" style={{ width: `${towerProgress?.progress ?? 0}%` }} />
+                        <div
+                          className="progress-fill is-energy"
+                          style={{ width: `${towerProgress?.progress ?? 0}%` }}
+                        />
                       </div>
                       <div className="tower-step-row" aria-label="塔層步數">
                         {Array.from({ length: towerProgress?.stepsRequired ?? 5 }).map((_, index) => (
@@ -2717,10 +3321,12 @@ async function bootstrap(nextToken: string) {
                       </div>
                       <div className="tower-rating-card">
                         <div>
-                          <span className="metric-label">FUN SCORE</span>
-                          <strong>{towerFunScore.toFixed(1)} / 10</strong>
+                          <span className="metric-label">STATUS</span>
+                          <strong>{towerProgress?.bossUnlocked ? "Boss Ready" : "Advancing"}</strong>
                         </div>
-                        <span>{towerFunSummary(towerFunScore, towerProgress)}</span>
+                        <span>
+                          {towerProgress?.bossUnlocked ? "可挑戰或撤退" : towerProgress?.lastEvent || "推進中"}
+                        </span>
                       </div>
                       <div className="muted">{towerProgress?.lastEvent || "尚未開始推進本層。"}</div>
                     </div>
@@ -2736,16 +3342,25 @@ async function bootstrap(nextToken: string) {
                             <MapPinned size={22} />
                             <div>
                               <strong>{selectedTowerCastle.name}</strong>
-                              <div className="muted">{selectedTowerCastle.layerName} · {castleSpecialtyLabel(selectedTowerCastle.specialty)}</div>
+                              <div className="muted">
+                                {selectedTowerCastle.layerName} · {castleSpecialtyLabel(selectedTowerCastle.specialty)}
+                              </div>
                             </div>
-                            <span className={`mini-pill ${isAtTowerCastle ? "is-live" : ""}`}>{isAtTowerCastle ? "目前所在" : "未抵達"}</span>
+                            <span className={`mini-pill ${isAtTowerCastle ? "is-live" : ""}`}>
+                              {isAtTowerCastle ? "目前所在" : "未抵達"}
+                            </span>
                           </div>
                           {towerCastles.length > 1 ? (
                             <label className="field">
                               <span>Boss 據點</span>
-                              <select value={selectedTowerCastle.id} onChange={(event) => setSelectedTowerCastleId(event.target.value)}>
+                              <select
+                                value={selectedTowerCastle.id}
+                                onChange={(event) => setSelectedTowerCastleId(event.target.value)}
+                              >
                                 {towerCastles.map((castle) => (
-                                  <option key={castle.id} value={castle.id}>{castle.name}</option>
+                                  <option key={castle.id} value={castle.id}>
+                                    {castle.name}
+                                  </option>
                                 ))}
                               </select>
                             </label>
@@ -2757,10 +3372,15 @@ async function bootstrap(nextToken: string) {
                               <span>抵達 {formatDate(character.movement.endsAt)}</span>
                             </div>
                           ) : !isAtTowerCastle ? (
-                            <button className="primary-button" onClick={() => void handleMoveCastle(selectedTowerCastle.id)} disabled={!isIdle(character)} type="button">
+                            <button
+                              className="primary-button"
+                              onClick={() => void handleMoveCastle(selectedTowerCastle.id)}
+                              disabled={!canActNow}
+                              type="button"
+                            >
                               <Footprints size={16} /> 前往據點
                             </button>
-                          ) : !isIdle(character) ? (
+                          ) : !canActNow ? (
                             <div className="banner tower-lock-strip">
                               <strong>{myActivityStatus.label}</strong>
                               <span>完成目前行動前不能推進塔層或挑戰 Boss。</span>
@@ -2771,7 +3391,9 @@ async function bootstrap(nextToken: string) {
                           )}
                         </>
                       ) : (
-                        <div className="empty-card" style={{ padding: 14 }}>你的陣營還沒有公會 Boss 據點。</div>
+                        <div className="empty-card" style={{ padding: 14 }}>
+                          你的陣營還沒有公會 Boss 據點。
+                        </div>
                       )}
                     </div>
                   </div>
@@ -2788,6 +3410,7 @@ async function bootstrap(nextToken: string) {
                             key={mode}
                             className={`tower-mode-card ${towerAdvanceMode === mode ? "is-active" : ""}`}
                             onClick={() => setTowerAdvanceMode(mode)}
+                            disabled={Boolean(activityLock) || Boolean(towerProgress?.bossUnlocked)}
                             type="button"
                           >
                             {mode === "rush" ? <Footprints size={22} /> : <Swords size={22} />}
@@ -2806,7 +3429,11 @@ async function bootstrap(nextToken: string) {
                           <Footprints size={16} /> 執行{towerModeLabel(towerAdvanceMode)}
                         </button>
                         <span className="muted">
-                          {towerProgress?.bossUnlocked ? "已遇到 Boss，請挑戰或撤退。" : canUseTowerAction ? "精力足夠時可推進。" : "需在 Boss 據點且角色閒暇。"}
+                          {towerProgress?.bossUnlocked
+                            ? "已遇到 Boss，請挑戰或撤退。"
+                            : canUseTowerAction
+                              ? "精力足夠時可推進。"
+                              : lockSummary}
                         </span>
                       </div>
                     </div>
@@ -2821,14 +3448,17 @@ async function bootstrap(nextToken: string) {
                         <div>
                           <strong>{towerProgress?.bossName || "未鎖定 Boss"}</strong>
                           <div className="muted">
-                            HP {towerProgress?.bossHp ?? "-"} · 攻擊 {towerProgress?.bossAttack ?? "-"} · {towerProgress?.rewardSummary || "公庫與個人獎勵"}
+                            HP {towerProgress?.bossHp ?? "-"} · 攻擊 {towerProgress?.bossAttack ?? "-"} ·{" "}
+                            {towerProgress?.rewardSummary || "公庫與個人獎勵"}
                           </div>
                         </div>
                       </div>
                       <div className="battle-actions">
                         <button
                           className="primary-button"
-                          onClick={() => selectedTowerCastle && void handleFactionTowerBattle(selectedTowerCastle.id, "boss")}
+                          onClick={() =>
+                            selectedTowerCastle && void handleFactionTowerBattle(selectedTowerCastle.id, "boss")
+                          }
                           disabled={!canUseTowerAction || !towerProgress?.bossUnlocked}
                           type="button"
                         >
@@ -2856,60 +3486,126 @@ async function bootstrap(nextToken: string) {
                 <div className="panel-heading">
                   <div>
                     <strong>BATTLE HALL</strong>
-                    <div className="muted" style={{ marginTop: 6 }}>可執行戰鬥、隊伍與最近戰報集中在這裡；角色忙碌時只保留檢視功能。</div>
+                    <div className="muted" style={{ marginTop: 6 }}>
+                      可執行戰鬥、隊伍與最近戰報集中在這裡；角色忙碌時只保留檢視功能。
+                    </div>
                   </div>
-                  <span className={`status-pill compact status-${myActivityStatus.tone}`}>{isIdle(character) ? "READY" : "LOCKED"}</span>
+                  <span className={`status-pill compact status-${myActivityStatus.tone}`}>
+                    {canActNow ? "READY" : "LOCKED"}
+                  </span>
                 </div>
                 <div className="quick-metric-grid battle-command-metrics">
-                  <div><span>STATE</span><strong>{myActivityStatus.label}</strong></div>
-                  <div><span>LOCATION</span><strong>{currentCastle?.name || "-"}</strong></div>
-                  <div><span>PARTY</span><strong>{roomState ? roomState.roomId : "SOLO"}</strong></div>
-                  <div><span>RECORDS</span><strong>{battleHistory.length}</strong></div>
-                </div>
-                {activityLock ? (
-                  <div className="battle-lock-note">
-                    <strong>{activityLock.title}</strong>
-                    <span>{activityLock.detail}</span>
-                    <span>剩餘 {activityLock.remaining}</span>
+                  <div>
+                    <span>STATE</span>
+                    <strong>{myActivityStatus.label}</strong>
                   </div>
-                ) : null}
+                  <div>
+                    <span>LOCATION</span>
+                    <strong>{currentCastle?.name || "-"}</strong>
+                  </div>
+                  <div>
+                    <span>PARTY</span>
+                    <strong>{roomState ? roomState.roomId : "SOLO"}</strong>
+                  </div>
+                  <div>
+                    <span>RECORDS</span>
+                    <strong>{battleHistory.length}</strong>
+                  </div>
+                </div>
+                <div className={`battle-lock-note ${activityLock ? "is-locked" : "is-ready"}`}>
+                  <strong>{activityLock ? activityLock.title : "可操作"}</strong>
+                  <span>{lockSummary}</span>
+                  <span>{activityLock ? `剩餘 ${activityLock.remaining}` : "待命"}</span>
+                </div>
+              </div>
+
+              <div className={`panel attack-director-panel is-${attackDirector.tone}`}>
+                <div className="attack-director-main">
+                  <div className="attack-director-copy">
+                    <span>ATTACK DIRECTOR · {attackDirector.code}</span>
+                    <strong>{attackDirector.title}</strong>
+                    <p>{attackDirector.detail}</p>
+                  </div>
+                  <button
+                    className={attackDirector.tone === "ready" ? "primary-button" : "secondary-button"}
+                    onClick={handleAttackDirectorAction}
+                    type="button"
+                  >
+                    {attackDirector.action === "worldBoss" || attackDirector.action === "roomBoss" ? (
+                      <Swords size={16} />
+                    ) : (
+                      <TowerControl size={16} />
+                    )}
+                    {attackDirector.actionLabel}
+                  </button>
+                </div>
+                <div className="attack-director-grid">
+                  <div>
+                    <span>塔王</span>
+                    <strong>
+                      {towerBossReady
+                        ? "已遇到"
+                        : `${towerProgress?.steps ?? 0}/${towerProgress?.stepsRequired ?? 5} 步`}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>世界王</span>
+                    <strong>{worldBossFinished ? "已結束" : worldBoss ? "競賽中" : "讀取中"}</strong>
+                  </div>
+                  <div>
+                    <span>隊伍王</span>
+                    <strong>{roomBossLabel}</strong>
+                  </div>
+                  <div>
+                    <span>鎖定</span>
+                    <strong>{activityLock ? activityLock.title : "無"}</strong>
+                  </div>
+                </div>
               </div>
 
               <div className="panel boss-command-panel">
                 <div className="panel-heading">
                   <div>
                     <strong>BOSS COMMAND</strong>
-                    <div className="muted" style={{ marginTop: 6 }}>目前能打的王集中在這裡；忙碌中只能查看狀態，不能發起新攻打。</div>
+                    <div className="muted" style={{ marginTop: 6 }}>
+                      目前能打的王集中在這裡；忙碌中只能查看狀態，不能發起新攻打。
+                    </div>
                   </div>
-                  <span className={`mini-pill ${isIdle(character) ? "is-live" : ""}`}>{isIdle(character) ? "可操作" : "行動鎖定"}</span>
+                  <span className={`mini-pill ${canActNow ? "is-live" : ""}`}>{canActNow ? "可操作" : "行動鎖定"}</span>
                 </div>
                 <div className="boss-command-grid">
                   <article className={`boss-command-card ${towerBossReady ? "is-ready" : ""}`}>
                     <div className="boss-command-top">
-                      <span className="boss-command-icon"><TowerControl size={18} /></span>
+                      <span className="boss-command-icon">
+                        <TowerControl size={18} />
+                      </span>
                       <div>
                         <strong>公會爬塔 Boss</strong>
                         <div className="muted">
-                          {selectedTowerCastle ? `${selectedTowerCastle.name} · ${towerSceneBand(towerProgress?.currentLayer ?? 1)}` : "尚未找到 Boss 據點"}
+                          {selectedTowerCastle
+                            ? `${selectedTowerCastle.name} · ${towerSceneBand(towerProgress?.currentLayer ?? 1)}`
+                            : "尚未找到 Boss 據點"}
                         </div>
                       </div>
                       <span className="mini-pill">{towerBossReady ? "可挑戰" : "搜尋中"}</span>
                     </div>
                     <div className="boss-command-meter">
                       <div className="progress-bar">
-                        <div className="progress-fill is-energy" style={{ width: `${towerProgress?.progress ?? 0}%` }} />
+                        <div
+                          className="progress-fill is-energy"
+                          style={{ width: `${towerProgress?.progress ?? 0}%` }}
+                        />
                       </div>
-                      <span>{towerProgress?.steps ?? 0}/{towerProgress?.stepsRequired ?? 5} 步</span>
-                    </div>
-                    <div className="boss-command-rating">
-                      <span>FUN</span>
-                      <strong>{towerFunScore.toFixed(1)}</strong>
-                      <small>{towerFunSummary(towerFunScore, towerProgress)}</small>
+                      <span>
+                        {towerProgress?.steps ?? 0}/{towerProgress?.stepsRequired ?? 5} 步
+                      </span>
                     </div>
                     <div className="boss-command-actions">
                       <button
                         className="primary-button"
-                        onClick={() => selectedTowerCastle && void handleFactionTowerBattle(selectedTowerCastle.id, "boss")}
+                        onClick={() =>
+                          selectedTowerCastle && void handleFactionTowerBattle(selectedTowerCastle.id, "boss")
+                        }
                         disabled={!canUseTowerAction || !towerBossReady}
                         type="button"
                       >
@@ -2923,66 +3619,93 @@ async function bootstrap(nextToken: string) {
 
                   <article className={`boss-command-card ${worldBoss && !worldBossFinished ? "is-ready" : ""}`}>
                     <div className="boss-command-top">
-                      <span className="boss-command-icon"><Trophy size={18} /></span>
+                      <span className="boss-command-icon">
+                        <Trophy size={18} />
+                      </span>
                       <div>
                         <strong>世界 Boss</strong>
-                        <div className="muted">{worldBoss ? `${worldBoss.bossName} · 挑戰 ${worldBoss.attempts.length} 次` : "狀態讀取中"}</div>
+                        <div className="muted">
+                          {worldBoss ? `${worldBoss.bossName} · 挑戰 ${worldBoss.attempts.length} 次` : "狀態讀取中"}
+                        </div>
                       </div>
                       <span className="mini-pill">{worldBossFinished ? "已結束" : "競賽中"}</span>
                     </div>
                     <div className="quick-metric-grid boss-command-metrics">
-                      <div><span>HP</span><strong>{worldBoss?.bossHp ?? "-"}</strong></div>
-                      <div><span>ATK</span><strong>{worldBoss?.bossAttack ?? "-"}</strong></div>
-                      <div><span>公庫</span><strong>{worldBoss?.rewardGold ?? "-"}</strong></div>
-                    </div>
-                    <div className="boss-command-rating">
-                      <span>FUN</span>
-                      <strong>{worldBossFun.score.toFixed(1)}</strong>
-                      <small>{worldBossFun.summary}</small>
+                      <div>
+                        <span>HP</span>
+                        <strong>{worldBoss?.bossHp ?? "-"}</strong>
+                      </div>
+                      <div>
+                        <span>ATK</span>
+                        <strong>{worldBoss?.bossAttack ?? "-"}</strong>
+                      </div>
+                      <div>
+                        <span>公庫</span>
+                        <strong>{worldBoss?.rewardGold ?? "-"}</strong>
+                      </div>
                     </div>
                     <div className="boss-command-actions">
                       <button
                         className="primary-button"
                         onClick={() => void handleWorldBossChallenge()}
-                        disabled={!isIdle(character) || !character.factionId || !worldBoss || worldBossFinished}
+                        disabled={!canActNow || !character.factionId || !worldBoss || worldBossFinished}
                         type="button"
                       >
                         挑戰世界 Boss
                       </button>
-                      <button className="ghost-button" onClick={() => void refreshWorldBoss()} type="button">重整</button>
+                      <button className="ghost-button" onClick={() => void refreshWorldBoss()} type="button">
+                        重整
+                      </button>
                     </div>
                   </article>
 
                   <article className={`boss-command-card ${roomState?.phase === "lobby" ? "is-ready" : ""}`}>
                     <div className="boss-command-top">
-                      <span className="boss-command-icon"><UsersRound size={18} /></span>
+                      <span className="boss-command-icon">
+                        <UsersRound size={18} />
+                      </span>
                       <div>
                         <strong>隊伍 Boss</strong>
-                        <div className="muted">{roomState ? `${roomState.roomId} · ${roomState.members.length} 人` : "建立或加入隊伍後開戰"}</div>
+                        <div className="muted">
+                          {roomState ? `${roomState.roomId} · ${roomState.members.length} 人` : "建立或加入隊伍後開戰"}
+                        </div>
                       </div>
                       <span className="mini-pill">{roomBossLabel}</span>
                     </div>
                     <div className="quick-metric-grid boss-command-metrics">
-                      <div><span>隊長</span><strong>{roomState?.hostId === user.id ? "你" : roomState ? "隊友" : "-"}</strong></div>
-                      <div><span>成員</span><strong>{roomState?.members.length ?? 0}</strong></div>
-                      <div><span>Boss</span><strong>{roomState?.boss?.name || "待生成"}</strong></div>
-                    </div>
-                    <div className="boss-command-rating">
-                      <span>FUN</span>
-                      <strong>{roomBossFun.score.toFixed(1)}</strong>
-                      <small>{roomBossFun.summary}</small>
+                      <div>
+                        <span>隊長</span>
+                        <strong>{roomState?.hostId === user.id ? "你" : roomState ? "隊友" : "-"}</strong>
+                      </div>
+                      <div>
+                        <span>成員</span>
+                        <strong>{roomState?.members.length ?? 0}</strong>
+                      </div>
+                      <div>
+                        <span>Boss</span>
+                        <strong>{roomState?.boss?.name || "待生成"}</strong>
+                      </div>
                     </div>
                     <div className="boss-command-actions">
                       {roomState ? (
-                        <button className="primary-button" onClick={startBattle} disabled={!canLeadPartyAction} type="button">
+                        <button
+                          className="primary-button"
+                          onClick={startBattle}
+                          disabled={!canLeadPartyAction}
+                          type="button"
+                        >
                           開始隊伍 Boss
                         </button>
                       ) : (
-                        <button className="primary-button" onClick={createParty} disabled={!isIdle(character)} type="button">
+                        <button className="primary-button" onClick={createParty} disabled={!canActNow} type="button">
                           建立隊伍
                         </button>
                       )}
-                      {roomState ? <button className="ghost-button" onClick={leaveParty} type="button">離開</button> : null}
+                      {roomState ? (
+                        <button className="ghost-button" onClick={leaveParty} type="button">
+                          離開
+                        </button>
+                      ) : null}
                     </div>
                   </article>
                 </div>
@@ -2993,12 +3716,16 @@ async function bootstrap(nextToken: string) {
                   <div>
                     <strong>同地點玩家遭遇</strong>
                     <div className="muted" style={{ marginTop: 6 }}>
-                      {currentCastle ? `${currentCastle.name} · 同據點才可攻擊；同陣營禁止互打。` : "加入陣營並抵達據點後會顯示同地點玩家。"}
+                      {currentCastle
+                        ? `${currentCastle.name} · 同據點才可攻擊；同陣營禁止互打。`
+                        : "加入陣營並抵達據點後會顯示同地點玩家。"}
                     </div>
                   </div>
                   <div className="battle-actions">
                     <span className="mini-pill">{nearbyPlayers.length} 人</span>
-                    <button className="ghost-button" onClick={() => void refreshNearbyPlayers()} type="button">重整</button>
+                    <button className="ghost-button" onClick={() => void refreshNearbyPlayers()} type="button">
+                      重整
+                    </button>
                   </div>
                 </div>
                 {nearbyPlayers.length > 0 ? (
@@ -3008,20 +3735,37 @@ async function bootstrap(nextToken: string) {
                         <div className="nearby-player-top">
                           <div>
                             <strong>{player.characterName}</strong>
-                            <div className="muted">{player.displayName} · Lv.{player.instinctLevel} / 戰鬥 Lv.{player.battleLevel}</div>
+                            <div className="muted">
+                              {player.displayName} · Lv.{player.instinctLevel} / 戰鬥 Lv.{player.battleLevel}
+                            </div>
                           </div>
-                          <span className={`mini-pill relation-${player.relation}`}>{nearbyRelationLabel(player.relation)}</span>
+                          <span className={`mini-pill relation-${player.relation}`}>
+                            {nearbyRelationLabel(player.relation)}
+                          </span>
                         </div>
                         <div className="quick-metric-grid nearby-player-metrics">
-                          <div><span>HP</span><strong>{player.hp}/{player.maxHp}</strong></div>
-                          <div><span>ENERGY</span><strong>{player.energy}/{player.maxEnergy}</strong></div>
-                          <div><span>FACTION</span><strong>{player.factionName || "無陣營"}</strong></div>
+                          <div>
+                            <span>HP</span>
+                            <strong>
+                              {player.hp}/{player.maxHp}
+                            </strong>
+                          </div>
+                          <div>
+                            <span>ENERGY</span>
+                            <strong>
+                              {player.energy}/{player.maxEnergy}
+                            </strong>
+                          </div>
+                          <div>
+                            <span>FACTION</span>
+                            <strong>{player.factionName || "無陣營"}</strong>
+                          </div>
                         </div>
                         <div className="battle-actions">
                           <button
                             className="primary-button"
                             onClick={() => void handleAttackNearbyPlayer(player.userId)}
-                            disabled={!player.canAttack || !isIdle(character)}
+                            disabled={!player.canAttack || !canActNow}
                             type="button"
                           >
                             攻擊
@@ -3040,21 +3784,44 @@ async function bootstrap(nextToken: string) {
 
               <div className="panel" style={{ padding: 16 }}>
                 <strong>組隊大廳</strong>
-                <div className="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", marginTop: 14 }}>
+                <div
+                  className="form-grid"
+                  style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", marginTop: 14 }}
+                >
                   <label className="field">
                     <span>建立隊伍代碼</span>
-                    <input value={partyCode} maxLength={6} onChange={(event) => setPartyCode(sanitizePartyCodeInput(event.target.value))} placeholder="留空會自動產生 6 碼" />
+                    <input
+                      value={partyCode}
+                      maxLength={6}
+                      onChange={(event) => setPartyCode(sanitizePartyCodeInput(event.target.value))}
+                      placeholder="留空會自動產生 6 碼"
+                    />
                   </label>
                   <label className="field">
                     <span>加入隊伍代碼</span>
-                    <input value={joinPartyCode} maxLength={6} onChange={(event) => setJoinPartyCode(sanitizePartyCodeInput(event.target.value))} placeholder="例如 ABC123" />
+                    <input
+                      value={joinPartyCode}
+                      maxLength={6}
+                      onChange={(event) => setJoinPartyCode(sanitizePartyCodeInput(event.target.value))}
+                      placeholder="例如 ABC123"
+                    />
                   </label>
                 </div>
-                <div className="muted" style={{ marginTop: 10 }}>隊伍代碼固定為 6 碼英文或數字。</div>
+                <div className="muted" style={{ marginTop: 10 }}>
+                  隊伍代碼固定為 6 碼英文或數字。
+                </div>
                 <div className="battle-actions" style={{ marginTop: 12 }}>
-                  <button className="primary-button" onClick={createParty} disabled={!isIdle(character)} type="button">建立隊伍</button>
-                  <button className="secondary-button" onClick={() => joinParty()} disabled={!isIdle(character)} type="button">加入隊伍</button>
-                  {roomState ? <button className="ghost-button" onClick={leaveParty} type="button">離開隊伍</button> : null}
+                  <button className="primary-button" onClick={createParty} disabled={!canActNow} type="button">
+                    建立隊伍
+                  </button>
+                  <button className="secondary-button" onClick={() => joinParty()} disabled={!canActNow} type="button">
+                    加入隊伍
+                  </button>
+                  {roomState ? (
+                    <button className="ghost-button" onClick={leaveParty} type="button">
+                      離開隊伍
+                    </button>
+                  ) : null}
                 </div>
               </div>
 
@@ -3062,9 +3829,11 @@ async function bootstrap(nextToken: string) {
                 <div className="panel-heading">
                   <div>
                     <strong>場景挑戰</strong>
-                    <div className="muted" style={{ marginTop: 6 }}>探險會產生多步事件；公會 Boss 會用逐回合戰報推進公會討伐。</div>
+                    <div className="muted" style={{ marginTop: 6 }}>
+                      探險會產生多步事件；公會 Boss 會用逐回合戰報推進公會討伐。
+                    </div>
                   </div>
-                  <span className="mini-pill">{isIdle(character) ? "可挑戰" : "角色忙碌中"}</span>
+                  <span className="mini-pill">{canActNow ? "可挑戰" : "角色忙碌中"}</span>
                 </div>
                 {activityLock ? (
                   <div className="battle-lock-note" style={{ marginTop: 14 }}>
@@ -3087,10 +3856,14 @@ async function bootstrap(nextToken: string) {
                     return (
                       <div key={castle.id} className={`battle-scene-card scene-${castle.mapNodePurpose}`}>
                         <div className="battle-scene-visual">
-                          <span className="battle-scene-icon"><Swords size={20} /></span>
+                          <span className="battle-scene-icon">
+                            <Swords size={20} />
+                          </span>
                           <div>
                             <strong>{battleSceneName(castle)}</strong>
-                            <div className="muted">{castle.name} · {mapNodePurposeLabel(castle.mapNodePurpose)}</div>
+                            <div className="muted">
+                              {castle.name} · {mapNodePurposeLabel(castle.mapNodePurpose)}
+                            </div>
                           </div>
                         </div>
                         <div className="muted">{battleSceneDetail(castle)}</div>
@@ -3129,7 +3902,11 @@ async function bootstrap(nextToken: string) {
                       </div>
                     );
                   })}
-                  {battleScenes.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>加入陣營後會顯示可挑戰場景。</div> : null}
+                  {battleScenes.length === 0 ? (
+                    <div className="empty-card" style={{ padding: 14 }}>
+                      加入陣營後會顯示可挑戰場景。
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -3137,17 +3914,23 @@ async function bootstrap(nextToken: string) {
                 <div className="panel-heading">
                   <div>
                     <strong>世界 Boss 競賽</strong>
-                    <div className="muted" style={{ marginTop: 6 }}>所有公會挑戰同一個事件 Boss；每個公會進場都面對滿血 Boss，第一個勝利公會取得主要資源。</div>
+                    <div className="muted" style={{ marginTop: 6 }}>
+                      所有公會挑戰同一個事件 Boss；每個公會進場都面對滿血 Boss，第一個勝利公會取得主要資源。
+                    </div>
                   </div>
                   <span className="mini-pill">{worldBoss?.winnerFactionId ? "已有勝利公會" : "競賽中"}</span>
                 </div>
                 {worldBoss ? (
                   <div className="battle-scene-card scene-guild_boss" style={{ marginTop: 14 }}>
                     <div className="battle-scene-visual">
-                      <span className="battle-scene-icon"><Trophy size={20} /></span>
+                      <span className="battle-scene-icon">
+                        <Trophy size={20} />
+                      </span>
                       <div>
                         <strong>{worldBoss.bossName}</strong>
-                        <div className="muted">HP {worldBoss.bossHp} · 攻擊 {worldBoss.bossAttack}</div>
+                        <div className="muted">
+                          HP {worldBoss.bossHp} · 攻擊 {worldBoss.bossAttack}
+                        </div>
                       </div>
                     </div>
                     <div className="tag-row compact" style={{ justifyContent: "flex-start" }}>
@@ -3161,45 +3944,93 @@ async function bootstrap(nextToken: string) {
                         : "尚未有公會擊敗本輪世界 Boss。"}
                     </div>
                     <div className="battle-actions">
-                      <button className="primary-button" onClick={() => void handleWorldBossChallenge()} disabled={!isIdle(character) || !character.factionId || worldBossFinished} type="button">
+                      <button
+                        className="primary-button"
+                        onClick={() => void handleWorldBossChallenge()}
+                        disabled={!canActNow || !character.factionId || worldBossFinished}
+                        type="button"
+                      >
                         挑戰世界 Boss
                       </button>
-                      <button className="ghost-button" onClick={() => void refreshWorldBoss()} type="button">重整狀態</button>
+                      <button className="ghost-button" onClick={() => void refreshWorldBoss()} type="button">
+                        重整狀態
+                      </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="empty-card" style={{ padding: 14, marginTop: 14 }}>讀取世界 Boss 中。</div>
+                  <div className="empty-card" style={{ padding: 14, marginTop: 14 }}>
+                    讀取世界 Boss 中。
+                  </div>
                 )}
               </div>
 
               <div className="room-list">
                 {rooms.map((room) => (
-                  <button key={room.roomId} className="room-card" onClick={() => joinParty(room.roomId)} disabled={!isIdle(character)} type="button" style={{ padding: 14, textAlign: "left" }}>
+                  <button
+                    key={room.roomId}
+                    className="room-card"
+                    onClick={() => joinParty(room.roomId)}
+                    disabled={!canActNow}
+                    type="button"
+                    style={{ padding: 14, textAlign: "left" }}
+                  >
                     <strong>{room.roomId}</strong>
-                    <div className="muted" style={{ marginTop: 6 }}>成員 {room.memberCount} 人 · {room.phase === "lobby" ? "待機中" : room.phase === "battle" ? "戰鬥中" : "已結束"}</div>
+                    <div className="muted" style={{ marginTop: 6 }}>
+                      成員 {room.memberCount} 人 ·{" "}
+                      {room.phase === "lobby" ? "待機中" : room.phase === "battle" ? "戰鬥中" : "已結束"}
+                    </div>
                   </button>
                 ))}
-                {rooms.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>目前沒有公開隊伍。</div> : null}
+                {rooms.length === 0 ? (
+                  <div className="empty-card" style={{ padding: 14 }}>
+                    目前沒有公開隊伍。
+                  </div>
+                ) : null}
               </div>
 
               {roomState ? (
                 <div className="panel" style={{ padding: 16 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 12,
+                      alignItems: "center",
+                      flexWrap: "wrap"
+                    }}
+                  >
                     <div>
                       <strong>隊伍 {roomState.roomId}</strong>
-                      <div className="muted">隊長 {roomState.members.find((member) => member.isHost)?.displayName || "-"}</div>
+                      <div className="muted">
+                        隊長 {roomState.members.find((member) => member.isHost)?.displayName || "-"}
+                      </div>
                     </div>
                     {roomState.phase === "lobby" ? (
-                      <button className="primary-button" onClick={startBattle} disabled={!canLeadPartyAction} type="button">開始戰鬥</button>
+                      <button
+                        className="primary-button"
+                        onClick={startBattle}
+                        disabled={!canLeadPartyAction}
+                        type="button"
+                      >
+                        開始戰鬥
+                      </button>
                     ) : null}
                   </div>
-                  {partyBlocker ? <div className="banner" style={{ padding: 12, marginTop: 12 }}>隊伍中有成員不是閒暇中：{partyBlocker.displayName}</div> : null}
+                  {partyBlocker ? (
+                    <div className="banner" style={{ padding: 12, marginTop: 12 }}>
+                      隊伍中有成員不是閒暇中：{partyBlocker.displayName}
+                    </div>
+                  ) : null}
                   <div className="member-grid" style={{ marginTop: 14 }}>
                     {roomState.members.map((member) => (
                       <div key={member.userId} className="member-card" style={{ padding: 12 }}>
                         {(() => {
                           const memberStatus = activityStatusFor(member.character, roomState, member.userId);
-                          return <span className={`mini-pill status-${memberStatus.tone}`} style={{ marginBottom: 8 }}>{memberStatus.label}</span>;
+                          return (
+                            <span className={`mini-pill status-${memberStatus.tone}`} style={{ marginBottom: 8 }}>
+                              {memberStatus.label}
+                            </span>
+                          );
                         })()}
                         <strong>{member.displayName}</strong>
                         <div className="muted">{member.isHost ? "隊長" : "隊員"}</div>
@@ -3221,41 +4052,80 @@ async function bootstrap(nextToken: string) {
                       : "你已收起戰鬥畫面，戰鬥仍會在背景同步。"}
                   </div>
                   <div className="battle-actions" style={{ marginTop: 10 }}>
-                    <button className="primary-button" onClick={() => setBattleOverlayDismissed(false)} type="button">打開戰鬥畫面</button>
-                    {roomState.phase === "ended" ? <button className="secondary-button" onClick={leaveParty} type="button">離開隊伍</button> : null}
+                    <button className="primary-button" onClick={() => setBattleOverlayDismissed(false)} type="button">
+                      打開戰鬥畫面
+                    </button>
+                    {roomState.phase === "ended" ? (
+                      <button className="secondary-button" onClick={leaveParty} type="button">
+                        離開隊伍
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               ) : null}
 
               {battleOverlayVisible ? (
-                <div style={{ position: "fixed", inset: 20, background: "rgba(9, 12, 20, 0.82)", zIndex: 30, display: "grid", placeItems: "center" }}>
-                  <div className="battle-stage" style={{ width: "min(980px, 100%)", maxHeight: "90vh", overflow: "auto", padding: 22 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 16 }}>
+                <div
+                  style={{
+                    position: "fixed",
+                    inset: 20,
+                    background: "rgba(9, 12, 20, 0.82)",
+                    zIndex: 30,
+                    display: "grid",
+                    placeItems: "center"
+                  }}
+                >
+                  <div
+                    className="battle-stage"
+                    style={{ width: "min(980px, 100%)", maxHeight: "90vh", overflow: "auto", padding: 22 }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        alignItems: "center",
+                        marginBottom: 16
+                      }}
+                    >
                       <div>
                         <div className="eyebrow">同頁戰鬥</div>
                         <h2 style={{ marginBottom: 4 }}>{roomState?.boss?.name || "戰鬥中"}</h2>
                         <div className="muted">隊伍代碼 {roomState?.roomId}</div>
                       </div>
-                      <button className="ghost-button" onClick={() => setBattleOverlayDismissed(true)} type="button">收起回到頁面</button>
+                      <button className="ghost-button" onClick={() => setBattleOverlayDismissed(true)} type="button">
+                        收起回到頁面
+                      </button>
                     </div>
                     {roomState?.boss ? (
                       <div className="boss-stage-card" style={{ padding: 16, marginBottom: 14 }}>
-                        <strong>Boss HP {roomState.boss.hp} / {roomState.boss.maxHp}</strong>
+                        <strong>
+                          Boss HP {roomState.boss.hp} / {roomState.boss.maxHp}
+                        </strong>
                         <div className="progress-bar" style={{ marginTop: 10 }}>
-                          <div className="progress-fill is-danger" style={{ width: `${percent(roomState.boss.hp, roomState.boss.maxHp)}%` }} />
+                          <div
+                            className="progress-fill is-danger"
+                            style={{ width: `${percent(roomState.boss.hp, roomState.boss.maxHp)}%` }}
+                          />
                         </div>
                       </div>
                     ) : null}
                     {(() => {
                       const comboEvent = latestComboEvent(lastBattleTick?.specialEvents);
-                      return comboEvent ? <ComboBurst event={comboEvent} key={`combo-${lastBattleTick?.tick}`} /> : null;
+                      return comboEvent ? (
+                        <ComboBurst event={comboEvent} key={`combo-${lastBattleTick?.tick}`} />
+                      ) : null;
                     })()}
                     <div className="member-grid">
                       {(lastBattleTick?.members || roomState?.members || []).map((member) => (
                         <div key={member.userId} className="member-card" style={{ padding: 12 }}>
                           <strong>{member.displayName}</strong>
-                          <div className="muted">HP {member.currentHp}/{member.maxHp}</div>
-                          <div className="muted">輸出 {member.battleStats.damageDealt} · 承傷 {member.battleStats.damageTaken}</div>
+                          <div className="muted">
+                            HP {member.currentHp}/{member.maxHp}
+                          </div>
+                          <div className="muted">
+                            輸出 {member.battleStats.damageDealt} · 承傷 {member.battleStats.damageTaken}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -3263,14 +4133,22 @@ async function bootstrap(nextToken: string) {
                       {(lastBattleTick?.recentLogs || roomState?.logs || []).slice(-8).map((log, index) => {
                         const cleanLog = cleanBattleLog(log);
                         return (
-                          <div className={`history-card battle-log-card is-${battleLogTone(cleanLog)}`} key={`${log}-${index}`} style={{ padding: 10 }}>{cleanLog}</div>
+                          <div
+                            className={`history-card battle-log-card is-${battleLogTone(cleanLog)}`}
+                            key={`${log}-${index}`}
+                            style={{ padding: 10 }}
+                          >
+                            {cleanLog}
+                          </div>
                         );
                       })}
                     </div>
                     {lastBattleTick?.specialEvents?.length ? (
                       <div className="tag-row" style={{ marginTop: 14 }}>
                         {lastBattleTick.specialEvents.slice(-5).map((event, index) => (
-                          <span key={`${event.kind}-${index}`} className="mini-pill">{event.label}</span>
+                          <span key={`${event.kind}-${index}`} className="mini-pill">
+                            {event.label}
+                          </span>
                         ))}
                       </div>
                     ) : null}
@@ -3279,8 +4157,16 @@ async function bootstrap(nextToken: string) {
                         <strong>{battleSummary.winner === "players" ? "玩家勝利" : "Boss 獲勝"}</strong>
                         <div className="muted">結束時間 {formatDate(battleSummary.endedAt)}</div>
                         <div className="battle-actions" style={{ marginTop: 10 }}>
-                          <button className="secondary-button" onClick={() => setBattleOverlayDismissed(true)} type="button">查看頁面結果</button>
-                          <button className="ghost-button" onClick={leaveParty} type="button">離開隊伍</button>
+                          <button
+                            className="secondary-button"
+                            onClick={() => setBattleOverlayDismissed(true)}
+                            type="button"
+                          >
+                            查看頁面結果
+                          </button>
+                          <button className="ghost-button" onClick={leaveParty} type="button">
+                            離開隊伍
+                          </button>
                         </div>
                       </div>
                     ) : null}
@@ -3295,53 +4181,83 @@ async function bootstrap(nextToken: string) {
               {!character.factionId ? (
                 <div className="panel" style={{ padding: 16 }}>
                   <strong>先選擇陣營</strong>
-                  <div className="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", marginTop: 12 }}>
+                  <div
+                    className="form-grid"
+                    style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", marginTop: 12 }}
+                  >
                     {factionState?.factions.map((faction) => (
                       <label key={faction.id} className="field">
                         <span>{faction.name}</span>
-                        <input type="radio" checked={selectedFactionId === faction.id} onChange={() => setSelectedFactionId(faction.id)} disabled={!isIdle(character)} />
+                        <input
+                          type="radio"
+                          checked={selectedFactionId === faction.id}
+                          onChange={() => setSelectedFactionId(faction.id)}
+                          disabled={!isIdle(character)}
+                        />
                         <div className="muted">{faction.description}</div>
                       </label>
                     ))}
                   </div>
-                  <button className="primary-button" style={{ marginTop: 14 }} onClick={() => void handleSelectFaction()} disabled={!isIdle(character)} type="button">
+                  <button
+                    className="primary-button"
+                    style={{ marginTop: 14 }}
+                    onClick={() => void handleSelectFaction()}
+                    disabled={!isIdle(character)}
+                    type="button"
+                  >
                     確認加入
                   </button>
                 </div>
               ) : (
                 <>
                   <div className="auth-tabs">
-                    {([
-                      ["map", "視覺地圖 / 城池"],
-                      ["diplomacy", "外交"],
-                      ["treasury", "公庫"],
-                      ["members", "成員"]
-                    ] as Array<[FactionTab, string]>).map(([key, label]) => (
-                      <button key={key} className={factionTab === key ? "is-active" : ""} onClick={() => setFactionTab(key)} type="button">
+                    {(
+                      [
+                        ["map", "視覺地圖 / 城池"],
+                        ["diplomacy", "外交"],
+                        ["treasury", "公庫"],
+                        ["members", "成員"]
+                      ] as Array<[FactionTab, string]>
+                    ).map(([key, label]) => (
+                      <button
+                        key={key}
+                        className={factionTab === key ? "is-active" : ""}
+                        onClick={() => setFactionTab(key)}
+                        type="button"
+                      >
                         {label}
                       </button>
                     ))}
                   </div>
 
-{factionTab === "map" ? (
+                  {factionTab === "map" ? (
                     <div className="section-stack">
                       <div className="panel" style={{ padding: 16 }}>
                         <div className="panel-heading">
                           <strong>天下城池地圖</strong>
-                          <span className="muted">{visibleCastles.length} 座城 · {factionState?.factions.length ?? 0} 個陣營</span>
+                          <span className="muted">
+                            {visibleCastles.length} 座城 · {factionState?.factions.length ?? 0} 個陣營
+                          </span>
                         </div>
                         <div className="muted" style={{ marginTop: 8 }}>
                           所有陣營共用同一張戰略地圖；點城池後在右側查看城防、設施、Boss 與可執行操作。
                         </div>
                         <div className="map-legend-row" style={{ marginTop: 12 }}>
                           {factionState?.factions.map((faction) => (
-                            <span key={faction.id} className={`map-legend-item ${faction.id === character.factionId ? "is-mine" : ""}`}>
+                            <span
+                              key={faction.id}
+                              className={`map-legend-item ${faction.id === character.factionId ? "is-mine" : ""}`}
+                            >
                               {faction.name} · {faction.memberCount} 人
                             </span>
                           ))}
                         </div>
                         <div className="map-toolbar" style={{ marginTop: 12 }}>
-                          <button className="secondary-button" onClick={() => setMapZoom((value) => Math.max(0.7, Number((value - 0.1).toFixed(1))))} type="button">
+                          <button
+                            className="secondary-button"
+                            onClick={() => setMapZoom((value) => Math.max(0.7, Number((value - 0.1).toFixed(1))))}
+                            type="button"
+                          >
                             縮小
                           </button>
                           <input
@@ -3353,7 +4269,11 @@ async function bootstrap(nextToken: string) {
                             type="range"
                             value={mapZoom}
                           />
-                          <button className="secondary-button" onClick={() => setMapZoom((value) => Math.min(1.6, Number((value + 0.1).toFixed(1))))} type="button">
+                          <button
+                            className="secondary-button"
+                            onClick={() => setMapZoom((value) => Math.min(1.6, Number((value + 0.1).toFixed(1))))}
+                            type="button"
+                          >
                             放大
                           </button>
                           <button className="ghost-button" onClick={() => setMapZoom(1)} type="button">
@@ -3374,12 +4294,27 @@ async function bootstrap(nextToken: string) {
                               return (
                                 <div key={project.id} className="history-card" style={{ padding: 12 }}>
                                   <strong>{project.label}</strong>
-                                  <div className="muted">結束 {formatDate(project.endsAt)} · 協力 {project.contributorUserIds.length} 人</div>
+                                  <div className="muted">
+                                    結束 {formatDate(project.endsAt)} · 協力 {project.contributorUserIds.length} 人
+                                  </div>
                                   <div className="battle-actions" style={{ marginTop: 10 }}>
                                     {joined ? (
-                                      <button className="secondary-button" onClick={() => void handleLeaveProject(project.id)} type="button">退出工程</button>
+                                      <button
+                                        className="secondary-button"
+                                        onClick={() => void handleLeaveProject(project.id)}
+                                        type="button"
+                                      >
+                                        退出工程
+                                      </button>
                                     ) : (
-                                      <button className="primary-button" onClick={() => void handleJoinProject(project.id)} disabled={!isIdle(character)} type="button">協助工程</button>
+                                      <button
+                                        className="primary-button"
+                                        onClick={() => void handleJoinProject(project.id)}
+                                        disabled={!isIdle(character)}
+                                        type="button"
+                                      >
+                                        協助工程
+                                      </button>
                                     )}
                                   </div>
                                 </div>
@@ -3393,12 +4328,23 @@ async function bootstrap(nextToken: string) {
                               <div className="map-region-label map-region-label-core">王城</div>
                               <div className="map-region-label map-region-label-pass">關隘</div>
                               <div className="map-region-label map-region-label-front">邊境</div>
-                              <button className="map-challenge-node" onClick={() => setActiveNav("battle")} type="button">
-                                <span><Swords size={20} /></span>
+                              <button
+                                className="map-challenge-node"
+                                onClick={() => setActiveNav("battle")}
+                                type="button"
+                              >
+                                <span>
+                                  <Swords size={20} />
+                                </span>
                                 <strong>場景挑戰</strong>
                                 <small>個人 / 公會戰鬥</small>
                               </button>
-                              <svg className="strategic-map-territories" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                              <svg
+                                className="strategic-map-territories"
+                                viewBox="0 0 100 100"
+                                preserveAspectRatio="none"
+                                aria-hidden="true"
+                              >
                                 {strategicMapTerritories.map((territory) => (
                                   <polygon
                                     key={territory.factionId}
@@ -3407,7 +4353,12 @@ async function bootstrap(nextToken: string) {
                                   />
                                 ))}
                               </svg>
-                              <svg className="strategic-map-routes" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                              <svg
+                                className="strategic-map-routes"
+                                viewBox="0 0 100 100"
+                                preserveAspectRatio="none"
+                                aria-hidden="true"
+                              >
                                 {[21.5, 29.5, 37, 44].map((radius) => (
                                   <circle className="map-ring-road" cx="50" cy="50" key={`ring-${radius}`} r={radius} />
                                 ))}
@@ -3422,21 +4373,32 @@ async function bootstrap(nextToken: string) {
                                 ))}
                               </svg>
                               {strategicMapNodes.map(({ castle, x, y }) => {
-                                const ownerFaction = factionState?.factions.find((faction) => faction.id === castle.ownerFactionId);
+                                const ownerFaction = factionState?.factions.find(
+                                  (faction) => faction.id === castle.ownerFactionId
+                                );
                                 const isMine = castle.ownerFactionId === character.factionId;
                                 const isCurrentLocation = castle.id === character.currentCastleId;
                                 const isMovementDestination = castle.id === character.movement?.toCastleId;
                                 const isMovementOrigin = castle.id === character.movement?.fromCastleId;
                                 const isSelected = castle.id === selectedMapCastle?.id;
-                                const project = activeFactionProjects.find((entry) => entry.castleId === castle.id && entry.status === "active");
-                                const showLabel = castle.isCapital || isCurrentLocation || isMovementDestination || isSelected;
+                                const project = activeFactionProjects.find(
+                                  (entry) => entry.castleId === castle.id && entry.status === "active"
+                                );
+                                const showLabel =
+                                  castle.isCapital || isCurrentLocation || isMovementDestination || isSelected;
                                 return (
                                   <button
                                     key={castle.id}
                                     aria-label={`${castle.name}，${ownerFaction?.name || "未歸屬"}，${castle.layerName}`}
                                     className={`castle-node ${castle.isCapital ? "is-capital" : ""} ${showLabel ? "has-label" : ""} ${isSelected ? "is-selected" : ""} ${isCurrentLocation ? "is-current" : ""} ${isMovementDestination ? "is-destination" : ""} ${isMine ? "is-owned" : "is-enemy"}`}
                                     onClick={() => setSelectedMapCastleId(castle.id)}
-                                    style={{ left: `${x}%`, top: `${y}%`, "--faction-color": ownerFaction?.color || "#d6ad5d" } as CSSProperties}
+                                    style={
+                                      {
+                                        left: `${x}%`,
+                                        top: `${y}%`,
+                                        "--faction-color": ownerFaction?.color || "#d6ad5d"
+                                      } as CSSProperties
+                                    }
                                     title={`${castle.name}｜${ownerFaction?.name || "未歸屬"}｜${mapNodePurposeLabel(castle.mapNodePurpose)}`}
                                     type="button"
                                   >
@@ -3445,11 +4407,15 @@ async function bootstrap(nextToken: string) {
                                     </span>
                                     <span className="castle-node-label">
                                       <strong>{castle.name}</strong>
-                                      <small>{ownerFaction?.name || "未歸屬"} · {mapNodePurposeLabel(castle.mapNodePurpose)}</small>
+                                      <small>
+                                        {ownerFaction?.name || "未歸屬"} · {mapNodePurposeLabel(castle.mapNodePurpose)}
+                                      </small>
                                     </span>
                                     <span className="castle-node-badges">
                                       {isCurrentLocation ? <span className="mini-pill">目前</span> : null}
-                                      {isMovementOrigin && !isCurrentLocation ? <span className="mini-pill">出發</span> : null}
+                                      {isMovementOrigin && !isCurrentLocation ? (
+                                        <span className="mini-pill">出發</span>
+                                      ) : null}
                                       {isMovementDestination ? <span className="mini-pill">目的</span> : null}
                                       {project ? <span className="mini-pill">工程</span> : null}
                                     </span>
@@ -3459,157 +4425,290 @@ async function bootstrap(nextToken: string) {
                             </div>
                           </div>
 
-                          {selectedMapCastle ? (() => {
-                            const castle = selectedMapCastle;
-                            const ownerFaction = factionState?.factions.find((faction) => faction.id === castle.ownerFactionId);
-                            const isMine = castle.ownerFactionId === character.factionId;
-                            const isCurrentLocation = castle.id === character.currentCastleId;
-                            const isMovementDestination = castle.id === character.movement?.toCastleId;
-                            const isMovementOrigin = castle.id === character.movement?.fromCastleId;
-                            const layerDistance = Math.max(1, Math.abs((currentCastle?.distanceFromCapital ?? 0) - castle.distanceFromCapital));
-                            const buildGold = buildFacilityGold(castle, factionState?.selectedFaction?.tech.castle ?? 0);
-                            const repairPlan = repairCastlePlan(castle, factionState?.selectedFaction?.tech.defense ?? 0);
-                            const project = activeFactionProjects.find((entry) => entry.castleId === castle.id && entry.status === "active");
-                            const garrisons = factionState?.garrisons.filter((entry) => entry.castleId === castle.id) || [];
-                            const activeSiege = factionState?.sieges.find((entry) => entry.castleId === castle.id && entry.status === "active");
-                            const isGarrisonedHere = character.garrisonAssignment?.castleId === castle.id;
-                            const isInActiveSiege = activeSiege?.participants.some((participant) => participant.userId === character.userId);
-                            return (
-                              <aside className="castle-detail-panel">
-                                <div className="castle-detail-header">
-                                  <div>
-                                    <strong>{castle.name}</strong>
-                                    <div className="muted">{ownerFaction?.name || "未歸屬"} · {castle.layerName}</div>
-                                  </div>
-                                  <span className={`mini-pill ${isMine ? "is-friendly" : ""}`}>{isMine ? "我方城池" : "敵方城池"}</span>
-                                </div>
-                                <div className="tag-row">
-                                  <span className="mini-pill">{mapNodePurposeLabel(castle.mapNodePurpose)}</span>
-                                  <span className="mini-pill">{castleSpecialtyLabel(castle.specialty)}</span>
-                                  {isCurrentLocation ? <span className="mini-pill">目前位置</span> : null}
-                                  {isMovementOrigin && !isCurrentLocation ? <span className="mini-pill">出發地</span> : null}
-                                  {isMovementDestination ? <span className="mini-pill">目的地</span> : null}
-                                  {project ? <span className="mini-pill">工程中 · {project.contributorUserIds.length} 人</span> : null}
-                                </div>
-                                {character.movement ? (
-                                  <div className="banner" style={{ padding: 10 }}>
-                                    移動路線：{movementRouteLabel}
-                                    <div className="muted">抵達 {formatDate(character.movement.endsAt)}</div>
-                                  </div>
-                                ) : null}
-                                <div className="castle-detail-grid">
-                                  <span>距核心</span><strong>{castle.distanceFromCapital} 層</strong>
-                                  <span>城牆耐久</span><strong>{castle.fortification}/{castle.maxFortification}{castle.fortification < castle.maxFortification && garrisons.length > 0 && !activeSiege ? "（守軍維修中）" : ""}</strong>
-                                  <span>駐防</span><strong>{garrisons.length}/{castle.garrisonSlots}</strong>
-                                  <span>自動砲臺火力</span><strong>{castle.autoDefensePower}</strong>
-                                  <span>地形優勢</span><strong>{castle.terrainAdvantage}</strong>
-                                  <span>抗攻城</span><strong>{castle.siegeResistance}</strong>
-                                  <span>建設槽</span><strong>{castle.facilities.length}/{castle.buildSlots}</strong>
-                                  <span>設施</span><strong>{castle.facilities.length > 0 ? castle.facilities.join("、") : "尚未建設"}</strong>
-                                </div>
-                                {activeSiege ? (
-                                  <div className="castle-boss-strip">
-                                    <strong>攻城戰進行中</strong>
-                                    <span>攻方 {factionState?.factions.find((faction) => faction.id === activeSiege.attackerFactionId)?.name || activeSiege.attackerFactionId} · 守方 {factionState?.factions.find((faction) => faction.id === activeSiege.defenderFactionId)?.name || activeSiege.defenderFactionId}</span>
-                                    <span>城防 {activeSiege.fortificationCurrent}/{activeSiege.fortificationStart} · 第 {activeSiege.lastResolvedTick} 輪 · 結束 {formatDate(activeSiege.endsAt)}</span>
-                                    {activeSiege.logs.slice(0, 3).map((log) => <span key={`${activeSiege.id}-${log.tick}`}>第 {log.tick} 輪：{log.message}</span>)}
-                                    <div className="battle-actions">
-                                      {!isInActiveSiege && isIdle(character) ? (
-                                        <button className="secondary-button" onClick={() => void handleJoinSiege(activeSiege.id)} type="button">加入戰場</button>
-                                      ) : null}
-                                      <button className="ghost-button" onClick={() => void handleResolveSiege(activeSiege.id)} type="button">更新戰況</button>
+                          {selectedMapCastle ? (
+                            (() => {
+                              const castle = selectedMapCastle;
+                              const ownerFaction = factionState?.factions.find(
+                                (faction) => faction.id === castle.ownerFactionId
+                              );
+                              const isMine = castle.ownerFactionId === character.factionId;
+                              const isCurrentLocation = castle.id === character.currentCastleId;
+                              const isMovementDestination = castle.id === character.movement?.toCastleId;
+                              const isMovementOrigin = castle.id === character.movement?.fromCastleId;
+                              const layerDistance = Math.max(
+                                1,
+                                Math.abs((currentCastle?.distanceFromCapital ?? 0) - castle.distanceFromCapital)
+                              );
+                              const buildGold = buildFacilityGold(
+                                castle,
+                                factionState?.selectedFaction?.tech.castle ?? 0
+                              );
+                              const repairPlan = repairCastlePlan(
+                                castle,
+                                factionState?.selectedFaction?.tech.defense ?? 0
+                              );
+                              const project = activeFactionProjects.find(
+                                (entry) => entry.castleId === castle.id && entry.status === "active"
+                              );
+                              const garrisons =
+                                factionState?.garrisons.filter((entry) => entry.castleId === castle.id) || [];
+                              const activeSiege = factionState?.sieges.find(
+                                (entry) => entry.castleId === castle.id && entry.status === "active"
+                              );
+                              const isGarrisonedHere = character.garrisonAssignment?.castleId === castle.id;
+                              const isInActiveSiege = activeSiege?.participants.some(
+                                (participant) => participant.userId === character.userId
+                              );
+                              return (
+                                <aside className="castle-detail-panel">
+                                  <div className="castle-detail-header">
+                                    <div>
+                                      <strong>{castle.name}</strong>
+                                      <div className="muted">
+                                        {ownerFaction?.name || "未歸屬"} · {castle.layerName}
+                                      </div>
                                     </div>
-                                  </div>
-                                ) : null}
-                                <div className="muted">{castle.layerBenefit}</div>
-                                <div className="castle-boss-strip">
-                                  <strong>{castle.bossName}</strong>
-                                  <span>技能：{castle.bossSkills.join("、")}</span>
-                                  <span>獎勵：{castle.rewardSummary}</span>
-                                </div>
-                                {isMine && castle.mapNodePurpose === "guild_boss" ? (
-                                  <div className="castle-boss-strip">
-                                    <strong>公會爬層 Lv.{factionState?.selectedFaction?.tower.currentLayer ?? 1}</strong>
-                                    <span>
-                                      最高通關 {factionState?.selectedFaction?.tower.highestClearedLayer ?? 0} 層 ·
-                                      進度 {factionState?.selectedFaction?.tower.steps ?? 0}/{factionState?.selectedFaction?.tower.stepsRequired ?? 5}
+                                    <span className={`mini-pill ${isMine ? "is-friendly" : ""}`}>
+                                      {isMine ? "我方城池" : "敵方城池"}
                                     </span>
-                                    <div className="progress-bar">
-                                      <div className="progress-fill is-energy" style={{ width: `${factionState?.selectedFaction?.tower.progress ?? 0}%` }} />
+                                  </div>
+                                  <div className="tag-row">
+                                    <span className="mini-pill">{mapNodePurposeLabel(castle.mapNodePurpose)}</span>
+                                    <span className="mini-pill">{castleSpecialtyLabel(castle.specialty)}</span>
+                                    {isCurrentLocation ? <span className="mini-pill">目前位置</span> : null}
+                                    {isMovementOrigin && !isCurrentLocation ? (
+                                      <span className="mini-pill">出發地</span>
+                                    ) : null}
+                                    {isMovementDestination ? <span className="mini-pill">目的地</span> : null}
+                                    {project ? (
+                                      <span className="mini-pill">工程中 · {project.contributorUserIds.length} 人</span>
+                                    ) : null}
+                                  </div>
+                                  {character.movement ? (
+                                    <div className="banner" style={{ padding: 10 }}>
+                                      移動路線：{movementRouteLabel}
+                                      <div className="muted">抵達 {formatDate(character.movement.endsAt)}</div>
                                     </div>
-                                    <span>當層 Boss：{factionState?.selectedFaction?.tower.bossName ?? "未設定"} · HP {factionState?.selectedFaction?.tower.bossHp ?? "-"}</span>
-                                    <span>{factionState?.selectedFaction?.tower.rewardSummary}</span>
-                                    <div className="battle-actions">
-                                      <button
-                                        className="secondary-button"
-                                        onClick={() => {
-                                          setSelectedTowerCastleId(castle.id);
-                                          setActiveNav("tower");
-                                        }}
-                                        type="button"
-                                      >
-                                        <TowerControl size={16} /> 進入爬塔
-                                      </button>
+                                  ) : null}
+                                  <div className="castle-detail-grid">
+                                    <span>距核心</span>
+                                    <strong>{castle.distanceFromCapital} 層</strong>
+                                    <span>城牆耐久</span>
+                                    <strong>
+                                      {castle.fortification}/{castle.maxFortification}
+                                      {castle.fortification < castle.maxFortification &&
+                                      garrisons.length > 0 &&
+                                      !activeSiege
+                                        ? "（守軍維修中）"
+                                        : ""}
+                                    </strong>
+                                    <span>駐防</span>
+                                    <strong>
+                                      {garrisons.length}/{castle.garrisonSlots}
+                                    </strong>
+                                    <span>自動砲臺火力</span>
+                                    <strong>{castle.autoDefensePower}</strong>
+                                    <span>地形優勢</span>
+                                    <strong>{castle.terrainAdvantage}</strong>
+                                    <span>抗攻城</span>
+                                    <strong>{castle.siegeResistance}</strong>
+                                    <span>建設槽</span>
+                                    <strong>
+                                      {castle.facilities.length}/{castle.buildSlots}
+                                    </strong>
+                                    <span>設施</span>
+                                    <strong>
+                                      {castle.facilities.length > 0 ? castle.facilities.join("、") : "尚未建設"}
+                                    </strong>
+                                  </div>
+                                  {activeSiege ? (
+                                    <div className="castle-boss-strip">
+                                      <strong>攻城戰進行中</strong>
+                                      <span>
+                                        攻方{" "}
+                                        {factionState?.factions.find(
+                                          (faction) => faction.id === activeSiege.attackerFactionId
+                                        )?.name || activeSiege.attackerFactionId}{" "}
+                                        · 守方{" "}
+                                        {factionState?.factions.find(
+                                          (faction) => faction.id === activeSiege.defenderFactionId
+                                        )?.name || activeSiege.defenderFactionId}
+                                      </span>
+                                      <span>
+                                        城防 {activeSiege.fortificationCurrent}/{activeSiege.fortificationStart} · 第{" "}
+                                        {activeSiege.lastResolvedTick} 輪 · 結束 {formatDate(activeSiege.endsAt)}
+                                      </span>
+                                      {activeSiege.logs.slice(0, 3).map((log) => (
+                                        <span key={`${activeSiege.id}-${log.tick}`}>
+                                          第 {log.tick} 輪：{log.message}
+                                        </span>
+                                      ))}
+                                      <div className="battle-actions">
+                                        {!isInActiveSiege && isIdle(character) ? (
+                                          <button
+                                            className="secondary-button"
+                                            onClick={() => void handleJoinSiege(activeSiege.id)}
+                                            type="button"
+                                          >
+                                            加入戰場
+                                          </button>
+                                        ) : null}
+                                        <button
+                                          className="ghost-button"
+                                          onClick={() => void handleResolveSiege(activeSiege.id)}
+                                          type="button"
+                                        >
+                                          更新戰況
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                  <div className="muted">{castle.layerBenefit}</div>
+                                  <div className="castle-boss-strip">
+                                    <strong>{castle.bossName}</strong>
+                                    <span>技能：{castle.bossSkills.join("、")}</span>
+                                    <span>獎勵：{castle.rewardSummary}</span>
+                                  </div>
+                                  {isMine && castle.mapNodePurpose === "guild_boss" ? (
+                                    <div className="castle-boss-strip">
+                                      <strong>
+                                        公會爬層 Lv.{factionState?.selectedFaction?.tower.currentLayer ?? 1}
+                                      </strong>
+                                      <span>
+                                        最高通關 {factionState?.selectedFaction?.tower.highestClearedLayer ?? 0} 層 ·
+                                        進度 {factionState?.selectedFaction?.tower.steps ?? 0}/
+                                        {factionState?.selectedFaction?.tower.stepsRequired ?? 5}
+                                      </span>
+                                      <div className="progress-bar">
+                                        <div
+                                          className="progress-fill is-energy"
+                                          style={{ width: `${factionState?.selectedFaction?.tower.progress ?? 0}%` }}
+                                        />
+                                      </div>
+                                      <span>
+                                        當層 Boss：{factionState?.selectedFaction?.tower.bossName ?? "未設定"} · HP{" "}
+                                        {factionState?.selectedFaction?.tower.bossHp ?? "-"}
+                                      </span>
+                                      <span>{factionState?.selectedFaction?.tower.rewardSummary}</span>
+                                      <div className="battle-actions">
+                                        <button
+                                          className="secondary-button"
+                                          onClick={() => {
+                                            setSelectedTowerCastleId(castle.id);
+                                            setActiveNav("tower");
+                                          }}
+                                          type="button"
+                                        >
+                                          <TowerControl size={16} /> 進入爬塔
+                                        </button>
+                                        <button
+                                          className="primary-button"
+                                          onClick={() => void handleFactionTowerBattle(castle.id, "boss")}
+                                          disabled={
+                                            !isIdle(character) ||
+                                            !isCurrentLocation ||
+                                            !factionState?.selectedFaction?.tower.bossUnlocked
+                                          }
+                                          type="button"
+                                        >
+                                          挑戰爬層 Boss
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                  <div className="battle-actions">
+                                    {!isMine ? (
                                       <button
                                         className="primary-button"
-                                        onClick={() => void handleFactionTowerBattle(castle.id, "boss")}
-                                        disabled={!isIdle(character) || !isCurrentLocation || !factionState?.selectedFaction?.tower.bossUnlocked}
+                                        onClick={() => void handleAttackCastle(castle.id)}
+                                        disabled={!canAttackCastle || Boolean(activeSiege)}
                                         type="button"
                                       >
-                                        挑戰爬層 Boss
+                                        發起攻城戰
                                       </button>
-                                    </div>
+                                    ) : !isCurrentLocation ? (
+                                      <button
+                                        className="primary-button"
+                                        onClick={() => void handleMoveCastle(castle.id)}
+                                        disabled={!isIdle(character)}
+                                        type="button"
+                                      >
+                                        移動至此（{layerDistance * 30} 分）
+                                      </button>
+                                    ) : !isIdle(character) ? (
+                                      <span className="mini-pill">忙碌中，暫不可操作</span>
+                                    ) : (
+                                      <span className="mini-pill">目前所在城池 · 可建設 / 修建</span>
+                                    )}
                                   </div>
-                                ) : null}
-                                <div className="battle-actions">
-                                  {!isMine ? (
-                                    <button className="primary-button" onClick={() => void handleAttackCastle(castle.id)} disabled={!canAttackCastle || Boolean(activeSiege)} type="button">
-                                      發起攻城戰
-                                    </button>
-                                  ) : !isCurrentLocation ? (
-                                    <button className="primary-button" onClick={() => void handleMoveCastle(castle.id)} disabled={!isIdle(character)} type="button">
-                                      移動至此（{layerDistance * 30} 分）
-                                    </button>
-                                  ) : !isIdle(character) ? (
-                                    <span className="mini-pill">忙碌中，暫不可操作</span>
-                                  ) : (
-                                    <span className="mini-pill">目前所在城池 · 可建設 / 修建</span>
-                                  )}
-                                </div>
-                                {isMine && isCurrentLocation ? (
-                                  <div className="castle-node-actions">
-                                    <div className="battle-actions">
-                                      {isGarrisonedHere ? (
-                                        <button className="secondary-button" onClick={() => void handleLeaveGarrison(castle.id)} disabled={Boolean(activeSiege)} type="button">
-                                          退出駐防
+                                  {isMine && isCurrentLocation ? (
+                                    <div className="castle-node-actions">
+                                      <div className="battle-actions">
+                                        {isGarrisonedHere ? (
+                                          <button
+                                            className="secondary-button"
+                                            onClick={() => void handleLeaveGarrison(castle.id)}
+                                            disabled={Boolean(activeSiege)}
+                                            type="button"
+                                          >
+                                            退出駐防
+                                          </button>
+                                        ) : (
+                                          <button
+                                            className="secondary-button"
+                                            onClick={() => void handleGarrisonCastle(castle.id)}
+                                            disabled={!isIdle(character) || garrisons.length >= castle.garrisonSlots}
+                                            type="button"
+                                          >
+                                            駐防此城
+                                          </button>
+                                        )}
+                                      </div>
+                                      <label className="field">
+                                        <span>建設設施（公庫 {buildGold} 金幣）</span>
+                                        <input
+                                          value={facilityDrafts[castle.id] || ""}
+                                          onChange={(event) =>
+                                            setFacilityDrafts((current) => ({
+                                              ...current,
+                                              [castle.id]: event.target.value
+                                            }))
+                                          }
+                                          placeholder={
+                                            castle.specialty === "boss"
+                                              ? "討伐營"
+                                              : castle.specialty === "mining"
+                                                ? "礦坑"
+                                                : castle.specialty === "trade"
+                                                  ? "市集"
+                                                  : "農田"
+                                          }
+                                        />
+                                      </label>
+                                      <div className="battle-actions">
+                                        <button
+                                          className="secondary-button"
+                                          onClick={() => void handleBuildFacility(castle.id)}
+                                          disabled={!isIdle(character) || castle.facilities.length >= castle.buildSlots}
+                                          type="button"
+                                        >
+                                          發起建設工程
                                         </button>
-                                      ) : (
-                                        <button className="secondary-button" onClick={() => void handleGarrisonCastle(castle.id)} disabled={!isIdle(character) || garrisons.length >= castle.garrisonSlots} type="button">
-                                          駐防此城
+                                        <button
+                                          className="secondary-button"
+                                          onClick={() => void handleRepairCastle(castle.id)}
+                                          disabled={!isIdle(character) || repairPlan.repairAmount <= 0}
+                                          type="button"
+                                        >
+                                          防守 / 修建城防 +{repairPlan.repairAmount}（{repairPlan.gold} 金幣）
                                         </button>
-                                      )}
+                                      </div>
                                     </div>
-                                    <label className="field">
-                                      <span>建設設施（公庫 {buildGold} 金幣）</span>
-                                      <input
-                                        value={facilityDrafts[castle.id] || ""}
-                                        onChange={(event) => setFacilityDrafts((current) => ({ ...current, [castle.id]: event.target.value }))}
-                                        placeholder={castle.specialty === "boss" ? "討伐營" : castle.specialty === "mining" ? "礦坑" : castle.specialty === "trade" ? "市集" : "農田"}
-                                      />
-                                    </label>
-                                    <div className="battle-actions">
-                                      <button className="secondary-button" onClick={() => void handleBuildFacility(castle.id)} disabled={!isIdle(character) || castle.facilities.length >= castle.buildSlots} type="button">
-                                        發起建設工程
-                                      </button>
-                                      <button className="secondary-button" onClick={() => void handleRepairCastle(castle.id)} disabled={!isIdle(character) || repairPlan.repairAmount <= 0} type="button">
-                                        防守 / 修建城防 +{repairPlan.repairAmount}（{repairPlan.gold} 金幣）
-                                      </button>
-                                    </div>
-                                  </div>
-                                ) : null}
-                              </aside>
-                            );
-                          })() : (
+                                  ) : null}
+                                </aside>
+                              );
+                            })()
+                          ) : (
                             <aside className="castle-detail-panel">
                               <strong>選擇城池</strong>
                               <div className="muted">點地圖上的城池查看詳情。</div>
@@ -3622,20 +4721,34 @@ async function bootstrap(nextToken: string) {
 
                   {factionTab === "diplomacy" ? (
                     <div className="panel" style={{ padding: 16 }}>
-                      <div className="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+                      <div
+                        className="form-grid"
+                        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}
+                      >
                         <label className="field">
                           <span>選擇目標陣營</span>
-                          <select value={selectedFactionTarget} onChange={(event) => setSelectedFactionTarget(event.target.value)}>
+                          <select
+                            value={selectedFactionTarget}
+                            onChange={(event) => setSelectedFactionTarget(event.target.value)}
+                          >
                             <option value="">請選擇</option>
-                            {factionState?.factions.filter((faction) => faction.id !== character.factionId).map((faction) => (
-                              <option key={faction.id} value={faction.id}>{faction.name}</option>
-                            ))}
+                            {factionState?.factions
+                              .filter((faction) => faction.id !== character.factionId)
+                              .map((faction) => (
+                                <option key={faction.id} value={faction.id}>
+                                  {faction.name}
+                                </option>
+                              ))}
                           </select>
                         </label>
                       </div>
                       <div className="battle-actions" style={{ marginTop: 12 }}>
-                        <button className="primary-button" onClick={() => void handleCooperateRequest()} type="button">提出合作</button>
-                        <button className="secondary-button" onClick={() => void handleDeclareWar()} type="button">宣戰</button>
+                        <button className="primary-button" onClick={() => void handleCooperateRequest()} type="button">
+                          提出合作
+                        </button>
+                        <button className="secondary-button" onClick={() => void handleDeclareWar()} type="button">
+                          宣戰
+                        </button>
                       </div>
                       <div className="history-list" style={{ marginTop: 14 }}>
                         {factionState?.diplomacyRequests.map((request) => (
@@ -3644,8 +4757,28 @@ async function bootstrap(nextToken: string) {
                             <div className="muted">狀態：{request.status}</div>
                             {request.status === "pending" ? (
                               <div className="battle-actions" style={{ marginTop: 10 }}>
-                                <button className="primary-button" onClick={() => void respondCooperation(token, request.id, true).then(setFactionState).catch((error) => setFeedback(error.message))} type="button">接受</button>
-                                <button className="secondary-button" onClick={() => void respondCooperation(token, request.id, false).then(setFactionState).catch((error) => setFeedback(error.message))} type="button">拒絕</button>
+                                <button
+                                  className="primary-button"
+                                  onClick={() =>
+                                    void respondCooperation(token, request.id, true)
+                                      .then(setFactionState)
+                                      .catch((error) => setFeedback(error.message))
+                                  }
+                                  type="button"
+                                >
+                                  接受
+                                </button>
+                                <button
+                                  className="secondary-button"
+                                  onClick={() =>
+                                    void respondCooperation(token, request.id, false)
+                                      .then(setFactionState)
+                                      .catch((error) => setFeedback(error.message))
+                                  }
+                                  type="button"
+                                >
+                                  拒絕
+                                </button>
                               </div>
                             ) : null}
                           </div>
@@ -3660,7 +4793,9 @@ async function bootstrap(nextToken: string) {
                       <div className="muted" style={{ marginTop: 6 }}>
                         公庫金幣 {factionState?.selectedFaction?.treasury.gold ?? 0}
                       </div>
-                      <div className="muted" style={{ marginTop: 6 }}>公庫不發放給個人，金幣用於據點工程與公會科技。</div>
+                      <div className="muted" style={{ marginTop: 6 }}>
+                        公庫不發放給個人，金幣用於據點工程與公會科技。
+                      </div>
                       <div className="selector-grid" style={{ marginTop: 12 }}>
                         {factionTechOptions.map((option) => {
                           const level = factionState?.selectedFaction?.tech[option.key] ?? 0;
@@ -3668,9 +4803,15 @@ async function bootstrap(nextToken: string) {
                           const treasuryGold = factionState?.selectedFaction?.treasury.gold ?? 0;
                           return (
                             <div key={option.key} className="selector-card">
-                              <strong>{option.label} Lv.{level}</strong>
-                              <div className="muted" style={{ marginTop: 6 }}>{option.detail}</div>
-                              <div className="muted" style={{ marginTop: 6 }}>升級花費 {cost} 公庫金幣</div>
+                              <strong>
+                                {option.label} Lv.{level}
+                              </strong>
+                              <div className="muted" style={{ marginTop: 6 }}>
+                                {option.detail}
+                              </div>
+                              <div className="muted" style={{ marginTop: 6 }}>
+                                升級花費 {cost} 公庫金幣
+                              </div>
                               <button
                                 className="primary-button"
                                 style={{ marginTop: 10 }}
@@ -3693,7 +4834,9 @@ async function bootstrap(nextToken: string) {
                         <div className="member-card" style={{ padding: 14 }}>
                           <strong>{factionState.selectedFaction?.name}</strong>
                           <div className="muted">成員數 {factionState.selectedFaction?.memberCount ?? 0}</div>
-                          <div className="muted">領袖 {factionState.selectedFaction?.leaderDisplayName || "尚未指派"}</div>
+                          <div className="muted">
+                            領袖 {factionState.selectedFaction?.leaderDisplayName || "尚未指派"}
+                          </div>
                         </div>
                       ) : null}
                     </div>
@@ -3724,7 +4867,9 @@ async function bootstrap(nextToken: string) {
                     type="button"
                   >
                     <strong>{tab.label}</strong>
-                    <div className="muted" style={{ marginTop: 6 }}>{inventoryGroups[tab.key].length} 件</div>
+                    <div className="muted" style={{ marginTop: 6 }}>
+                      {inventoryGroups[tab.key].length} 件
+                    </div>
                   </button>
                 ))}
               </div>
@@ -3734,7 +4879,10 @@ async function bootstrap(nextToken: string) {
                   <div className="panel" style={{ padding: 16 }}>
                     <div className="panel-heading">
                       <strong>目前穿戴中</strong>
-                      <span className="muted">{equipmentGroupOrder.filter((slot) => Boolean(character.equipmentSlots[slot])).length} / {equipmentGroupOrder.length}</span>
+                      <span className="muted">
+                        {equipmentGroupOrder.filter((slot) => Boolean(character.equipmentSlots[slot])).length} /{" "}
+                        {equipmentGroupOrder.length}
+                      </span>
                     </div>
                     <div className="table-list" style={{ marginTop: 12 }}>
                       {equipmentGroupOrder.map((slot) => {
@@ -3747,9 +4895,24 @@ async function bootstrap(nextToken: string) {
                             </div>
                             {item ? (
                               <div className="table-actions">
-                                <button className="ghost-button" onClick={() => setDetailItem(item)} type="button">詳情</button>
-                                <button className="secondary-button" onClick={() => void handleUnequip(slot)} disabled={!isIdle(character)} type="button">卸下</button>
-                                <button className="ghost-button" onClick={() => void handleRepairEquipment(slot, item.id)} disabled={!isIdle(character)} type="button">修復</button>
+                                <button className="ghost-button" onClick={() => setDetailItem(item)} type="button">
+                                  詳情
+                                </button>
+                                <button
+                                  className="secondary-button"
+                                  onClick={() => void handleUnequip(slot)}
+                                  disabled={!isIdle(character)}
+                                  type="button"
+                                >
+                                  卸下
+                                </button>
+                                <button
+                                  className="ghost-button"
+                                  onClick={() => void handleRepairEquipment(slot, item.id)}
+                                  type="button"
+                                >
+                                  修復
+                                </button>
                               </div>
                             ) : null}
                           </div>
@@ -3787,17 +4950,42 @@ async function bootstrap(nextToken: string) {
                               draggable={isIdle(character)}
                               onDragStart={() => setDraggedItemId(item.id)}
                               onDragOver={(event) => event.preventDefault()}
-                              onDrop={() => draggedItemId && void handleInventoryReorder(group.slot || "other", draggedItemId, item.id)}
+                              onDrop={() =>
+                                draggedItemId &&
+                                void handleInventoryReorder(group.slot || "other", draggedItemId, item.id)
+                              }
                             >
                               <div className="table-main">
                                 <strong>{item.name}</strong>
                                 <div className="muted">{inventoryRowSummary(item)}</div>
                               </div>
                               <div className="table-actions">
-                                <button className="ghost-button" onClick={() => setDetailItem(item)} type="button">詳情</button>
-                                <button className="primary-button" onClick={() => void handleEquip(item.id)} disabled={!isIdle(character)} type="button">裝備</button>
-                                <button className="ghost-button" onClick={() => void handleRepairInventory(item.id)} disabled={!isIdle(character)} type="button">修復</button>
-                                <button className="secondary-button" onClick={() => void handleListMarket(item)} disabled={!isIdle(character)} type="button">上架</button>
+                                <button className="ghost-button" onClick={() => setDetailItem(item)} type="button">
+                                  詳情
+                                </button>
+                                <button
+                                  className="primary-button"
+                                  onClick={() => void handleEquip(item.id)}
+                                  disabled={!isIdle(character)}
+                                  type="button"
+                                >
+                                  裝備
+                                </button>
+                                <button
+                                  className="ghost-button"
+                                  onClick={() => void handleRepairInventory(item.id)}
+                                  type="button"
+                                >
+                                  修復
+                                </button>
+                                <button
+                                  className="secondary-button"
+                                  onClick={() => void handleListMarket(item)}
+                                  disabled={!isIdle(character)}
+                                  type="button"
+                                >
+                                  上架
+                                </button>
                               </div>
                             </div>
                           ))}
@@ -3806,14 +4994,20 @@ async function bootstrap(nextToken: string) {
                     </div>
                   ))}
 
-                  {equipmentInventoryGroups.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>目前沒有可用裝備</div> : null}
+                  {equipmentInventoryGroups.length === 0 ? (
+                    <div className="empty-card" style={{ padding: 14 }}>
+                      目前沒有可用裝備
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className="panel" style={{ padding: 16 }}>
                   {inventoryTab === "manual" ? (
                     <div className="section-stack" style={{ marginBottom: 16 }}>
                       <div className="panel-heading">
-                        <strong><ScrollText size={17} /> 秘籍槽</strong>
+                        <strong>
+                          <ScrollText size={17} /> 秘籍槽
+                        </strong>
                         <span className="muted">{character.equippedManuals.length} / 3</span>
                       </div>
                       <div className="member-grid">
@@ -3826,7 +5020,11 @@ async function bootstrap(nextToken: string) {
                               <div className="muted">{statBonusSummary(manual.statBonus)}</div>
                               <button
                                 className={equipped ? "secondary-button" : "primary-button"}
-                                onClick={() => void (equipped ? handleUnequipManual(manual.manualId) : handleEquipManual(manual.manualId))}
+                                onClick={() =>
+                                  void (equipped
+                                    ? handleUnequipManual(manual.manualId)
+                                    : handleEquipManual(manual.manualId))
+                                }
                                 disabled={!isIdle(character) || (!equipped && character.equippedManuals.length >= 3)}
                                 type="button"
                               >
@@ -3835,7 +5033,11 @@ async function bootstrap(nextToken: string) {
                             </div>
                           );
                         })}
-                        {character.learnedManuals.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>尚未學會任何秘籍。</div> : null}
+                        {character.learnedManuals.length === 0 ? (
+                          <div className="empty-card" style={{ padding: 14 }}>
+                            尚未學會任何秘籍。
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   ) : null}
@@ -3847,20 +5049,46 @@ async function bootstrap(nextToken: string) {
                         draggable={isIdle(character)}
                         onDragStart={() => setDraggedItemId(item.id)}
                         onDragOver={(event) => event.preventDefault()}
-                        onDrop={() => draggedItemId && void handleInventoryReorder(inventoryTab, draggedItemId, item.id)}
+                        onDrop={() =>
+                          draggedItemId && void handleInventoryReorder(inventoryTab, draggedItemId, item.id)
+                        }
                       >
                         <div className="table-main">
                           <strong>{item.name}</strong>
                           <div className="muted">{inventoryRowSummary(item)}</div>
                         </div>
                         <div className="table-actions">
-                          <button className="ghost-button" onClick={() => setDetailItem(item)} type="button">詳情</button>
-                          {item.category === "manual" ? <button className="primary-button" onClick={() => void handleLearnManual(item.id)} disabled={!isIdle(character)} type="button">學習</button> : null}
-                          {item.category === "material" ? <button className="secondary-button" onClick={() => void handleListMarket(item)} disabled={!isIdle(character)} type="button">上架</button> : null}
+                          <button className="ghost-button" onClick={() => setDetailItem(item)} type="button">
+                            詳情
+                          </button>
+                          {item.category === "manual" ? (
+                            <button
+                              className="primary-button"
+                              onClick={() => void handleLearnManual(item.id)}
+                              disabled={!isIdle(character)}
+                              type="button"
+                            >
+                              學習
+                            </button>
+                          ) : null}
+                          {item.category === "material" ? (
+                            <button
+                              className="secondary-button"
+                              onClick={() => void handleListMarket(item)}
+                              disabled={!isIdle(character)}
+                              type="button"
+                            >
+                              上架
+                            </button>
+                          ) : null}
                         </div>
                       </div>
                     ))}
-                    {selectedInventoryItems.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>這個分類目前沒有物品</div> : null}
+                    {selectedInventoryItems.length === 0 ? (
+                      <div className="empty-card" style={{ padding: 14 }}>
+                        這個分類目前沒有物品
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               )}
@@ -3873,21 +5101,41 @@ async function bootstrap(nextToken: string) {
                 <div className="panel-heading">
                   <div>
                     <strong>FORGE WORKBENCH</strong>
-                    <div className="muted" style={{ marginTop: 6 }}>材料、命名、配方命中與鍛造狀態集中在這裡。</div>
+                    <div className="muted" style={{ marginTop: 6 }}>
+                      材料、命名、配方命中與鍛造狀態集中在這裡。
+                    </div>
                   </div>
-                  <span className={`mini-pill ${canStartForge ? "is-live" : ""}`}>{canStartForge ? "可鍛造" : "待投料"}</span>
+                  <span className={`mini-pill ${canStartForge ? "is-live" : ""}`}>
+                    {canStartForge ? "可鍛造" : "待投料"}
+                  </span>
                 </div>
                 <div className="quick-metric-grid battle-command-metrics">
-                  <div><span>FORGE LV</span><strong>{character.forgeLevel}</strong></div>
-                  <div><span>MATERIALS</span><strong>{inventoryGroups.material.length}</strong></div>
-                  <div><span>INPUT</span><strong>{selectedForgeMaterialCount}/{forgeMaterialLimit}</strong></div>
-                  <div><span>RECIPES</span><strong>{readyForgeRecipeCount}/{forgeRecipesList.length}</strong></div>
+                  <div>
+                    <span>FORGE LV</span>
+                    <strong>{character.forgeLevel}</strong>
+                  </div>
+                  <div>
+                    <span>MATERIALS</span>
+                    <strong>{inventoryGroups.material.length}</strong>
+                  </div>
+                  <div>
+                    <span>INPUT</span>
+                    <strong>
+                      {selectedForgeMaterialCount}/{forgeMaterialLimit}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>RECIPES</span>
+                    <strong>
+                      {readyForgeRecipeCount}/{forgeRecipesList.length}
+                    </strong>
+                  </div>
                 </div>
                 {activityLock ? (
                   <div className="battle-lock-note">
-                    <strong>{activityLock.title}</strong>
+                    <strong>{activityLock.title} · 鍛造可用</strong>
                     <span>{activityLock.detail}</span>
-                    <span>完成前不能開始鍛造。</span>
+                    <span>鍛造與修復不受行動鎖影響，仍可消耗材料立即完成。</span>
                   </div>
                 ) : null}
               </div>
@@ -3902,13 +5150,19 @@ async function bootstrap(nextToken: string) {
                     <span>裝備類型</span>
                     <select value={forgeRecipeId} onChange={(event) => setForgeRecipeId(event.target.value)}>
                       {forgeOptions.map((option) => (
-                        <option key={option.id} value={option.id}>{option.name}</option>
+                        <option key={option.id} value={option.id}>
+                          {option.name}
+                        </option>
                       ))}
                     </select>
                   </label>
                   <label className="field">
                     <span>自訂名稱片段</span>
-                    <input value={forgeCustomName} onChange={(event) => setForgeCustomName(event.target.value)} placeholder="例如 酷酷的熊" />
+                    <input
+                      value={forgeCustomName}
+                      onChange={(event) => setForgeCustomName(event.target.value)}
+                      placeholder="例如 酷酷的熊"
+                    />
                   </label>
                   <div className="forge-summary-card">
                     <span>目前目標</span>
@@ -3920,7 +5174,12 @@ async function bootstrap(nextToken: string) {
                     </div>
                   </div>
                   <div className="battle-actions">
-                    <button className="primary-button" onClick={() => void handleForge()} disabled={!canStartForge} type="button">
+                    <button
+                      className="primary-button"
+                      onClick={() => void handleForge()}
+                      disabled={!canStartForge}
+                      type="button"
+                    >
                       <Hammer size={16} /> 開始鍛造
                     </button>
                     <span className="muted">
@@ -3945,14 +5204,19 @@ async function bootstrap(nextToken: string) {
                         <div key={item.id} className={`forge-material-row ${selectedAmount > 0 ? "is-selected" : ""}`}>
                           <div>
                             <strong>{item.name}</strong>
-                            <div className="muted">持有 {item.quantity || 0} · 已投入 {selectedAmount}</div>
+                            <div className="muted">
+                              持有 {item.quantity || 0} · 已投入 {selectedAmount}
+                            </div>
                           </div>
                           <label className="field compact">
                             <span>投入</span>
                             <input
                               type="number"
                               min={0}
-                              max={Math.min(item.quantity || 0, Math.max(0, forgeMaterialLimit - forgeSelectedCount(item.id)))}
+                              max={Math.min(
+                                item.quantity || 0,
+                                Math.max(0, forgeMaterialLimit - forgeSelectedCount(item.id))
+                              )}
                               step={1}
                               value={forgeMaterialAmounts[item.id] || ""}
                               onChange={(event) => updateForgeMaterialAmount(item, event.target.value)}
@@ -3962,7 +5226,11 @@ async function bootstrap(nextToken: string) {
                         </div>
                       );
                     })}
-                    {inventoryGroups.material.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>先去挖礦取得材料。</div> : null}
+                    {inventoryGroups.material.length === 0 ? (
+                      <div className="empty-card" style={{ padding: 14 }}>
+                        先去挖礦取得材料。
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -3978,21 +5246,29 @@ async function bootstrap(nextToken: string) {
                 <div className="recipe-grid" style={{ marginTop: 12 }}>
                   {forgeRecipesList.map((recipe) => {
                     const ingredients = Object.entries(recipe.ingredients) as Array<[MaterialType, number]>;
-                    const canAfford = ingredients.every(([type, qty]) =>
-                      (inventoryGroups.material.find((item) => item.materialType === type)?.quantity || 0) >= (qty || 0)
+                    const canAfford = ingredients.every(
+                      ([type, qty]) =>
+                        (inventoryGroups.material.find((item) => item.materialType === type)?.quantity || 0) >=
+                        (qty || 0)
                     );
                     return (
                       <div className={`recipe-card ${canAfford ? "is-ready" : ""}`} key={recipe.id}>
                         <div className="recipe-card-head">
                           <strong>{recipe.name}</strong>
-                          <span className={`mini-pill ${canAfford ? "is-live" : ""}`}>{canAfford ? "材料齊全" : "材料不足"}</span>
+                          <span className={`mini-pill ${canAfford ? "is-live" : ""}`}>
+                            {canAfford ? "材料齊全" : "材料不足"}
+                          </span>
                         </div>
                         <div className="tag-row" style={{ marginTop: 8 }}>
                           {ingredients.map(([type, qty]) => (
-                            <span className="mini-pill" key={type}>{materialLabels[type] || type} x{qty}</span>
+                            <span className="mini-pill" key={type}>
+                              {materialLabels[type] || type} x{qty}
+                            </span>
                           ))}
                         </div>
-                        <div className="muted" style={{ marginTop: 8 }}>{recipe.effectSummary}</div>
+                        <div className="muted" style={{ marginTop: 8 }}>
+                          {recipe.effectSummary}
+                        </div>
                         {recipe.lore ? <div className="muted recipe-lore">{recipe.lore}</div> : null}
                       </div>
                     );
@@ -4007,9 +5283,13 @@ async function bootstrap(nextToken: string) {
               <div className="panel" style={{ padding: 16 }}>
                 <div className="panel-heading">
                   <strong>成就</strong>
-                  <button className="ghost-button" onClick={() => void refreshAchievements()} type="button">刷新</button>
+                  <button className="ghost-button" onClick={() => void refreshAchievements()} type="button">
+                    刷新
+                  </button>
                 </div>
-                <div className="muted" style={{ marginTop: 8 }}>目前先建立成就頁與進度框架，具體內容之後可繼續擴充。</div>
+                <div className="muted" style={{ marginTop: 8 }}>
+                  完成角色、戰鬥、鍛造、技能與陣營里程碑。
+                </div>
               </div>
               <div className="history-list">
                 {achievements.map((achievement) => (
@@ -4018,16 +5298,25 @@ async function bootstrap(nextToken: string) {
                       <strong>{achievement.title}</strong>
                       <div className="muted">{achievement.description}</div>
                       <div className="progress-bar" style={{ marginTop: 10 }}>
-                        <div className="progress-fill" style={{ width: `${percent(achievement.progress, achievement.target)}%` }} />
+                        <div
+                          className="progress-fill"
+                          style={{ width: `${percent(achievement.progress, achievement.target)}%` }}
+                        />
                       </div>
                       <div className="muted" style={{ marginTop: 6 }}>
                         {achievement.progress} / {achievement.target} · {achievement.completed ? "已完成" : "進行中"}
                       </div>
                     </div>
-                    <span className={`mini-pill ${achievement.completed ? "is-live" : ""}`}>{achievement.rewardSummary || "獎勵待定"}</span>
+                    <span className={`mini-pill ${achievement.completed ? "is-live" : ""}`}>
+                      {achievement.rewardSummary || "獎勵待定"}
+                    </span>
                   </div>
                 ))}
-                {achievements.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>成就內容尚未建立。</div> : null}
+                {achievements.length === 0 ? (
+                  <div className="empty-card" style={{ padding: 14 }}>
+                    成就內容尚未建立。
+                  </div>
+                ) : null}
               </div>
             </section>
           ) : null}
@@ -4035,12 +5324,19 @@ async function bootstrap(nextToken: string) {
           {activeNav === "messages" ? (
             <section className="section-stack">
               <div className="auth-tabs">
-                {([
-                  ["announcements", "公告"],
-                  ["notifications", "通知"],
-                  ["battles", "戰報"]
-                ] as Array<[MessageTab, string]>).map(([key, label]) => (
-                  <button key={key} className={messageTab === key ? "is-active" : ""} onClick={() => setMessageTab(key)} type="button">
+                {(
+                  [
+                    ["announcements", "公告"],
+                    ["notifications", "通知"],
+                    ["battles", "戰報"]
+                  ] as Array<[MessageTab, string]>
+                ).map(([key, label]) => (
+                  <button
+                    key={key}
+                    className={messageTab === key ? "is-active" : ""}
+                    onClick={() => setMessageTab(key)}
+                    type="button"
+                  >
                     {label}
                   </button>
                 ))}
@@ -4051,8 +5347,12 @@ async function bootstrap(nextToken: string) {
                   {announcements.map((announcement) => (
                     <div key={announcement.id} className="history-card" style={{ padding: 14 }}>
                       <strong>{announcement.title}</strong>
-                      <div className="muted" style={{ marginTop: 6 }}>{announcement.body}</div>
-                      <div className="muted" style={{ marginTop: 8 }}>{formatDate(announcement.createdAt)}</div>
+                      <div className="muted" style={{ marginTop: 6 }}>
+                        {announcement.body}
+                      </div>
+                      <div className="muted" style={{ marginTop: 8 }}>
+                        {formatDate(announcement.createdAt)}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -4063,8 +5363,12 @@ async function bootstrap(nextToken: string) {
                   {notifications.map((notice) => (
                     <div key={notice.id} className="history-card" style={{ padding: 14 }}>
                       <strong>{notice.title}</strong>
-                      <div className="muted" style={{ marginTop: 6 }}>{notice.body}</div>
-                      <div className="muted" style={{ marginTop: 8 }}>{formatDate(notice.createdAt)}</div>
+                      <div className="muted" style={{ marginTop: 6 }}>
+                        {notice.body}
+                      </div>
+                      <div className="muted" style={{ marginTop: 8 }}>
+                        {formatDate(notice.createdAt)}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -4076,11 +5380,16 @@ async function bootstrap(nextToken: string) {
                     <div key={battle.id} className="history-card table-row">
                       <div className="table-main">
                         <strong>{battle.bossName}</strong>
-                        <div className="muted">{battleContextLabel(battle.battleContext, battle.battleKind)} · 結果 {battle.winner === "players" ? "勝利" : "失敗"} · 共 {battle.totalTicks} 回合</div>
+                        <div className="muted">
+                          {battleContextLabel(battle.battleContext, battle.battleKind)} · 結果{" "}
+                          {battle.winner === "players" ? "勝利" : "失敗"} · 共 {battle.totalTicks} 回合
+                        </div>
                         <div className="muted">{formatDate(battle.createdAt)}</div>
                       </div>
                       <div className="table-actions">
-                        <button className="ghost-button" onClick={() => setDetailBattleRecord(battle)} type="button">詳情</button>
+                        <button className="ghost-button" onClick={() => setDetailBattleRecord(battle)} type="button">
+                          詳情
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -4095,9 +5404,15 @@ async function bootstrap(nextToken: string) {
                 <div className="form-grid" style={{ gridTemplateColumns: "minmax(0, 1fr) auto" }}>
                   <label className="field">
                     <span>角色名稱</span>
-                    <input value={friendName} onChange={(event) => setFriendName(event.target.value)} placeholder="直接輸入角色名稱" />
+                    <input
+                      value={friendName}
+                      onChange={(event) => setFriendName(event.target.value)}
+                      placeholder="直接輸入角色名稱"
+                    />
                   </label>
-                  <button className="primary-button" onClick={() => void handleAddFriend()} type="button">新增好友</button>
+                  <button className="primary-button" onClick={() => void handleAddFriend()} type="button">
+                    新增好友
+                  </button>
                 </div>
               </div>
               <div className="member-grid">
@@ -4112,14 +5427,21 @@ async function bootstrap(nextToken: string) {
             </section>
           ) : null}
 
-                    {activeNav === "shop" ? (
+          {activeNav === "shop" ? (
             <section className="section-stack">
               <div className="auth-tabs">
-                {([
-                  ["npc", "NPC 商店"],
-                  ["market", "玩家市場"]
-                ] as Array<[ShopTab, string]>).map(([key, label]) => (
-                  <button key={key} className={shopTab === key ? "is-active" : ""} onClick={() => setShopTab(key)} type="button">
+                {(
+                  [
+                    ["npc", "NPC 商店"],
+                    ["market", "玩家市場"]
+                  ] as Array<[ShopTab, string]>
+                ).map(([key, label]) => (
+                  <button
+                    key={key}
+                    className={shopTab === key ? "is-active" : ""}
+                    onClick={() => setShopTab(key)}
+                    type="button"
+                  >
                     {label}
                   </button>
                 ))}
@@ -4129,7 +5451,10 @@ async function bootstrap(nextToken: string) {
                 <div className="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
                   <label className="field">
                     <span>分類</span>
-                    <select value={shopCategoryFilter} onChange={(event) => setShopCategoryFilter(event.target.value as ShopCategoryFilter)}>
+                    <select
+                      value={shopCategoryFilter}
+                      onChange={(event) => setShopCategoryFilter(event.target.value as ShopCategoryFilter)}
+                    >
                       <option value="all">全部</option>
                       <option value="weapon">主武器</option>
                       <option value="offhand">副武器</option>
@@ -4141,7 +5466,11 @@ async function bootstrap(nextToken: string) {
                   {shopTab === "market" ? (
                     <label className="field">
                       <span>賣家名稱</span>
-                      <input value={marketSellerFilter} onChange={(event) => setMarketSellerFilter(event.target.value)} placeholder="搜尋販賣者名稱" />
+                      <input
+                        value={marketSellerFilter}
+                        onChange={(event) => setMarketSellerFilter(event.target.value)}
+                        placeholder="搜尋販賣者名稱"
+                      />
                     </label>
                   ) : null}
                 </div>
@@ -4154,14 +5483,27 @@ async function bootstrap(nextToken: string) {
                       <div className="table-main">
                         <strong>{item.name}</strong>
                         <div className="muted">{item.description}</div>
-                        <div className="muted">{item.effectSummary} · 售價 {item.price}</div>
+                        <div className="muted">
+                          {item.effectSummary} · 售價 {item.price}
+                        </div>
                       </div>
                       <div className="table-actions">
-                        <button className="primary-button" onClick={() => void handlePurchase(item.id)} disabled={!isIdle(character)} type="button">購買</button>
+                        <button
+                          className="primary-button"
+                          onClick={() => void handlePurchase(item.id)}
+                          disabled={!isIdle(character)}
+                          type="button"
+                        >
+                          購買
+                        </button>
                       </div>
                     </div>
                   ))}
-                  {filteredShopItems.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>這個分類目前沒有商店物品</div> : null}
+                  {filteredShopItems.length === 0 ? (
+                    <div className="empty-card" style={{ padding: 14 }}>
+                      這個分類目前沒有商店物品
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -4172,61 +5514,161 @@ async function bootstrap(nextToken: string) {
                       <div className="table-main">
                         <strong>{listing.item.name}</strong>
                         <div className="muted">賣家 {listing.sellerCharacterName}</div>
-                        <div className="muted">數量 {listing.quantity} · 售價 {listing.price}</div>
+                        <div className="muted">
+                          數量 {listing.quantity} · 售價 {listing.price}
+                        </div>
                       </div>
                       <div className="table-actions">
-                        <button className="ghost-button" onClick={() => setDetailItem(listing.item)} type="button">詳情</button>
+                        <button className="ghost-button" onClick={() => setDetailItem(listing.item)} type="button">
+                          詳情
+                        </button>
                         {listing.sellerUserId === user.id ? (
-                          <button className="ghost-button" onClick={() => void handleCancelListing(listing.id)} disabled={!isIdle(character)} type="button">下架</button>
+                          <button
+                            className="ghost-button"
+                            onClick={() => void handleCancelListing(listing.id)}
+                            disabled={!isIdle(character)}
+                            type="button"
+                          >
+                            下架
+                          </button>
                         ) : (
-                          <button className="primary-button" onClick={() => void handleBuyListing(listing)} disabled={!isIdle(character)} type="button">購買</button>
+                          <button
+                            className="primary-button"
+                            onClick={() => void handleBuyListing(listing)}
+                            disabled={!isIdle(character)}
+                            type="button"
+                          >
+                            購買
+                          </button>
                         )}
                       </div>
                     </div>
                   ))}
-                  {visibleListings.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>目前沒有符合條件的玩家掛單</div> : null}
+                  {visibleListings.length === 0 ? (
+                    <div className="empty-card" style={{ padding: 14 }}>
+                      目前沒有符合條件的玩家掛單
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </section>
           ) : null}
 
-                    {activeNav === "admin" && user.role === "admin" ? (
+          {activeNav === "admin" && user.role === "admin" ? (
             <section className="section-stack">
               <div className="panel" style={{ padding: 16 }}>
                 <div className="auth-tabs">
-                  {([
-                    ["actions", "行動"],
-                    ["battle", "戰鬥"],
-                    ["items", "物品"],
-                    ["system", "系統"],
-                    ["factions", "陣營"]
-                  ] as Array<[AdminTab, string]>).map(([key, label]) => (
-                    <button key={key} className={adminTab === key ? "is-active" : ""} onClick={() => setAdminTab(key)} type="button">
+                  {(
+                    [
+                      ["actions", "行動"],
+                      ["battle", "戰鬥"],
+                      ["items", "物品"],
+                      ["system", "系統"],
+                      ["factions", "陣營"]
+                    ] as Array<[AdminTab, string]>
+                  ).map(([key, label]) => (
+                    <button
+                      key={key}
+                      className={adminTab === key ? "is-active" : ""}
+                      onClick={() => setAdminTab(key)}
+                      type="button"
+                    >
                       {label}
                     </button>
                   ))}
                 </div>
                 <label className="field" style={{ marginTop: 14 }}>
                   <span>目標角色名稱</span>
-                  <input value={adminTargetName} onChange={(event) => setAdminTargetName(event.target.value)} placeholder="輸入要操作的角色名稱" />
+                  <input
+                    value={adminTargetName}
+                    onChange={(event) => setAdminTargetName(event.target.value)}
+                    placeholder="輸入要操作的角色名稱"
+                  />
                 </label>
               </div>
 
               {adminTab === "actions" ? (
                 <div className="battle-actions">
-                  <button className="primary-button" onClick={() => void handleAdminAction(() => adminCompleteQueue(token, { targetCharacterName: adminTargetName }), "已完成目標角色的隊列")} type="button">立即完成隊列</button>
-                  <button className="secondary-button" onClick={() => void handleAdminAction(() => adminFillResources(token, { targetCharacterName: adminTargetName }), "已補滿 HP / MP / 精力")} type="button">補滿狀態</button>
+                  <button
+                    className="primary-button"
+                    onClick={() =>
+                      void handleAdminAction(
+                        () => adminCompleteQueue(token, { targetCharacterName: adminTargetName }),
+                        "已完成目標角色的隊列"
+                      )
+                    }
+                    type="button"
+                  >
+                    立即完成隊列
+                  </button>
+                  <button
+                    className="secondary-button"
+                    onClick={() =>
+                      void handleAdminAction(
+                        () => adminFillResources(token, { targetCharacterName: adminTargetName }),
+                        "已補滿 HP / MP / 精力"
+                      )
+                    }
+                    type="button"
+                  >
+                    補滿狀態
+                  </button>
                 </div>
               ) : null}
 
               {adminTab === "battle" ? (
                 <div className="panel" style={{ padding: 16 }}>
                   <div className="form-grid three-col">
-                    <label className="field"><span>怪物名稱</span><input value={adminBattleName} onChange={(event) => setAdminBattleName(event.target.value)} /></label>
-                    <label className="field"><span>HP</span><input type="number" min={1} max={numberLimits.monsterHp} step={1} value={adminBattleHp} onChange={(event) => setAdminBattleHp(clampedInputValue(event.target.value, 1, numberLimits.monsterHp))} /></label>
-                    <label className="field"><span>攻擊</span><input type="number" min={1} max={numberLimits.monsterAttack} step={1} value={adminBattleAttack} onChange={(event) => setAdminBattleAttack(clampedInputValue(event.target.value, 1, numberLimits.monsterAttack))} /></label>
+                    <label className="field">
+                      <span>怪物名稱</span>
+                      <input value={adminBattleName} onChange={(event) => setAdminBattleName(event.target.value)} />
+                    </label>
+                    <label className="field">
+                      <span>HP</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={numberLimits.monsterHp}
+                        step={1}
+                        value={adminBattleHp}
+                        onChange={(event) =>
+                          setAdminBattleHp(clampedInputValue(event.target.value, 1, numberLimits.monsterHp))
+                        }
+                      />
+                    </label>
+                    <label className="field">
+                      <span>攻擊</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={numberLimits.monsterAttack}
+                        step={1}
+                        value={adminBattleAttack}
+                        onChange={(event) =>
+                          setAdminBattleAttack(clampedInputValue(event.target.value, 1, numberLimits.monsterAttack))
+                        }
+                      />
+                    </label>
                   </div>
-                  <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleAdminAction(() => adminBattleTest(token, { targetCharacterName: adminTargetName, monsterName: adminBattleName, monsterHp: toClampedInt(adminBattleHp, 1, numberLimits.monsterHp, 1), monsterAttack: toClampedInt(adminBattleAttack, 1, numberLimits.monsterAttack, 1) }), "已啟動測試戰鬥")} type="button">啟動測試戰鬥</button>
+                  <button
+                    className="primary-button"
+                    style={{ marginTop: 12 }}
+                    onClick={() =>
+                      void handleAdminAction(
+                        () =>
+                          adminBattleTest(token, {
+                            targetCharacterName: adminTargetName,
+                            monsterName: adminBattleName,
+                            monsterHp: toClampedInt(adminBattleHp, 1, numberLimits.monsterHp, 1),
+                            monsterAttack: toClampedInt(adminBattleAttack, 1, numberLimits.monsterAttack, 1)
+                          }),
+                        "已啟動測試戰鬥"
+                      )
+                    }
+                    type="button"
+                  >
+                    啟動測試戰鬥
+                  </button>
                 </div>
               ) : null}
 
@@ -4235,35 +5677,226 @@ async function bootstrap(nextToken: string) {
                   <div className="panel" style={{ padding: 16 }}>
                     <strong>發送既有物品</strong>
                     <div className="form-grid two-col" style={{ marginTop: 12 }}>
-                      <label className="field"><span>鍛造配方</span><select value={adminRecipeId} onChange={(event) => setAdminRecipeId(event.target.value)}><option value="">不使用</option>{forgeOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</select></label>
-                      <label className="field"><span>商店物品</span><select value={adminShopItemId} onChange={(event) => setAdminShopItemId(event.target.value)}><option value="">不使用</option>{shopItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+                      <label className="field">
+                        <span>鍛造配方</span>
+                        <select value={adminRecipeId} onChange={(event) => setAdminRecipeId(event.target.value)}>
+                          <option value="">不使用</option>
+                          {forgeOptions.map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {option.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="field">
+                        <span>商店物品</span>
+                        <select value={adminShopItemId} onChange={(event) => setAdminShopItemId(event.target.value)}>
+                          <option value="">不使用</option>
+                          {shopItems.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                     </div>
-                    <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleAdminAction(() => adminGrantItem(token, { targetCharacterName: adminTargetName, recipeId: adminRecipeId || undefined, shopItemId: adminShopItemId || undefined }), "已發送物品")} type="button">發送物品</button>
+                    <button
+                      className="primary-button"
+                      style={{ marginTop: 12 }}
+                      onClick={() =>
+                        void handleAdminAction(
+                          () =>
+                            adminGrantItem(token, {
+                              targetCharacterName: adminTargetName,
+                              recipeId: adminRecipeId || undefined,
+                              shopItemId: adminShopItemId || undefined
+                            }),
+                          "已發送物品"
+                        )
+                      }
+                      type="button"
+                    >
+                      發送物品
+                    </button>
                   </div>
 
                   <div className="panel" style={{ padding: 16 }}>
                     <strong>自訂武器</strong>
                     <div className="form-grid three-col" style={{ marginTop: 12 }}>
-                      <label className="field"><span>名稱</span><input value={adminCustomWeaponName} onChange={(event) => setAdminCustomWeaponName(event.target.value)} /></label>
-                      <label className="field"><span>部位</span><select value={adminCustomWeaponSlot} onChange={(event) => setAdminCustomWeaponSlot(event.target.value as EquipmentSlotKey)}>{equipmentGroupOrder.map((slot) => <option key={slot} value={slot}>{slotLabel(slot)}</option>)}</select></label>
-                      <label className="field"><span>耐久</span><input type="number" min={1} max={numberLimits.durability} step={1} value={adminCustomWeaponDurability} onChange={(event) => setAdminCustomWeaponDurability(clampedInputValue(event.target.value, 1, numberLimits.durability))} /></label>
-                      <label className="field"><span>攻擊</span><input type="number" min={0} max={numberLimits.customStatBonus} step={1} value={adminCustomWeaponAttack} onChange={(event) => setAdminCustomWeaponAttack(clampedInputValue(event.target.value, 0, numberLimits.customStatBonus))} /></label>
-                      <label className="field"><span>防禦</span><input type="number" min={0} max={numberLimits.customStatBonus} step={1} value={adminCustomWeaponDefense} onChange={(event) => setAdminCustomWeaponDefense(clampedInputValue(event.target.value, 0, numberLimits.customStatBonus))} /></label>
-                      <label className="field"><span>運氣</span><input type="number" min={0} max={numberLimits.customStatBonus} step={1} value={adminCustomWeaponLuck} onChange={(event) => setAdminCustomWeaponLuck(clampedInputValue(event.target.value, 0, numberLimits.customStatBonus))} /></label>
-                      <label className="field"><span>智慧</span><input type="number" min={0} max={numberLimits.customStatBonus} step={1} value={adminCustomWeaponIntelligence} onChange={(event) => setAdminCustomWeaponIntelligence(clampedInputValue(event.target.value, 0, numberLimits.customStatBonus))} /></label>
-                      <label className="field"><span>韌性</span><input type="number" min={0} max={numberLimits.customStatBonus} step={1} value={adminCustomWeaponTenacity} onChange={(event) => setAdminCustomWeaponTenacity(clampedInputValue(event.target.value, 0, numberLimits.customStatBonus))} /></label>
+                      <label className="field">
+                        <span>名稱</span>
+                        <input
+                          value={adminCustomWeaponName}
+                          onChange={(event) => setAdminCustomWeaponName(event.target.value)}
+                        />
+                      </label>
+                      <label className="field">
+                        <span>部位</span>
+                        <select
+                          value={adminCustomWeaponSlot}
+                          onChange={(event) => setAdminCustomWeaponSlot(event.target.value as EquipmentSlotKey)}
+                        >
+                          {equipmentGroupOrder.map((slot) => (
+                            <option key={slot} value={slot}>
+                              {slotLabel(slot)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="field">
+                        <span>耐久</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={numberLimits.durability}
+                          step={1}
+                          value={adminCustomWeaponDurability}
+                          onChange={(event) =>
+                            setAdminCustomWeaponDurability(
+                              clampedInputValue(event.target.value, 1, numberLimits.durability)
+                            )
+                          }
+                        />
+                      </label>
+                      <label className="field">
+                        <span>攻擊</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={numberLimits.customStatBonus}
+                          step={1}
+                          value={adminCustomWeaponAttack}
+                          onChange={(event) =>
+                            setAdminCustomWeaponAttack(
+                              clampedInputValue(event.target.value, 0, numberLimits.customStatBonus)
+                            )
+                          }
+                        />
+                      </label>
+                      <label className="field">
+                        <span>防禦</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={numberLimits.customStatBonus}
+                          step={1}
+                          value={adminCustomWeaponDefense}
+                          onChange={(event) =>
+                            setAdminCustomWeaponDefense(
+                              clampedInputValue(event.target.value, 0, numberLimits.customStatBonus)
+                            )
+                          }
+                        />
+                      </label>
+                      <label className="field">
+                        <span>運氣</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={numberLimits.customStatBonus}
+                          step={1}
+                          value={adminCustomWeaponLuck}
+                          onChange={(event) =>
+                            setAdminCustomWeaponLuck(
+                              clampedInputValue(event.target.value, 0, numberLimits.customStatBonus)
+                            )
+                          }
+                        />
+                      </label>
+                      <label className="field">
+                        <span>智慧</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={numberLimits.customStatBonus}
+                          step={1}
+                          value={adminCustomWeaponIntelligence}
+                          onChange={(event) =>
+                            setAdminCustomWeaponIntelligence(
+                              clampedInputValue(event.target.value, 0, numberLimits.customStatBonus)
+                            )
+                          }
+                        />
+                      </label>
+                      <label className="field">
+                        <span>韌性</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={numberLimits.customStatBonus}
+                          step={1}
+                          value={adminCustomWeaponTenacity}
+                          onChange={(event) =>
+                            setAdminCustomWeaponTenacity(
+                              clampedInputValue(event.target.value, 0, numberLimits.customStatBonus)
+                            )
+                          }
+                        />
+                      </label>
                     </div>
-                    <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleAdminGrantCustomWeapon()} type="button">發送自訂武器</button>
+                    <button
+                      className="primary-button"
+                      style={{ marginTop: 12 }}
+                      onClick={() => void handleAdminGrantCustomWeapon()}
+                      type="button"
+                    >
+                      發送自訂武器
+                    </button>
                   </div>
 
                   <div className="panel" style={{ padding: 16 }}>
                     <strong>發送資源</strong>
                     <div className="form-grid three-col" style={{ marginTop: 12 }}>
-                      <label className="field"><span>金幣</span><input type="number" min={0} max={numberLimits.grantGold} step={1} value={adminGrantGold} onChange={(event) => setAdminGrantGold(clampedInputValue(event.target.value, 0, numberLimits.grantGold))} /></label>
-                      <label className="field"><span>資源種類</span><select value={adminResourceType} onChange={(event) => setAdminResourceType(event.target.value as MaterialType)}>{adminState?.resourceTypes.map((entry) => <option key={entry.type} value={entry.type}>{entry.name}</option>)}</select></label>
-                      <label className="field"><span>數量</span><input type="number" min={0} max={numberLimits.resourceQuantity} step={1} value={adminResourceQuantity} onChange={(event) => setAdminResourceQuantity(clampedInputValue(event.target.value, 0, numberLimits.resourceQuantity))} /></label>
+                      <label className="field">
+                        <span>金幣</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={numberLimits.grantGold}
+                          step={1}
+                          value={adminGrantGold}
+                          onChange={(event) =>
+                            setAdminGrantGold(clampedInputValue(event.target.value, 0, numberLimits.grantGold))
+                          }
+                        />
+                      </label>
+                      <label className="field">
+                        <span>資源種類</span>
+                        <select
+                          value={adminResourceType}
+                          onChange={(event) => setAdminResourceType(event.target.value as MaterialType)}
+                        >
+                          {adminState?.resourceTypes.map((entry) => (
+                            <option key={entry.type} value={entry.type}>
+                              {entry.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="field">
+                        <span>數量</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={numberLimits.resourceQuantity}
+                          step={1}
+                          value={adminResourceQuantity}
+                          onChange={(event) =>
+                            setAdminResourceQuantity(
+                              clampedInputValue(event.target.value, 0, numberLimits.resourceQuantity)
+                            )
+                          }
+                        />
+                      </label>
                     </div>
-                    <button className="secondary-button" style={{ marginTop: 12 }} onClick={() => void handleAdminGrantResources()} type="button">發送資源</button>
+                    <button
+                      className="secondary-button"
+                      style={{ marginTop: 12 }}
+                      onClick={() => void handleAdminGrantResources()}
+                      type="button"
+                    >
+                      發送資源
+                    </button>
                   </div>
                 </div>
               ) : null}
@@ -4273,33 +5906,245 @@ async function bootstrap(nextToken: string) {
                   <div className="panel" style={{ padding: 16 }}>
                     <strong>公告管理</strong>
                     <div className="form-grid two-col" style={{ marginTop: 12 }}>
-                      <label className="field"><span>公告標題</span><input value={adminAnnouncementTitle} onChange={(event) => setAdminAnnouncementTitle(event.target.value)} /></label>
-                      <label className="field"><span>公告內容</span><input value={adminAnnouncementBody} onChange={(event) => setAdminAnnouncementBody(event.target.value)} /></label>
+                      <label className="field">
+                        <span>公告標題</span>
+                        <input
+                          value={adminAnnouncementTitle}
+                          onChange={(event) => setAdminAnnouncementTitle(event.target.value)}
+                        />
+                      </label>
+                      <label className="field">
+                        <span>公告內容</span>
+                        <input
+                          value={adminAnnouncementBody}
+                          onChange={(event) => setAdminAnnouncementBody(event.target.value)}
+                        />
+                      </label>
                     </div>
-                    <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleAdminAction(() => adminCreateAnnouncement(token, { title: adminAnnouncementTitle, body: adminAnnouncementBody }), "已發布公告")} type="button">發布公告</button>
+                    <button
+                      className="primary-button"
+                      style={{ marginTop: 12 }}
+                      onClick={() =>
+                        void handleAdminAction(
+                          () =>
+                            adminCreateAnnouncement(token, {
+                              title: adminAnnouncementTitle,
+                              body: adminAnnouncementBody
+                            }),
+                          "已發布公告"
+                        )
+                      }
+                      type="button"
+                    >
+                      發布公告
+                    </button>
                   </div>
 
-                  {([
-                    ["daily", dailyConfigForm, setDailyConfigForm, "立即觸發每日獎勵", () => void handleAdminAction(() => adminTriggerDaily(token, user.id), "已觸發每日獎勵")],
-                    ["flash", flashConfigForm, setFlashConfigForm, "立即觸發突發活動", () => void handleAdminAction(() => adminTriggerFlashEvent(token, 20), "已觸發突發活動")]
-                  ] as const).map(([kind, config, setConfig, quickLabel, quickAction]) =>
+                  {(
+                    [
+                      [
+                        "daily",
+                        dailyConfigForm,
+                        setDailyConfigForm,
+                        "立即觸發每日獎勵",
+                        () => void handleAdminAction(() => adminTriggerDaily(token, user.id), "已觸發每日獎勵")
+                      ],
+                      [
+                        "flash",
+                        flashConfigForm,
+                        setFlashConfigForm,
+                        "立即觸發突發活動",
+                        () => void handleAdminAction(() => adminTriggerFlashEvent(token, 20), "已觸發突發活動")
+                      ]
+                    ] as const
+                  ).map(([kind, config, setConfig, quickLabel, quickAction]) =>
                     config ? (
                       <div key={kind} className="panel" style={{ padding: 16 }}>
                         <div className="panel-heading">
                           <strong>{kind === "daily" ? "每日獎勵設定" : "突發活動設定"}</strong>
-                          <button className="secondary-button" onClick={quickAction} type="button">{quickLabel}</button>
+                          <button className="secondary-button" onClick={quickAction} type="button">
+                            {quickLabel}
+                          </button>
                         </div>
                         <div className="form-grid three-col" style={{ marginTop: 12 }}>
-                          <label className="field"><span>標題</span><input value={config.title} onChange={(event) => setConfig((current) => current ? { ...current, title: event.target.value } : current)} /></label>
-                          <label className="field"><span>開始時間</span><input type="datetime-local" value={toDateTimeLocalValue(config.startAt)} onChange={(event) => setConfig((current) => current ? { ...current, startAt: event.target.value ? new Date(event.target.value).toISOString() : null } : current)} /></label>
-                          <label className="field"><span>結束時間</span><input type="datetime-local" value={toDateTimeLocalValue(config.endAt)} onChange={(event) => setConfig((current) => current ? { ...current, endAt: event.target.value ? new Date(event.target.value).toISOString() : null } : current)} /></label>
-                          <label className="field"><span>金幣</span><input type="number" min={0} max={numberLimits.grantGold} step={1} value={String(config.reward.gold || 0)} onChange={(event) => setConfig((current) => current ? { ...current, reward: { ...current.reward, gold: toClampedInt(event.target.value, 0, numberLimits.grantGold, 0) } } : current)} /></label>
-                          <label className="field"><span>資源種類</span><select value={config.reward.materials?.[0]?.materialType || "iron_ore"} onChange={(event) => setConfig((current) => current ? { ...current, reward: { ...current.reward, materials: [{ materialType: event.target.value as MaterialType, quantity: current.reward.materials?.[0]?.quantity || 1 }] } } : current)}>{adminState?.resourceTypes.map((entry) => <option key={entry.type} value={entry.type}>{entry.name}</option>)}</select></label>
-                          <label className="field"><span>資源數量</span><input type="number" min={0} max={numberLimits.resourceQuantity} step={1} value={String(config.reward.materials?.[0]?.quantity || 0)} onChange={(event) => setConfig((current) => current ? { ...current, reward: { ...current.reward, materials: [{ materialType: current.reward.materials?.[0]?.materialType || "iron_ore", quantity: toClampedInt(event.target.value, 0, numberLimits.resourceQuantity, 0) }] } } : current)} /></label>
-                          <label className="field"><span>附贈物品</span><select value={config.reward.itemGrants?.[0]?.shopItemId || ""} onChange={(event) => setConfig((current) => current ? { ...current, reward: { ...current.reward, itemGrants: event.target.value ? [{ shopItemId: event.target.value }] : [] } } : current)}><option value="">不使用</option>{shopItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-                          <label className="field"><span>啟用狀態</span><select value={config.active ? "on" : "off"} onChange={(event) => setConfig((current) => current ? { ...current, active: event.target.value === "on" } : current)}><option value="on">啟用</option><option value="off">停用</option></select></label>
+                          <label className="field">
+                            <span>標題</span>
+                            <input
+                              value={config.title}
+                              onChange={(event) =>
+                                setConfig((current) => (current ? { ...current, title: event.target.value } : current))
+                              }
+                            />
+                          </label>
+                          <label className="field">
+                            <span>開始時間</span>
+                            <input
+                              type="datetime-local"
+                              value={toDateTimeLocalValue(config.startAt)}
+                              onChange={(event) =>
+                                setConfig((current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        startAt: event.target.value ? new Date(event.target.value).toISOString() : null
+                                      }
+                                    : current
+                                )
+                              }
+                            />
+                          </label>
+                          <label className="field">
+                            <span>結束時間</span>
+                            <input
+                              type="datetime-local"
+                              value={toDateTimeLocalValue(config.endAt)}
+                              onChange={(event) =>
+                                setConfig((current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        endAt: event.target.value ? new Date(event.target.value).toISOString() : null
+                                      }
+                                    : current
+                                )
+                              }
+                            />
+                          </label>
+                          <label className="field">
+                            <span>金幣</span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={numberLimits.grantGold}
+                              step={1}
+                              value={String(config.reward.gold || 0)}
+                              onChange={(event) =>
+                                setConfig((current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        reward: {
+                                          ...current.reward,
+                                          gold: toClampedInt(event.target.value, 0, numberLimits.grantGold, 0)
+                                        }
+                                      }
+                                    : current
+                                )
+                              }
+                            />
+                          </label>
+                          <label className="field">
+                            <span>資源種類</span>
+                            <select
+                              value={config.reward.materials?.[0]?.materialType || "iron_ore"}
+                              onChange={(event) =>
+                                setConfig((current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        reward: {
+                                          ...current.reward,
+                                          materials: [
+                                            {
+                                              materialType: event.target.value as MaterialType,
+                                              quantity: current.reward.materials?.[0]?.quantity || 1
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    : current
+                                )
+                              }
+                            >
+                              {adminState?.resourceTypes.map((entry) => (
+                                <option key={entry.type} value={entry.type}>
+                                  {entry.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="field">
+                            <span>資源數量</span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={numberLimits.resourceQuantity}
+                              step={1}
+                              value={String(config.reward.materials?.[0]?.quantity || 0)}
+                              onChange={(event) =>
+                                setConfig((current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        reward: {
+                                          ...current.reward,
+                                          materials: [
+                                            {
+                                              materialType: current.reward.materials?.[0]?.materialType || "iron_ore",
+                                              quantity: toClampedInt(
+                                                event.target.value,
+                                                0,
+                                                numberLimits.resourceQuantity,
+                                                0
+                                              )
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    : current
+                                )
+                              }
+                            />
+                          </label>
+                          <label className="field">
+                            <span>附贈物品</span>
+                            <select
+                              value={config.reward.itemGrants?.[0]?.shopItemId || ""}
+                              onChange={(event) =>
+                                setConfig((current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        reward: {
+                                          ...current.reward,
+                                          itemGrants: event.target.value ? [{ shopItemId: event.target.value }] : []
+                                        }
+                                      }
+                                    : current
+                                )
+                              }
+                            >
+                              <option value="">不使用</option>
+                              {shopItems.map((item) => (
+                                <option key={item.id} value={item.id}>
+                                  {item.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="field">
+                            <span>啟用狀態</span>
+                            <select
+                              value={config.active ? "on" : "off"}
+                              onChange={(event) =>
+                                setConfig((current) =>
+                                  current ? { ...current, active: event.target.value === "on" } : current
+                                )
+                              }
+                            >
+                              <option value="on">啟用</option>
+                              <option value="off">停用</option>
+                            </select>
+                          </label>
                         </div>
-                        <button className="primary-button" style={{ marginTop: 12 }} onClick={() => void handleSaveRewardConfig(kind as "daily" | "flash")} type="button">儲存設定</button>
+                        <button
+                          className="primary-button"
+                          style={{ marginTop: 12 }}
+                          onClick={() => void handleSaveRewardConfig(kind as "daily" | "flash")}
+                          type="button"
+                        >
+                          儲存設定
+                        </button>
                       </div>
                     ) : null
                   )}
@@ -4312,7 +6157,20 @@ async function bootstrap(nextToken: string) {
                           <div className="muted">{announcement.body}</div>
                         </div>
                         <div className="table-actions">
-                          <button className="ghost-button" onClick={() => void handleAdminAction(() => adminToggleAnnouncement(token, { announcementId: announcement.id, active: !announcement.active }), "已更新公告狀態")} type="button">
+                          <button
+                            className="ghost-button"
+                            onClick={() =>
+                              void handleAdminAction(
+                                () =>
+                                  adminToggleAnnouncement(token, {
+                                    announcementId: announcement.id,
+                                    active: !announcement.active
+                                  }),
+                                "已更新公告狀態"
+                              )
+                            }
+                            type="button"
+                          >
                             {announcement.active ? "停用" : "啟用"}
                           </button>
                         </div>
@@ -4322,7 +6180,17 @@ async function bootstrap(nextToken: string) {
 
                   <div className="battle-actions">
                     {adminState?.classes.map((entry) => (
-                      <button key={entry.className} className="ghost-button" onClick={() => void handleAdminAction(() => adminToggleClass(token, { className: entry.className, active: !entry.active }), "已更新職業狀態") } type="button">
+                      <button
+                        key={entry.className}
+                        className="ghost-button"
+                        onClick={() =>
+                          void handleAdminAction(
+                            () => adminToggleClass(token, { className: entry.className, active: !entry.active }),
+                            "已更新職業狀態"
+                          )
+                        }
+                        type="button"
+                      >
                         {entry.label} · {entry.active ? "啟用" : "停用"}
                       </button>
                     ))}
@@ -4333,90 +6201,243 @@ async function bootstrap(nextToken: string) {
               {adminTab === "factions" ? (
                 <div className="panel" style={{ padding: 16 }}>
                   <div className="form-grid">
-                    <label className="field"><span>陣營</span><select value={adminFactionId} onChange={(event) => setAdminFactionId(event.target.value)}><option value="">請先選擇</option>{adminState?.factions.map((faction) => <option key={faction.id} value={faction.id}>{faction.name}</option>)}</select></label>
-                    <label className="field"><span>城池</span><select value={adminCastleId} onChange={(event) => setAdminCastleId(event.target.value)}><option value="">請先選擇</option>{adminState?.castles.map((castle) => <option key={castle.id} value={castle.id}>{castle.name}</option>)}</select></label>
-                    <label className="field"><span>新擁有陣營</span><select value={adminOwnerFactionId} onChange={(event) => setAdminOwnerFactionId(event.target.value)}><option value="">請先選擇</option>{adminState?.factions.map((faction) => <option key={faction.id} value={faction.id}>{faction.name}</option>)}</select></label>
+                    <label className="field">
+                      <span>陣營</span>
+                      <select value={adminFactionId} onChange={(event) => setAdminFactionId(event.target.value)}>
+                        <option value="">請先選擇</option>
+                        {adminState?.factions.map((faction) => (
+                          <option key={faction.id} value={faction.id}>
+                            {faction.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="field">
+                      <span>城池</span>
+                      <select value={adminCastleId} onChange={(event) => setAdminCastleId(event.target.value)}>
+                        <option value="">請先選擇</option>
+                        {adminState?.castles.map((castle) => (
+                          <option key={castle.id} value={castle.id}>
+                            {castle.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="field">
+                      <span>新擁有陣營</span>
+                      <select
+                        value={adminOwnerFactionId}
+                        onChange={(event) => setAdminOwnerFactionId(event.target.value)}
+                      >
+                        <option value="">請先選擇</option>
+                        {adminState?.factions.map((faction) => (
+                          <option key={faction.id} value={faction.id}>
+                            {faction.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   </div>
                   <div className="battle-actions" style={{ marginTop: 12 }}>
-                    <button className="primary-button" onClick={() => void handleAdminAction(() => adminAssignLeader(token, { factionId: adminFactionId, targetCharacterName: adminTargetName }), "已指派新領袖") } type="button">指派領袖</button>
-                    <button className="secondary-button" onClick={() => void handleAdminAction(() => adminAdjustTreasury(token, { factionId: adminFactionId, gold: 9999 }), "已補充公庫") } type="button">補充公庫</button>
-                    <button className="ghost-button" onClick={() => void handleAdminAction(() => adminSetCastleOwner(token, { castleId: adminCastleId, ownerFactionId: adminOwnerFactionId }), "已調整城池擁有權") } type="button">變更城池</button>
-                    <button className="ghost-button" onClick={() => void handleAdminAction(() => adminResetDiplomacy(token), "已重設外交") } type="button">重設外交</button>
+                    <button
+                      className="primary-button"
+                      onClick={() =>
+                        void handleAdminAction(
+                          () =>
+                            adminAssignLeader(token, {
+                              factionId: adminFactionId,
+                              targetCharacterName: adminTargetName
+                            }),
+                          "已指派新領袖"
+                        )
+                      }
+                      type="button"
+                    >
+                      指派領袖
+                    </button>
+                    <button
+                      className="secondary-button"
+                      onClick={() =>
+                        void handleAdminAction(
+                          () => adminAdjustTreasury(token, { factionId: adminFactionId, gold: 9999 }),
+                          "已補充公庫"
+                        )
+                      }
+                      type="button"
+                    >
+                      補充公庫
+                    </button>
+                    <button
+                      className="ghost-button"
+                      onClick={() =>
+                        void handleAdminAction(
+                          () =>
+                            adminSetCastleOwner(token, {
+                              castleId: adminCastleId,
+                              ownerFactionId: adminOwnerFactionId
+                            }),
+                          "已調整城池擁有權"
+                        )
+                      }
+                      type="button"
+                    >
+                      變更城池
+                    </button>
+                    <button
+                      className="ghost-button"
+                      onClick={() => void handleAdminAction(() => adminResetDiplomacy(token), "已重設外交")}
+                      type="button"
+                    >
+                      重設外交
+                    </button>
                   </div>
                 </div>
               ) : null}
             </section>
           ) : null}
 
-          {detailItem && detailModalRoot ? createPortal(
-            <div className="modal-overlay" onClick={() => setDetailItem(null)}>
-              <div className="detail-modal" onClick={(event) => event.stopPropagation()}>
-                <div className="panel-heading">
-                  <div>
-                    <strong>{detailItem.name}</strong>
-                    <div className="muted" style={{ marginTop: 6 }}>{inventoryRowSummary(detailItem)}</div>
-                  </div>
-                  <button className="ghost-button" onClick={() => setDetailItem(null)} type="button">關閉</button>
-                </div>
-                <div className="detail-list">
-                  <div><strong>基本類型</strong><div className="muted">{detailItem.category === "equipment" ? "裝備" : detailItem.category === "material" ? "材料" : detailItem.category === "manual" ? "秘笈" : "其他"}</div></div>
-                  <div><strong>屬性</strong><div className="muted">攻擊 {detailItem.attackBonus || 0} · 防禦 {detailItem.defenseBonus || 0} · 運氣 {detailItem.luckBonus || 0} · 耐久 {detailItem.maxDurability != null ? `${detailItem.durability ?? 0}/${detailItem.maxDurability}` : "-" } · 智慧 {itemIntelligence(detailItem)}</div></div>
-                  <div><strong>等級</strong><div className="muted">{detailItem.itemLevel ?? 1}</div></div>
-                  {detailItem.category !== "material" ? <div><strong>預設賣價</strong><div className="muted">{detailItem.sellPrice ?? 0}</div></div> : null}
-                  {detailItem.category !== "material" ? <div><strong>分解價錢</strong><div className="muted">{detailItem.salvagePrice ?? 0}</div></div> : null}
-                  <div><strong>製作方式與材料</strong><div className="muted">{craftSourceLabel(detailItem)}</div></div>
-                  {detailItem.category !== "material" ? (
-                    <div>
-                      <strong>製作人與製作時間</strong>
-                      <div className="muted">{detailItem.craftedBy || "未記錄"}{detailItem.craftedAt ? ` · ${formatDate(detailItem.craftedAt)}` : ""}</div>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </div>,
-            detailModalRoot
-          ) : null}
-
-          {detailBattleRecord && detailModalRoot ? createPortal(
-            <div className="modal-overlay" onClick={() => setDetailBattleRecord(null)}>
-              <div className="detail-modal detail-modal-wide" onClick={(event) => event.stopPropagation()}>
-                <div className="panel-heading">
-                  <div>
-                    <strong>{detailBattleRecord.bossName}</strong>
-                    <div className="muted" style={{ marginTop: 6 }}>結果 {detailBattleRecord.winner === "players" ? "勝利" : "失敗"} · {formatDate(detailBattleRecord.createdAt)}</div>
-                  </div>
-                  <button className="ghost-button" onClick={() => setDetailBattleRecord(null)} type="button">關閉</button>
-                </div>
-                <div className="detail-list">
-                  <div><strong>戰鬥摘要</strong><div className="muted">總回合 {detailBattleRecord.totalTicks} · 戰鬥時長 {Math.round(detailBattleRecord.durationMs / 1000)} 秒 · 類型 {battleContextLabel(detailBattleRecord.battleContext, detailBattleRecord.battleKind)}</div></div>
-                  <div>
-                    <strong>參戰者</strong>
-                    <div className="history-list" style={{ marginTop: 10 }}>
-                      {detailBattleRecord.participants.map((participant) => (
-                        <div key={participant.userId} className="history-card" style={{ padding: 12 }}>
-                          <strong>{participant.displayName}</strong>
-                          <div className="muted">傷害 {participant.damageDealt} · 承傷 {participant.damageTaken} · 治療 {participant.healingDone}</div>
+          {detailItem && detailModalRoot
+            ? createPortal(
+                <div className="modal-overlay" onClick={() => setDetailItem(null)}>
+                  <div className="detail-modal" onClick={(event) => event.stopPropagation()}>
+                    <div className="panel-heading">
+                      <div>
+                        <strong>{detailItem.name}</strong>
+                        <div className="muted" style={{ marginTop: 6 }}>
+                          {inventoryRowSummary(detailItem)}
                         </div>
-                      ))}
+                      </div>
+                      <button className="ghost-button" onClick={() => setDetailItem(null)} type="button">
+                        關閉
+                      </button>
+                    </div>
+                    <div className="detail-list">
+                      <div>
+                        <strong>基本類型</strong>
+                        <div className="muted">
+                          {detailItem.category === "equipment"
+                            ? "裝備"
+                            : detailItem.category === "material"
+                              ? "材料"
+                              : detailItem.category === "manual"
+                                ? "秘笈"
+                                : "其他"}
+                        </div>
+                      </div>
+                      <div>
+                        <strong>屬性</strong>
+                        <div className="muted">
+                          攻擊 {detailItem.attackBonus || 0} · 防禦 {detailItem.defenseBonus || 0} · 運氣{" "}
+                          {detailItem.luckBonus || 0} · 耐久{" "}
+                          {detailItem.maxDurability != null
+                            ? `${detailItem.durability ?? 0}/${detailItem.maxDurability}`
+                            : "-"}{" "}
+                          · 智慧 {itemIntelligence(detailItem)}
+                        </div>
+                      </div>
+                      <div>
+                        <strong>等級</strong>
+                        <div className="muted">{detailItem.itemLevel ?? 1}</div>
+                      </div>
+                      {detailItem.category !== "material" ? (
+                        <div>
+                          <strong>預設賣價</strong>
+                          <div className="muted">{detailItem.sellPrice ?? 0}</div>
+                        </div>
+                      ) : null}
+                      {detailItem.category !== "material" ? (
+                        <div>
+                          <strong>分解價錢</strong>
+                          <div className="muted">{detailItem.salvagePrice ?? 0}</div>
+                        </div>
+                      ) : null}
+                      <div>
+                        <strong>製作方式與材料</strong>
+                        <div className="muted">{craftSourceLabel(detailItem)}</div>
+                      </div>
+                      {detailItem.category !== "material" ? (
+                        <div>
+                          <strong>製作人與製作時間</strong>
+                          <div className="muted">
+                            {detailItem.craftedBy || "未記錄"}
+                            {detailItem.craftedAt ? ` · ${formatDate(detailItem.craftedAt)}` : ""}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
-                  <div>
-                    <strong>完整戰鬥紀錄</strong>
-                    <div className="history-list" style={{ marginTop: 10 }}>
-                      {visibleBattleLogs(detailBattleRecord.logs).map((log, index) => {
-                        const cleanLog = cleanBattleLog(log);
-                        return (
-                          <div key={`${detailBattleRecord.id}-${index}`} className={`history-card battle-log-card is-${battleLogTone(cleanLog)}`} style={{ padding: 10 }}>{cleanLog}</div>
-                        );
-                      })}
-                      {detailBattleRecord.logs.length === 0 ? <div className="empty-card" style={{ padding: 14 }}>目前沒有保存戰鬥紀錄。</div> : null}
+                </div>,
+                detailModalRoot
+              )
+            : null}
+
+          {detailBattleRecord && detailModalRoot
+            ? createPortal(
+                <div className="modal-overlay" onClick={() => setDetailBattleRecord(null)}>
+                  <div className="detail-modal detail-modal-wide" onClick={(event) => event.stopPropagation()}>
+                    <div className="panel-heading">
+                      <div>
+                        <strong>{detailBattleRecord.bossName}</strong>
+                        <div className="muted" style={{ marginTop: 6 }}>
+                          結果 {detailBattleRecord.winner === "players" ? "勝利" : "失敗"} ·{" "}
+                          {formatDate(detailBattleRecord.createdAt)}
+                        </div>
+                      </div>
+                      <button className="ghost-button" onClick={() => setDetailBattleRecord(null)} type="button">
+                        關閉
+                      </button>
+                    </div>
+                    <div className="detail-list">
+                      <div>
+                        <strong>戰鬥摘要</strong>
+                        <div className="muted">
+                          總回合 {detailBattleRecord.totalTicks} · 戰鬥時長{" "}
+                          {Math.round(detailBattleRecord.durationMs / 1000)} 秒 · 類型{" "}
+                          {battleContextLabel(detailBattleRecord.battleContext, detailBattleRecord.battleKind)}
+                        </div>
+                      </div>
+                      <div>
+                        <strong>參戰者</strong>
+                        <div className="history-list" style={{ marginTop: 10 }}>
+                          {detailBattleRecord.participants.map((participant) => (
+                            <div key={participant.userId} className="history-card" style={{ padding: 12 }}>
+                              <strong>{participant.displayName}</strong>
+                              <div className="muted">
+                                傷害 {participant.damageDealt} · 承傷 {participant.damageTaken} · 治療{" "}
+                                {participant.healingDone}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <strong>完整戰鬥紀錄</strong>
+                        <div className="history-list" style={{ marginTop: 10 }}>
+                          {visibleBattleLogs(detailBattleRecord.logs).map((log, index) => {
+                            const cleanLog = cleanBattleLog(log);
+                            return (
+                              <div
+                                key={`${detailBattleRecord.id}-${index}`}
+                                className={`history-card battle-log-card is-${battleLogTone(cleanLog)}`}
+                                style={{ padding: 10 }}
+                              >
+                                {cleanLog}
+                              </div>
+                            );
+                          })}
+                          {detailBattleRecord.logs.length === 0 ? (
+                            <div className="empty-card" style={{ padding: 14 }}>
+                              目前沒有保存戰鬥紀錄。
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>,
-            detailModalRoot
-          ) : null}
+                </div>,
+                detailModalRoot
+              )
+            : null}
         </main>
       </div>
     </div>

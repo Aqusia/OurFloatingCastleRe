@@ -37,7 +37,11 @@ body {
     linear-gradient(90deg, rgba(36, 215, 242, 0.035) 1px, transparent 1px),
     radial-gradient(circle at 52% 0%, rgba(36, 215, 242, 0.12), transparent 38%),
     linear-gradient(180deg, #060912 0%, #03060c 54%, #02040a 100%);
-  background-size: 72px 72px, 72px 72px, auto, auto;
+  background-size:
+    72px 72px,
+    72px 72px,
+    auto,
+    auto;
 }
 
 button,
@@ -109,9 +113,12 @@ input::placeholder {
   background:
     linear-gradient(rgba(36, 215, 242, 0.025) 1px, transparent 1px),
     linear-gradient(90deg, rgba(36, 215, 242, 0.02) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 42%),
-    var(--panel);
-  background-size: 32px 32px, 32px 32px, auto, auto;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 42%), var(--panel);
+  background-size:
+    32px 32px,
+    32px 32px,
+    auto,
+    auto;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.07),
     inset 0 0 0 1px rgba(36, 215, 242, 0.06),
@@ -280,7 +287,11 @@ h3 {
 .ghost-button,
 .room-card {
   cursor: pointer;
-  transition: transform 140ms ease, background 140ms ease, border-color 140ms ease, opacity 140ms ease;
+  transition:
+    transform 140ms ease,
+    background 140ms ease,
+    border-color 140ms ease,
+    opacity 140ms ease;
 }
 
 .auth-tabs button,
@@ -302,12 +313,12 @@ h3 {
 
 .auth-tabs button.is-active,
 .nav-button.is-active {
-  background:
-    linear-gradient(135deg, rgba(36, 215, 242, 0.2), rgba(255, 63, 168, 0.12)),
-    rgba(9, 15, 27, 0.98);
+  background: linear-gradient(135deg, rgba(36, 215, 242, 0.2), rgba(255, 63, 168, 0.12)), rgba(9, 15, 27, 0.98);
   color: #ffffff;
   border-color: var(--line-bright);
-  box-shadow: 0 0 0 1px rgba(36, 215, 242, 0.14), inset 0 -2px 0 var(--teal);
+  box-shadow:
+    0 0 0 1px rgba(36, 215, 242, 0.14),
+    inset 0 -2px 0 var(--teal);
 }
 
 .auth-tabs button:hover,
@@ -515,7 +526,6 @@ button:disabled {
   writing-mode: vertical-rl;
 }
 
-
 .nav-button {
   min-width: 68px;
   flex: 0 0 68px;
@@ -593,9 +603,7 @@ button:disabled {
   gap: 16px;
   align-items: center;
   border-color: rgba(241, 211, 79, 0.76);
-  background:
-    linear-gradient(90deg, rgba(241, 211, 79, 0.14), rgba(36, 215, 242, 0.04)),
-    rgba(12, 10, 7, 0.92);
+  background: linear-gradient(90deg, rgba(241, 211, 79, 0.14), rgba(36, 215, 242, 0.04)), rgba(12, 10, 7, 0.92);
 }
 
 .action-lock-copy {
@@ -715,6 +723,110 @@ button:disabled {
   content: "◆";
   margin-right: 12px;
   color: var(--gold);
+}
+
+.command-strip {
+  margin-bottom: 16px;
+  display: grid;
+  grid-template-columns: minmax(260px, 1.25fr) minmax(220px, 0.8fr) 128px minmax(320px, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  padding: 14px;
+  border: 1px solid rgba(36, 215, 242, 0.42);
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(36, 215, 242, 0.1), rgba(246, 216, 76, 0.04)), rgba(5, 9, 17, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 16px 32px rgba(0, 0, 0, 0.28);
+}
+
+.command-strip.is-locked {
+  border-color: rgba(241, 211, 79, 0.72);
+  background: linear-gradient(90deg, rgba(241, 211, 79, 0.14), rgba(255, 79, 111, 0.06)), rgba(12, 10, 7, 0.94);
+}
+
+.command-strip-main,
+.command-route,
+.command-timer,
+.command-resource-grid > div {
+  min-width: 0;
+  border: 1px solid rgba(101, 168, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(4, 8, 15, 0.58);
+}
+
+.command-strip-main {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 12px 14px;
+}
+
+.command-code,
+.command-route span,
+.command-timer span,
+.command-resource-grid span {
+  color: var(--gold);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.command-strip-main strong {
+  color: var(--text);
+  font-size: 1.08rem;
+  overflow-wrap: anywhere;
+}
+
+.command-strip-main p,
+.command-route small {
+  margin: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.command-route,
+.command-timer {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 12px;
+}
+
+.command-route strong,
+.command-timer strong,
+.command-resource-grid strong {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.command-timer {
+  text-align: right;
+}
+
+.command-timer strong {
+  color: var(--gold);
+  font-size: 1.2rem;
+}
+
+.command-resource-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.command-resource-grid > div {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 3px;
+  min-height: 76px;
+  padding: 10px;
+}
+
+.command-resource-grid svg {
+  color: var(--teal);
 }
 
 .page-title-bar {
@@ -1028,7 +1140,9 @@ button:disabled {
   border-radius: 8px;
   background: linear-gradient(180deg, rgba(40, 34, 20, 0.94), rgba(16, 20, 24, 0.92));
   color: var(--text);
-  box-shadow: 0 0 0 3px rgba(244, 210, 128, 0.14), 0 14px 30px rgba(0, 0, 0, 0.38);
+  box-shadow:
+    0 0 0 3px rgba(244, 210, 128, 0.14),
+    0 14px 30px rgba(0, 0, 0, 0.38);
   cursor: pointer;
   transform: translate(-50%, -50%);
 }
@@ -1058,7 +1172,9 @@ button:disabled {
 
 .map-challenge-node:hover {
   border-color: rgba(255, 232, 153, 0.9);
-  box-shadow: 0 0 0 4px rgba(244, 210, 128, 0.18), 0 18px 36px rgba(0, 0, 0, 0.44);
+  box-shadow:
+    0 0 0 4px rgba(244, 210, 128, 0.18),
+    0 18px 36px rgba(0, 0, 0, 0.44);
 }
 
 .castle-node.is-current .map-node-marker {
@@ -1179,9 +1295,7 @@ button:disabled {
   padding: 14px;
   border: 1px solid rgba(119, 98, 65, 0.72);
   border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(214, 173, 93, 0.09), transparent 42%),
-    rgba(16, 20, 21, 0.96);
+  background: linear-gradient(180deg, rgba(214, 173, 93, 0.09), transparent 42%), rgba(16, 20, 21, 0.96);
 }
 
 .castle-detail-header {
@@ -1252,9 +1366,7 @@ button:disabled {
   padding: 14px;
   border: 1px solid rgba(82, 99, 92, 0.86);
   border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 42%),
-    rgba(22, 29, 30, 0.96);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 42%), rgba(22, 29, 30, 0.96);
 }
 
 .battle-scene-card.scene-guild_boss {
@@ -1276,9 +1388,7 @@ button:disabled {
   gap: 12px;
   padding: 14px;
   border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(94, 198, 181, 0.18), rgba(214, 173, 93, 0.12)),
-    rgba(9, 13, 14, 0.64);
+  background: linear-gradient(135deg, rgba(94, 198, 181, 0.18), rgba(214, 173, 93, 0.12)), rgba(9, 13, 14, 0.64);
   border: 1px solid rgba(139, 180, 157, 0.28);
 }
 
@@ -1319,9 +1429,12 @@ button:disabled {
   background:
     linear-gradient(rgba(40, 215, 238, 0.055) 1px, transparent 1px),
     linear-gradient(90deg, rgba(40, 215, 238, 0.045) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 42%),
-    rgba(10, 14, 22, 0.96);
-  background-size: 48px 48px, 48px 48px, auto, auto;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 42%), rgba(10, 14, 22, 0.96);
+  background-size:
+    48px 48px,
+    48px 48px,
+    auto,
+    auto;
   border-color: rgba(85, 142, 184, 0.74);
 }
 
@@ -1480,10 +1593,13 @@ button:disabled {
 
 .tower-mode-card.is-active {
   border-color: var(--tower-cyan);
-  background:
-    linear-gradient(135deg, rgba(40, 215, 238, 0.16), rgba(246, 216, 76, 0.08)),
-    rgba(16, 22, 34, 0.9);
+  background: linear-gradient(135deg, rgba(40, 215, 238, 0.16), rgba(246, 216, 76, 0.08)), rgba(16, 22, 34, 0.9);
   box-shadow: 0 0 0 1px rgba(40, 215, 238, 0.18);
+}
+
+.tower-mode-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
 }
 
 .tower-lock-strip {
@@ -1522,17 +1638,128 @@ button:disabled {
   color: #ffe8a8;
 }
 
+.battle-lock-note.is-ready {
+  border-color: rgba(113, 231, 156, 0.36);
+  background: rgba(17, 42, 28, 0.34);
+  color: #dfffe9;
+}
+
+.battle-lock-note.is-locked {
+  border-color: rgba(241, 211, 79, 0.5);
+}
+
 .battle-lock-note span {
   color: var(--muted);
   font-size: 0.9rem;
 }
 
+.attack-director-panel {
+  padding: 16px;
+  border-color: rgba(36, 215, 242, 0.36);
+  background: linear-gradient(135deg, rgba(36, 215, 242, 0.08), rgba(246, 216, 76, 0.05)), rgba(9, 14, 24, 0.86);
+}
+
+.attack-director-panel.is-ready {
+  border-color: rgba(113, 231, 156, 0.5);
+}
+
+.attack-director-panel.is-locked {
+  border-color: rgba(241, 211, 79, 0.52);
+}
+
+.attack-director-panel.is-route {
+  border-color: rgba(101, 168, 255, 0.48);
+}
+
+.attack-director-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 124px auto;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.attack-director-copy,
+.attack-director-score,
+.attack-director-grid > div {
+  min-width: 0;
+  border: 1px solid rgba(101, 168, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(8, 13, 24, 0.66);
+}
+
+.attack-director-copy {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 12px 14px;
+}
+
+.attack-director-copy span,
+.attack-director-score span,
+.attack-director-grid span {
+  color: var(--gold);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.attack-director-copy strong {
+  font-size: 1.18rem;
+}
+
+.attack-director-copy p {
+  margin: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.attack-director-score {
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  padding: 12px;
+  text-align: right;
+}
+
+.attack-director-score strong {
+  color: var(--gold);
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.attack-director-score small {
+  color: var(--muted);
+}
+
+.attack-director-main > button {
+  min-width: 148px;
+  align-self: stretch;
+}
+
+.attack-director-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.attack-director-grid > div {
+  min-height: 58px;
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  padding: 10px 12px;
+}
+
+.attack-director-grid strong {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
 .boss-command-panel {
   padding: 16px;
   border-color: rgba(246, 216, 76, 0.36);
-  background:
-    linear-gradient(135deg, rgba(246, 216, 76, 0.08), rgba(36, 215, 242, 0.05)),
-    rgba(9, 14, 24, 0.82);
+  background: linear-gradient(135deg, rgba(246, 216, 76, 0.08), rgba(36, 215, 242, 0.05)), rgba(9, 14, 24, 0.82);
 }
 
 .boss-command-grid {
@@ -1550,9 +1777,7 @@ button:disabled {
   gap: 12px;
   border: 1px solid rgba(101, 168, 255, 0.24);
   border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(21, 30, 48, 0.74), rgba(8, 13, 24, 0.78)),
-    rgba(8, 13, 24, 0.72);
+  background: linear-gradient(180deg, rgba(21, 30, 48, 0.74), rgba(8, 13, 24, 0.78)), rgba(8, 13, 24, 0.72);
 }
 
 .boss-command-card.is-ready {
@@ -1767,9 +1992,7 @@ button:disabled {
 
 .forge-material-row.is-selected {
   border-color: rgba(246, 216, 76, 0.48);
-  background:
-    linear-gradient(135deg, rgba(246, 216, 76, 0.1), rgba(36, 215, 242, 0.06)),
-    rgba(8, 13, 24, 0.78);
+  background: linear-gradient(135deg, rgba(246, 216, 76, 0.1), rgba(36, 215, 242, 0.06)), rgba(8, 13, 24, 0.78);
 }
 
 .forge-material-row strong,
@@ -1780,21 +2003,26 @@ button:disabled {
 .skill-command-panel {
   padding: 16px;
   border-color: rgba(36, 215, 242, 0.46);
-  background:
-    linear-gradient(135deg, rgba(36, 215, 242, 0.08), rgba(246, 216, 76, 0.05)),
-    rgba(9, 14, 24, 0.84);
+  background: linear-gradient(135deg, rgba(36, 215, 242, 0.08), rgba(246, 216, 76, 0.05)), rgba(9, 14, 24, 0.84);
 }
 
 .skill-slot-card {
   margin-top: 12px;
   padding: 14px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: grid;
   gap: 14px;
   border: 1px solid rgba(246, 216, 76, 0.32);
   border-radius: 8px;
   background: rgba(246, 216, 76, 0.07);
+}
+
+.skill-slot-header,
+.special-slot-top {
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
 }
 
 .skill-slot-card span {
@@ -1807,6 +2035,32 @@ button:disabled {
   display: block;
   color: var(--gold);
   font-size: 1.12rem;
+}
+
+.special-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.special-slot {
+  min-width: 0;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(101, 168, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(8, 13, 24, 0.66);
+}
+
+.special-slot.is-equipped {
+  border-color: rgba(246, 216, 76, 0.46);
+  background: rgba(246, 216, 76, 0.08);
+}
+
+.special-slot .muted,
+.skill-slot-header .muted {
+  overflow-wrap: anywhere;
 }
 
 .skill-layout {
@@ -1838,9 +2092,7 @@ button:disabled {
 
 .skill-card.is-equipped {
   border-color: rgba(246, 216, 76, 0.52);
-  background:
-    linear-gradient(135deg, rgba(246, 216, 76, 0.1), rgba(36, 215, 242, 0.06)),
-    rgba(8, 13, 24, 0.78);
+  background: linear-gradient(135deg, rgba(246, 216, 76, 0.1), rgba(36, 215, 242, 0.06)), rgba(8, 13, 24, 0.78);
 }
 
 .skill-card-head {
@@ -1919,9 +2171,7 @@ button:disabled {
 
 .battle-log-card.is-special {
   border-left-color: var(--gold);
-  background:
-    linear-gradient(90deg, rgba(214, 173, 93, 0.14), transparent 55%),
-    var(--panel);
+  background: linear-gradient(90deg, rgba(214, 173, 93, 0.14), transparent 55%), var(--panel);
   animation: skillLogIn 220ms ease-out both;
 }
 
@@ -1935,26 +2185,20 @@ button:disabled {
 
 .battle-log-card.is-combo {
   border-left-color: #7fb8ff;
-  background:
-    linear-gradient(90deg, rgba(127, 184, 255, 0.12), transparent 55%),
-    var(--panel);
+  background: linear-gradient(90deg, rgba(127, 184, 255, 0.12), transparent 55%), var(--panel);
   animation: skillLogIn 200ms ease-out both;
 }
 
 .battle-log-card.is-crit {
   border-left-color: #ffb061;
-  background:
-    linear-gradient(90deg, rgba(255, 176, 97, 0.18), transparent 55%),
-    var(--panel);
+  background: linear-gradient(90deg, rgba(255, 176, 97, 0.18), transparent 55%), var(--panel);
   font-weight: 600;
   animation: critLogIn 260ms ease-out both;
 }
 
 .battle-log-card.is-finisher {
   border-left-color: #ff7f7f;
-  background:
-    linear-gradient(90deg, rgba(255, 127, 127, 0.2), rgba(214, 173, 93, 0.12) 60%, transparent),
-    var(--panel);
+  background: linear-gradient(90deg, rgba(255, 127, 127, 0.2), rgba(214, 173, 93, 0.12) 60%, transparent), var(--panel);
   font-weight: 700;
   animation: critLogIn 300ms ease-out both;
 }
@@ -1980,17 +2224,13 @@ button:disabled {
   margin-bottom: 14px;
   border: 1px solid rgba(127, 184, 255, 0.35);
   border-radius: 12px;
-  background:
-    radial-gradient(circle at 12% 50%, rgba(127, 184, 255, 0.16), transparent 60%),
-    var(--panel);
+  background: radial-gradient(circle at 12% 50%, rgba(127, 184, 255, 0.16), transparent 60%), var(--panel);
   overflow: hidden;
 }
 
 .combo-burst.is-finisher {
   border-color: rgba(255, 176, 97, 0.55);
-  background:
-    radial-gradient(circle at 12% 50%, rgba(255, 176, 97, 0.2), transparent 60%),
-    var(--panel);
+  background: radial-gradient(circle at 12% 50%, rgba(255, 176, 97, 0.2), transparent 60%), var(--panel);
 }
 
 .combo-counter {
@@ -2229,7 +2469,10 @@ button:disabled {
   background: rgba(25, 31, 32, 0.94);
   color: #e7eee8;
   cursor: pointer;
-  transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
+  transition:
+    transform 140ms ease,
+    background 140ms ease,
+    border-color 140ms ease;
 }
 
 .selector-card:hover,
@@ -2330,8 +2573,7 @@ button:disabled {
 
 .announcement-hero {
   background:
-    linear-gradient(135deg, rgba(94, 198, 181, 0.16) 0%, rgba(214, 173, 93, 0.12) 100%),
-    rgba(28, 34, 36, 0.94);
+    linear-gradient(135deg, rgba(94, 198, 181, 0.16) 0%, rgba(214, 173, 93, 0.12) 100%), rgba(28, 34, 36, 0.94);
 }
 
 .draggable-row {
@@ -2518,8 +2760,7 @@ button:disabled {
 .battle-stage {
   background:
     linear-gradient(145deg, rgba(94, 198, 181, 0.12), transparent 42%),
-    linear-gradient(215deg, rgba(217, 111, 104, 0.11), transparent 48%),
-    rgba(24, 30, 31, 0.95);
+    linear-gradient(215deg, rgba(217, 111, 104, 0.11), transparent 48%), rgba(24, 30, 31, 0.95);
 }
 
 .battle-stage-top {
@@ -2550,9 +2791,7 @@ button:disabled {
 }
 
 .boss-stage-card {
-  background:
-    linear-gradient(180deg, rgba(57, 31, 36, 0.55) 0%, rgba(43, 34, 54, 0.55) 100%),
-    rgba(34, 28, 39, 0.94);
+  background: linear-gradient(180deg, rgba(57, 31, 36, 0.55) 0%, rgba(43, 34, 54, 0.55) 100%), rgba(34, 28, 39, 0.94);
 }
 
 .signin-row {
@@ -2602,6 +2841,22 @@ button:disabled {
     margin-left: auto;
   }
 
+  .command-strip {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 0.7fr);
+  }
+
+  .attack-director-main {
+    grid-template-columns: minmax(0, 1fr) 124px;
+  }
+
+  .attack-director-main > button {
+    grid-column: 1 / -1;
+  }
+
+  .command-resource-grid {
+    grid-column: 1 / -1;
+  }
+
   .world-map-layout {
     grid-template-columns: 1fr;
   }
@@ -2626,6 +2881,7 @@ button:disabled {
   .tower-location-card,
   .tower-boss-card,
   .forge-material-row,
+  .special-slot-grid,
   .boss-command-top {
     grid-template-columns: 1fr;
   }
@@ -2694,6 +2950,27 @@ button:disabled {
     padding: 8px 10px;
   }
 
+  .command-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .command-timer {
+    text-align: left;
+  }
+
+  .command-resource-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .attack-director-main,
+  .attack-director-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .attack-director-score {
+    text-align: left;
+  }
+
   .tower-rating-card {
     align-items: flex-start;
     flex-direction: column;
@@ -2703,6 +2980,13 @@ button:disabled {
     min-width: 620px;
   }
 }
+
+@media (max-width: 560px) {
+  .command-resource-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .two-col {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }

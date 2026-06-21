@@ -18,7 +18,7 @@ export function rollAttackSpecialEvents(input: {
   lowestAllyHpRatio?: number | null;
 }) {
   const events: BattleSpecialEvent[] = [];
-  const extraDamage = 0;
+  let extraDamage = 0;
   let supportHealing = 0;
   let bossAttackModifier = 1;
 
@@ -34,7 +34,11 @@ export function rollAttackSpecialEvents(input: {
     });
   }
 
-  if (input.lowestAllyName && (input.lowestAllyHpRatio ?? 1) < 0.72 && roll(chance(0.04, input.stats.luck + input.stats.technique, 0.004, 0.24))) {
+  if (
+    input.lowestAllyName &&
+    (input.lowestAllyHpRatio ?? 1) < 0.72 &&
+    roll(chance(0.04, input.stats.luck + input.stats.technique, 0.004, 0.24))
+  ) {
     supportHealing = Math.max(4, Math.round(6 + input.stats.spirit * 0.8 + input.stats.luck * 0.4));
     events.push({
       kind: "ally_support",
@@ -42,6 +46,21 @@ export function rollAttackSpecialEvents(input: {
       label: "隊友支援",
       message: `${input.actorName} 支援 ${input.lowestAllyName}，回復 ${supportHealing} 點生命。`,
       impact: { healing: supportHealing }
+    });
+  }
+
+  if (roll(chance(0.03, input.stats.luck, 0.006, 0.24))) {
+    const twists = ["腳下一滑露出破綻", "踩到尖銳碎石", "被掉落補給箱砸中", "踩到樂高般的尖刺"];
+    const twist = twists[Math.floor(Math.random() * twists.length)];
+    const damage = Math.max(3, Math.round(input.baseDamage * (0.1 + Math.min(0.18, input.stats.luck * 0.004))));
+    extraDamage += damage;
+    bossAttackModifier = Math.min(bossAttackModifier, 0.94);
+    events.push({
+      kind: "lucky_twist",
+      actorUserId: input.actorUserId || null,
+      label: "幸運事故",
+      message: `${input.bossName} ${twist}，額外受到 ${damage} 點傷害。`,
+      impact: { damage, bossAttackModifier }
     });
   }
 
@@ -55,7 +74,8 @@ export function rollDangerDodge(input: {
   hpRatio: number;
   incomingDamage: number;
 }) {
-  if (input.hpRatio > 0.38 || !roll(chance(0.06, input.stats.luck, 0.01, 0.38))) {
+  const dodgeStat = input.stats.luck + Math.floor(input.stats.spirit * 0.9) + Math.floor(input.stats.technique * 0.35);
+  if (input.hpRatio > 0.38 || !roll(chance(0.05, dodgeStat, 0.006, 0.42))) {
     return { event: null as BattleSpecialEvent | null, damageReduction: 0 };
   }
 
@@ -72,7 +92,68 @@ export function rollDangerDodge(input: {
   };
 }
 
-export function rollBossCounterEvent(input: { bossName: string; tick: number; livingCount: number; attackPower: number }) {
+export function rollBlockMitigation(input: {
+  actorUserId?: string | null;
+  actorName: string;
+  stats: CharacterStats;
+  incomingDamage: number;
+}) {
+  const blockStat =
+    input.stats.defense + Math.floor(input.stats.technique * 0.65) + Math.floor(input.stats.tenacity * 0.4);
+  if (!roll(chance(0.04, blockStat, 0.006, 0.38))) {
+    return { event: null as BattleSpecialEvent | null, damageReduction: 0 };
+  }
+
+  const reductionRate = Math.min(0.55, 0.22 + input.stats.defense * 0.004 + input.stats.tenacity * 0.003);
+  const damageReduction = Math.max(1, Math.round(input.incomingDamage * reductionRate));
+  return {
+    event: {
+      kind: "block",
+      actorUserId: input.actorUserId || null,
+      label: "格擋減傷",
+      message: `${input.actorName} 格擋攻擊，減免 ${damageReduction} 點傷害。`,
+      impact: { damageReduction }
+    } satisfies BattleSpecialEvent,
+    damageReduction
+  };
+}
+
+export function rollCounterStrike(input: {
+  actorUserId?: string | null;
+  actorName: string;
+  targetName: string;
+  stats: CharacterStats;
+  battleLevel: number;
+}) {
+  const counterStat = input.stats.technique + Math.floor(input.stats.spirit * 0.55);
+  if (!roll(chance(0.03, counterStat, 0.006, 0.34))) {
+    return { event: null as BattleSpecialEvent | null, damage: 0 };
+  }
+
+  const damage = Math.max(
+    3,
+    Math.round(
+      6 + input.stats.attack * 0.75 + input.stats.technique * 1.15 + input.stats.spirit * 0.35 + input.battleLevel * 1.5
+    )
+  );
+  return {
+    event: {
+      kind: "counter_strike",
+      actorUserId: input.actorUserId || null,
+      label: "技巧反擊",
+      message: `${input.actorName} 抓到空檔反擊 ${input.targetName}，造成 ${damage} 點傷害。`,
+      impact: { damage }
+    } satisfies BattleSpecialEvent,
+    damage
+  };
+}
+
+export function rollBossCounterEvent(input: {
+  bossName: string;
+  tick: number;
+  livingCount: number;
+  attackPower: number;
+}) {
   if (input.tick < 2 || !roll(Math.min(0.34, 0.12 + input.tick * 0.015))) {
     return null as BattleSpecialEvent | null;
   }
@@ -109,7 +190,18 @@ const CLASS_MOVE_POOLS: Record<CharacterClass, { moves: string[]; finishers: str
     finishers: ["終結技「奧術洪流」", "終結技「隕星墜落」"]
   },
   priest: {
-    moves: ["聖光彈", "裁決之鎚", "聖印衝擊", "光刃斬", "祈晨打擊", "淨化波", "聖環震盪", "輝光連打", "天啟之矛", "聖言轟鳴"],
+    moves: [
+      "聖光彈",
+      "裁決之鎚",
+      "聖印衝擊",
+      "光刃斬",
+      "祈晨打擊",
+      "淨化波",
+      "聖環震盪",
+      "輝光連打",
+      "天啟之矛",
+      "聖言轟鳴"
+    ],
     finishers: ["終結技「神罰降臨」", "終結技「晨曦審判」"]
   }
 };
@@ -119,22 +211,28 @@ export function comboCapForLevel(battleLevel: number) {
 }
 
 export function comboContinueChance(stats: CharacterStats, battleLevel: number) {
-  return Math.min(0.92, 0.5 + Math.max(0, stats.technique) * 0.012 + Math.max(0, battleLevel) * 0.006);
+  return Math.min(
+    0.94,
+    0.46 + Math.max(0, stats.technique) * 0.009 + Math.max(0, stats.spirit) * 0.014 + Math.max(0, battleLevel) * 0.006
+  );
 }
 
 export function comboMissChance(stats: CharacterStats) {
-  return Math.max(0.02, 0.1 - Math.max(0, stats.technique) * 0.004);
+  return Math.max(0.015, 0.11 - Math.max(0, stats.technique) * 0.003 - Math.max(0, stats.spirit) * 0.004);
 }
 
 export function critChance(stats: CharacterStats) {
-  return Math.min(0.35, 0.06 + Math.max(0, stats.luck) * 0.009);
+  return Math.min(
+    0.42,
+    0.05 + Math.max(0, stats.technique) * 0.008 + Math.max(0, stats.luck) * 0.004 + Math.max(0, stats.spirit) * 0.002
+  );
 }
 
 export function critMultiplier(stats: CharacterStats) {
-  return 1.5 + Math.min(0.6, Math.max(0, stats.luck) * 0.012);
+  return 1.45 + Math.min(0.65, Math.max(0, stats.luck) * 0.01 + Math.max(0, stats.intelligence) * 0.003);
 }
 
-/** 各職業的單擊基準傷害：攻擊吃物理職、智慧吃法師、精神吃補師，技巧全職業小幅加成 */
+/** 各職業的單擊基準傷害：攻擊吃物理職，智慧吃法師與技能，速度支撐補師節奏，技巧全職業小幅加成 */
 export function comboBaseDamageFor(className: CharacterClass, stats: CharacterStats, battleLevel = 1, roleBonus = 0) {
   const levelBonus = Math.floor(Math.max(1, battleLevel) / 2);
   if (className === "mage") {
@@ -144,7 +242,9 @@ export function comboBaseDamageFor(className: CharacterClass, stats: CharacterSt
     return 7 + Math.round(stats.attack * 1.2 + stats.technique * 1.0 + stats.luck * 0.4) + levelBonus + roleBonus;
   }
   if (className === "priest") {
-    return 6 + Math.round(stats.spirit * 1.1 + stats.intelligence * 0.8) + levelBonus + roleBonus;
+    return (
+      6 + Math.round(stats.attack * 0.35 + stats.spirit * 0.8 + stats.intelligence * 0.75) + levelBonus + roleBonus
+    );
   }
   return 8 + Math.round(stats.attack * 1.5 + stats.technique * 0.5) + levelBonus + roleBonus;
 }
@@ -218,7 +318,8 @@ export function resolveComboAttack(input: ComboAttackInput): ComboAttackResult {
 
     const isLastPossible = hitIndex === cap;
     const chainLongEnough = hitIndex >= 4;
-    const finisher = chainLongEnough && (isLastPossible || !roll(pContinue) || resourceSpent + 1 > input.availableResource);
+    const finisher =
+      chainLongEnough && (isLastPossible || !roll(pContinue) || resourceSpent + 1 > input.availableResource);
     let moveName = pickMove();
     if (finisher) {
       moveName = pool.finishers[Math.floor(Math.random() * pool.finishers.length)];
@@ -229,10 +330,12 @@ export function resolveComboAttack(input: ComboAttackInput): ComboAttackResult {
     hits.push({ index: hitIndex, moveName, damage, crit: isCrit, finisher });
     totalDamage += damage;
     if (finisher) {
-      logs.push(`${moveName}爆發！${input.actorName} 以 ${hitIndex} 連擊收尾，造成 ${damage} 點傷害，並壓低 ${input.targetName} 的攻勢。`);
+      logs.push(
+        `${moveName}爆發！${input.actorName} 以 ${hitIndex} 連擊收尾，造成 ${damage} 點傷害，並壓低 ${input.targetName} 的攻勢。`
+      );
       break;
     }
-    logs.push(`「${moveName}」第 ${hitIndex} 擊${isCrit ? "暴擊！" : ""}對 ${input.targetName} 造成 ${damage} 點傷害。`);
+    logs.push(`${input.actorName} 攻擊 ${input.targetName}${isCrit ? "，暴擊" : ""}，造成 ${damage} 點傷害。`);
   }
 
   const comboLength = hits.length;
@@ -270,9 +373,9 @@ export function resolveComboAttack(input: ComboAttackInput): ComboAttackResult {
   };
 }
 
-/** 防禦提供百分比減傷（遞減收益），韌性提供固定減傷 */
+/** 防禦提供百分比減傷與部分固定減傷，韌性提供心態型固定減傷 */
 export function mitigateIncomingDamage(rawDamage: number, stats: CharacterStats) {
   const percentReduction = Math.max(0, stats.defense) / (Math.max(0, stats.defense) + 80);
-  const flatReduction = Math.floor(Math.max(0, stats.tenacity) / 4);
+  const flatReduction = Math.floor(Math.max(0, stats.tenacity) / 4) + Math.floor(Math.max(0, stats.defense) / 10);
   return Math.max(1, Math.round(rawDamage * (1 - percentReduction)) - flatReduction);
 }

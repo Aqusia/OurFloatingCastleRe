@@ -214,6 +214,104 @@ header {
   background: rgba(18, 25, 27, 0.82);
 }
 
+.overview-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(212, 180, 107, 0.36);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(212, 180, 107, 0.11), rgba(102, 190, 160, 0.05)), rgba(18, 25, 27, 0.9);
+}
+
+.overview-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px minmax(220px, 0.62fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.overview-head h3 {
+  margin-top: 4px;
+}
+
+.overview-score,
+.overview-focus,
+.overview-card {
+  border: 1px solid rgba(151, 176, 164, 0.16);
+  border-radius: 8px;
+  background: rgba(8, 12, 14, 0.46);
+}
+
+.overview-score,
+.overview-focus {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 12px;
+}
+
+.overview-score span,
+.overview-focus span,
+.overview-card span {
+  color: #9fb1a8;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.overview-score strong {
+  color: #d4b46b;
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.overview-focus strong {
+  color: #edf4ef;
+}
+
+.overview-score small,
+.overview-focus small {
+  color: #b9c9c1;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.overview-card {
+  min-height: 132px;
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  padding: 12px;
+  text-align: left;
+}
+
+.overview-card strong {
+  color: #d4b46b;
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+.overview-card small {
+  color: #c7d3ce;
+}
+
+.overview-card em {
+  color: #9fb1a8;
+  font-size: 0.84rem;
+  font-style: normal;
+  line-height: 1.45;
+}
+
+.overview-card.is-active,
+.overview-card:hover {
+  border-color: rgba(212, 180, 107, 0.72);
+  background: linear-gradient(135deg, rgba(212, 180, 107, 0.12), rgba(102, 190, 160, 0.06)), rgba(8, 12, 14, 0.62);
+}
+
 .tuning-panel {
   display: grid;
   grid-template-columns: 190px minmax(0, 1fr) minmax(260px, 0.72fr);
@@ -221,9 +319,7 @@ header {
   padding: 16px;
   border: 1px solid rgba(212, 180, 107, 0.32);
   border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(212, 180, 107, 0.09), transparent 46%),
-    rgba(18, 25, 27, 0.88);
+  background: linear-gradient(135deg, rgba(212, 180, 107, 0.09), transparent 46%), rgba(18, 25, 27, 0.88);
 }
 
 .tuning-score,
@@ -284,6 +380,86 @@ header {
 .tuning-advice p {
   color: #b9c9c1;
   font-size: 0.9rem;
+}
+
+.character-tuning-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(102, 190, 160, 0.28);
+  border-radius: 8px;
+  background: rgba(18, 25, 27, 0.82);
+}
+
+.character-tuning-panel .panel-title {
+  align-items: center;
+}
+
+.character-tuning-grid,
+.character-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.admin-ops-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-ops-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(151, 176, 164, 0.15);
+  border-radius: 8px;
+  background: rgba(8, 12, 14, 0.42);
+}
+
+.admin-ops-card h4 {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.wide-op-card {
+  grid-column: 1 / -1;
+}
+
+.check-grid,
+.mini-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 10px;
+}
+
+.check-field {
+  display: flex !important;
+  grid-template-columns: none;
+  gap: 8px !important;
+  align-items: center;
+  color: #c7d3ce;
+}
+
+.check-field input {
+  width: auto;
+  min-height: auto;
+}
+
+.custom-equipment-grid {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+.character-tuning-panel label {
+  display: grid;
+  gap: 6px;
+}
+
+.character-tuning-panel label span {
+  color: #c7d3ce;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 .panel-title,
@@ -355,6 +531,14 @@ footer {
 }
 
 @media (max-width: 1180px) {
+  .overview-head {
+    grid-template-columns: 1fr;
+  }
+
+  .overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .tuning-panel {
     grid-template-columns: 1fr;
   }
@@ -395,6 +579,10 @@ footer {
 }
 
 @media (max-width: 560px) {
+  .overview-grid {
+    grid-template-columns: 1fr;
+  }
+
   .tuning-metrics {
     grid-template-columns: 1fr;
   }

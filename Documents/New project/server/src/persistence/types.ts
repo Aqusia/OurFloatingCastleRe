@@ -99,10 +99,7 @@ export type ActivityLogRecord = {
   occurred_at: string;
 };
 
-export type UpsertProfileInput = Pick<
-  ProfileRecord,
-  "id" | "email" | "display_name" | "avatar_url" | "last_seen_at"
->;
+export type UpsertProfileInput = Pick<ProfileRecord, "id" | "email" | "display_name" | "avatar_url" | "last_seen_at">;
 
 export type CreateCharacterInput = Pick<
   CharacterRecord,

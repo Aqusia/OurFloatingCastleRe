@@ -201,10 +201,7 @@ export function inferBattleWinner(room: RoomState, summary?: BattleSummary | nul
   return hasLivingMembers ? null : "boss";
 }
 
-export function summarizeTickMetadata(
-  event: BattleTickEvent,
-  summary?: BattleSummary | null
-): ActivityMetadata {
+export function summarizeTickMetadata(event: BattleTickEvent, summary?: BattleSummary | null): ActivityMetadata {
   return {
     tick: event.tick,
     roomId: event.roomId,

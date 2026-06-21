@@ -45,10 +45,7 @@ export interface RaidPersistenceRepository {
   createBattleRecord(input: CreateBattleRecordInput): Promise<BattleRecord>;
   updateBattleRecord(battleRecordId: string, input: UpdateBattleRecordInput): Promise<BattleRecord>;
   createBattleParticipant(input: CreateBattleParticipantInput): Promise<BattleParticipantRecord>;
-  updateBattleParticipant(
-    participantId: string,
-    input: UpdateBattleParticipantInput
-  ): Promise<BattleParticipantRecord>;
+  updateBattleParticipant(participantId: string, input: UpdateBattleParticipantInput): Promise<BattleParticipantRecord>;
   createActivityLog(input: CreateActivityLogInput): Promise<ActivityLogRecord>;
 }
 

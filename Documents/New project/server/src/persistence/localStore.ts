@@ -5,6 +5,7 @@ import type {
   ActionType,
   ActivityResult,
   AchievementProgress,
+  AdminAdjustCharacterPayload,
   AdminAdjustResourcesPayload,
   AdminAdjustTreasuryPayload,
   AdminAnnouncementPayload,
@@ -101,7 +102,9 @@ import {
   mitigateIncomingDamage,
   resolveComboAttack,
   rollAttackSpecialEvents,
+  rollBlockMitigation,
   rollBossCounterEvent,
+  rollCounterStrike,
   rollDangerDodge
 } from "../combatEngine";
 import {
@@ -137,10 +140,12 @@ import {
   nowIso,
   randomFrom,
   randomId,
+  resolveTimeStopWindow,
   seedCastles,
   gameplaySecondaryCharacterCatalog,
   gameplaySoloDifficulties,
   gameplaySpecialSkillCatalog,
+  hasEquippedTimeManual,
   setRuntimeGameConfig,
   starterEquipmentSlots,
   starterSecondaryCharacters,
@@ -199,6 +204,7 @@ type StoreData = {
 
 const dataDir = path.resolve(process.env.GAME_DATA_DIR || path.join(process.cwd(), "server", "data"));
 const dataFile = path.join(dataDir, "store.json");
+const SPECIAL_SKILL_SLOT_COUNT = 3;
 
 const GAME_LIMITS = {
   goldBalance: 999999,
@@ -313,6 +319,15 @@ const factionDefaults: Record<string, { name: string; description: string }> = {
 
 function normalizeGameConfig(rawConfig: any): GameConfig {
   const fallback = defaultGameConfig();
+  const appendMissingDefaults = <T extends { id: string }>(items: T[], defaults: T[]) => {
+    const ids = new Set(items.map((item) => item.id));
+    const missing = defaults.filter((entry) => !ids.has(entry.id));
+    if (missing.length > 0) {
+      storageNeedsMigration = true;
+      return [...items, ...missing];
+    }
+    return items;
+  };
   const normalizeSkills = (skills: any): SpecialSkillDefinition[] =>
     Array.isArray(skills)
       ? skills
@@ -320,7 +335,9 @@ function normalizeGameConfig(rawConfig: any): GameConfig {
             ...skill,
             id: String(skill?.id || "").trim(),
             name: String(skill?.name || skill?.id || "").trim(),
-            source: (["class", "secondary", "manual"].includes(skill?.source) ? skill.source : "secondary") as SpecialSkillDefinition["source"],
+            source: (["class", "secondary", "manual"].includes(skill?.source)
+              ? skill.source
+              : "secondary") as SpecialSkillDefinition["source"],
             detail: String(skill?.detail || ""),
             baseChance: skill?.baseChance == null ? undefined : clamp(Number(skill.baseChance), 0, 1),
             cooldownTurns: skill?.cooldownTurns == null ? undefined : clampedInt(skill.cooldownTurns, 0, 20, 2),
@@ -332,25 +349,32 @@ function normalizeGameConfig(rawConfig: any): GameConfig {
           }))
           .filter((skill) => skill.id && skill.name)
       : fallback.specialSkills;
-  const skills = normalizeSkills(rawConfig?.specialSkills);
+  const skills = appendMissingDefaults(normalizeSkills(rawConfig?.specialSkills), fallback.specialSkills);
   const skillIds = new Set(skills.map((skill) => skill.id));
-  const secondaryCharacters = Array.isArray(rawConfig?.secondaryCharacters)
-    ? rawConfig.secondaryCharacters
-        .map((entry: any) => ({
-          ...entry,
-          id: String(entry?.id || "").trim(),
-          name: String(entry?.name || entry?.id || "").trim(),
-          origin: String(entry?.origin || ""),
-          role: String(entry?.role || ""),
-          weapon: String(entry?.weapon || ""),
-          detail: String(entry?.detail || ""),
-          statBonus: entry?.statBonus || {},
-          unlockedSkillIds: Array.isArray(entry?.unlockedSkillIds) ? entry.unlockedSkillIds.filter((skillId: string) => skillIds.has(skillId)) : []
-        }))
-        .filter((entry: any) => entry.id && entry.name)
-    : fallback.secondaryCharacters;
+  const secondaryCharacters = appendMissingDefaults(
+    Array.isArray(rawConfig?.secondaryCharacters)
+      ? rawConfig.secondaryCharacters
+          .map((entry: any) => ({
+            ...entry,
+            id: String(entry?.id || "").trim(),
+            name: String(entry?.name || entry?.id || "").trim(),
+            origin: String(entry?.origin || ""),
+            role: String(entry?.role || ""),
+            weapon: String(entry?.weapon || ""),
+            detail: String(entry?.detail || ""),
+            statBonus: entry?.statBonus || {},
+            unlockedSkillIds: Array.isArray(entry?.unlockedSkillIds)
+              ? entry.unlockedSkillIds.filter((skillId: string) => skillIds.has(skillId))
+              : []
+          }))
+          .filter((entry: any) => entry.id && entry.name)
+      : fallback.secondaryCharacters,
+    fallback.secondaryCharacters
+  );
   const soloDefaults = defaultSoloDifficulties();
-  const soloDifficulties = (Object.keys(soloDefaults) as Array<keyof GameConfig["soloDifficulties"]>).reduce<GameConfig["soloDifficulties"]>((next, key) => {
+  const soloDifficulties = (Object.keys(soloDefaults) as Array<keyof GameConfig["soloDifficulties"]>).reduce<
+    GameConfig["soloDifficulties"]
+  >((next, key) => {
     const source = rawConfig?.soloDifficulties?.[key] || soloDefaults[key];
     next[key] = {
       label: String(source.label || soloDefaults[key].label),
@@ -367,10 +391,24 @@ function normalizeGameConfig(rawConfig: any): GameConfig {
   const rawSiege = rawConfig?.siegeRules || {};
   const towerFallback = fallback.towerRules;
   const rawTowerRules = rawConfig?.towerRules || {};
+  const isLegacyTowerEncounterDefaults =
+    Number(rawTowerRules.bossFindChanceRush) === 0.68 &&
+    Number(rawTowerRules.bossFindChanceHunt) === 0.42 &&
+    Number(rawTowerRules.minorBossChanceRush) === 0.14 &&
+    Number(rawTowerRules.minorBossChanceHunt) === 0.42;
+  if (isLegacyTowerEncounterDefaults) storageNeedsMigration = true;
   const playerAttackFallback = fallback.playerAttackRules;
   const rawPlayerAttackRules = rawConfig?.playerAttackRules || {};
-  const minGoldSteal = clampedInt(rawPlayerAttackRules.minGoldSteal, 0, GAME_LIMITS.grantGold, playerAttackFallback.minGoldSteal);
-  const maxGoldSteal = Math.max(minGoldSteal, clampedInt(rawPlayerAttackRules.maxGoldSteal, 0, GAME_LIMITS.grantGold, playerAttackFallback.maxGoldSteal));
+  const minGoldSteal = clampedInt(
+    rawPlayerAttackRules.minGoldSteal,
+    0,
+    GAME_LIMITS.grantGold,
+    playerAttackFallback.minGoldSteal
+  );
+  const maxGoldSteal = Math.max(
+    minGoldSteal,
+    clampedInt(rawPlayerAttackRules.maxGoldSteal, 0, GAME_LIMITS.grantGold, playerAttackFallback.maxGoldSteal)
+  );
   const worldBossFallback = fallback.worldBossRules;
   const rawWorldBossRules = rawConfig?.worldBossRules || {};
   const worldBossMaterialType = materialCatalog().some((entry) => entry.type === rawWorldBossRules.materialType)
@@ -383,8 +421,12 @@ function normalizeGameConfig(rawConfig: any): GameConfig {
   const statRules = (Object.keys(statFallback) as CharacterStatKey[]).reduce<GameConfig["statRules"]>((next, key) => {
     const source = rawStats[key] || {};
     next[key] = {
-      attackPower: Number.isFinite(Number(source.attackPower)) ? Number(source.attackPower) : statFallback[key].attackPower,
-      defensePower: Number.isFinite(Number(source.defensePower)) ? Number(source.defensePower) : statFallback[key].defensePower,
+      attackPower: Number.isFinite(Number(source.attackPower))
+        ? Number(source.attackPower)
+        : statFallback[key].attackPower,
+      defensePower: Number.isFinite(Number(source.defensePower))
+        ? Number(source.defensePower)
+        : statFallback[key].defensePower,
       sustain: Number.isFinite(Number(source.sustain)) ? Number(source.sustain) : statFallback[key].sustain,
       siege: Number.isFinite(Number(source.siege)) ? Number(source.siege) : statFallback[key].siege,
       growth: Number.isFinite(Number(source.growth)) ? Number(source.growth) : statFallback[key].growth,
@@ -396,8 +438,14 @@ function normalizeGameConfig(rawConfig: any): GameConfig {
     specialSkills: skills.length ? skills : fallback.specialSkills,
     secondaryCharacters: secondaryCharacters.length ? secondaryCharacters : fallback.secondaryCharacters,
     soloDifficulties,
-    shopItems: Array.isArray(rawConfig?.shopItems) && rawConfig.shopItems.length ? rawConfig.shopItems.map(normalizeShopItemConfig) : fallback.shopItems,
-    forgeOptions: Array.isArray(rawConfig?.forgeOptions) && rawConfig.forgeOptions.length ? rawConfig.forgeOptions.map(normalizeForgeOptionConfig) : fallback.forgeOptions,
+    shopItems:
+      Array.isArray(rawConfig?.shopItems) && rawConfig.shopItems.length
+        ? rawConfig.shopItems.map(normalizeShopItemConfig)
+        : fallback.shopItems,
+    forgeOptions:
+      Array.isArray(rawConfig?.forgeOptions) && rawConfig.forgeOptions.length
+        ? rawConfig.forgeOptions.map(normalizeForgeOptionConfig)
+        : fallback.forgeOptions,
     forgeRecipes:
       Array.isArray(rawConfig?.forgeRecipes) && rawConfig.forgeRecipes.length
         ? rawConfig.forgeRecipes
@@ -415,10 +463,21 @@ function normalizeGameConfig(rawConfig: any): GameConfig {
       durationMinutes: clampedInt(rawSiege.durationMinutes, 1, 240, siegeFallback.durationMinutes),
       tickIntervalSeconds: clampedInt(rawSiege.tickIntervalSeconds, 10, 600, siegeFallback.tickIntervalSeconds),
       baseEnergyCost: clampedInt(rawSiege.baseEnergyCost, 1, 100, siegeFallback.baseEnergyCost),
-      minorFortificationDamage: clampedInt(rawSiege.minorFortificationDamage, 0, 100, siegeFallback.minorFortificationDamage),
-      breakthroughMultiplier: Number.isFinite(Number(rawSiege.breakthroughMultiplier)) ? clamp(Number(rawSiege.breakthroughMultiplier), 0.01, 2) : siegeFallback.breakthroughMultiplier,
-      defenderTerrainMultiplier: Number.isFinite(Number(rawSiege.defenderTerrainMultiplier)) ? clamp(Number(rawSiege.defenderTerrainMultiplier), 0.5, 5) : siegeFallback.defenderTerrainMultiplier,
-      autoDefenseScaling: Number.isFinite(Number(rawSiege.autoDefenseScaling)) ? clamp(Number(rawSiege.autoDefenseScaling), 0, 5) : siegeFallback.autoDefenseScaling,
+      minorFortificationDamage: clampedInt(
+        rawSiege.minorFortificationDamage,
+        0,
+        100,
+        siegeFallback.minorFortificationDamage
+      ),
+      breakthroughMultiplier: Number.isFinite(Number(rawSiege.breakthroughMultiplier))
+        ? clamp(Number(rawSiege.breakthroughMultiplier), 0.01, 2)
+        : siegeFallback.breakthroughMultiplier,
+      defenderTerrainMultiplier: Number.isFinite(Number(rawSiege.defenderTerrainMultiplier))
+        ? clamp(Number(rawSiege.defenderTerrainMultiplier), 0.5, 5)
+        : siegeFallback.defenderTerrainMultiplier,
+      autoDefenseScaling: Number.isFinite(Number(rawSiege.autoDefenseScaling))
+        ? clamp(Number(rawSiege.autoDefenseScaling), 0, 5)
+        : siegeFallback.autoDefenseScaling,
       minAttackerEnergy: clampedInt(rawSiege.minAttackerEnergy, 0, 100, siegeFallback.minAttackerEnergy)
     },
     statRules,
@@ -428,27 +487,93 @@ function normalizeGameConfig(rawConfig: any): GameConfig {
       maxStepsRequired: clampedInt(rawTowerRules.maxStepsRequired, 3, 60, towerFallback.maxStepsRequired),
       rushEnergyCost: clampedInt(rawTowerRules.rushEnergyCost, 1, 100, towerFallback.rushEnergyCost),
       huntEnergyCost: clampedInt(rawTowerRules.huntEnergyCost, 1, 100, towerFallback.huntEnergyCost),
-      rushDoubleStepChance: Number.isFinite(Number(rawTowerRules.rushDoubleStepChance)) ? clamp(Number(rawTowerRules.rushDoubleStepChance), 0, 1) : towerFallback.rushDoubleStepChance,
-      rushSingleStepChance: Number.isFinite(Number(rawTowerRules.rushSingleStepChance)) ? clamp(Number(rawTowerRules.rushSingleStepChance), 0, 1) : towerFallback.rushSingleStepChance,
-      huntStepChance: Number.isFinite(Number(rawTowerRules.huntStepChance)) ? clamp(Number(rawTowerRules.huntStepChance), 0, 1) : towerFallback.huntStepChance,
-      bossFindChanceRush: Number.isFinite(Number(rawTowerRules.bossFindChanceRush)) ? clamp(Number(rawTowerRules.bossFindChanceRush), 0, 1) : towerFallback.bossFindChanceRush,
-      bossFindChanceHunt: Number.isFinite(Number(rawTowerRules.bossFindChanceHunt)) ? clamp(Number(rawTowerRules.bossFindChanceHunt), 0, 1) : towerFallback.bossFindChanceHunt,
-      minorBossChanceRush: Number.isFinite(Number(rawTowerRules.minorBossChanceRush)) ? clamp(Number(rawTowerRules.minorBossChanceRush), 0, 1) : towerFallback.minorBossChanceRush,
-      minorBossChanceHunt: Number.isFinite(Number(rawTowerRules.minorBossChanceHunt)) ? clamp(Number(rawTowerRules.minorBossChanceHunt), 0, 1) : towerFallback.minorBossChanceHunt,
-      bossHpMultiplier: Number.isFinite(Number(rawTowerRules.bossHpMultiplier)) ? clamp(Number(rawTowerRules.bossHpMultiplier), 0.2, 5) : towerFallback.bossHpMultiplier,
-      bossAttackMultiplier: Number.isFinite(Number(rawTowerRules.bossAttackMultiplier)) ? clamp(Number(rawTowerRules.bossAttackMultiplier), 0.2, 5) : towerFallback.bossAttackMultiplier,
-      rewardMultiplier: Number.isFinite(Number(rawTowerRules.rewardMultiplier)) ? clamp(Number(rawTowerRules.rewardMultiplier), 0.1, 5) : towerFallback.rewardMultiplier
+      rushDoubleStepChance: Number.isFinite(Number(rawTowerRules.rushDoubleStepChance))
+        ? clamp(Number(rawTowerRules.rushDoubleStepChance), 0, 1)
+        : towerFallback.rushDoubleStepChance,
+      rushSingleStepChance: Number.isFinite(Number(rawTowerRules.rushSingleStepChance))
+        ? clamp(Number(rawTowerRules.rushSingleStepChance), 0, 1)
+        : towerFallback.rushSingleStepChance,
+      huntStepChance: Number.isFinite(Number(rawTowerRules.huntStepChance))
+        ? clamp(Number(rawTowerRules.huntStepChance), 0, 1)
+        : towerFallback.huntStepChance,
+      bossFindChanceRush: isLegacyTowerEncounterDefaults
+        ? towerFallback.bossFindChanceRush
+        : Number.isFinite(Number(rawTowerRules.bossFindChanceRush))
+          ? clamp(Number(rawTowerRules.bossFindChanceRush), 0, 1)
+          : towerFallback.bossFindChanceRush,
+      bossFindChanceHunt: isLegacyTowerEncounterDefaults
+        ? towerFallback.bossFindChanceHunt
+        : Number.isFinite(Number(rawTowerRules.bossFindChanceHunt))
+          ? clamp(Number(rawTowerRules.bossFindChanceHunt), 0, 1)
+          : towerFallback.bossFindChanceHunt,
+      minorBossChanceRush: isLegacyTowerEncounterDefaults
+        ? towerFallback.minorBossChanceRush
+        : Number.isFinite(Number(rawTowerRules.minorBossChanceRush))
+          ? clamp(Number(rawTowerRules.minorBossChanceRush), 0, 1)
+          : towerFallback.minorBossChanceRush,
+      minorBossChanceHunt: isLegacyTowerEncounterDefaults
+        ? towerFallback.minorBossChanceHunt
+        : Number.isFinite(Number(rawTowerRules.minorBossChanceHunt))
+          ? clamp(Number(rawTowerRules.minorBossChanceHunt), 0, 1)
+          : towerFallback.minorBossChanceHunt,
+      bossHpMultiplier: Number.isFinite(Number(rawTowerRules.bossHpMultiplier))
+        ? clamp(Number(rawTowerRules.bossHpMultiplier), 0.2, 5)
+        : towerFallback.bossHpMultiplier,
+      bossAttackMultiplier: Number.isFinite(Number(rawTowerRules.bossAttackMultiplier))
+        ? clamp(Number(rawTowerRules.bossAttackMultiplier), 0.2, 5)
+        : towerFallback.bossAttackMultiplier,
+      rewardMultiplier: Number.isFinite(Number(rawTowerRules.rewardMultiplier))
+        ? clamp(Number(rawTowerRules.rewardMultiplier), 0.1, 5)
+        : towerFallback.rewardMultiplier,
+      checkpointInterval: clampedInt(rawTowerRules.checkpointInterval, 0, 10, towerFallback.checkpointInterval),
+      checkpointGold: clampedInt(rawTowerRules.checkpointGold, 0, GAME_LIMITS.grantGold, towerFallback.checkpointGold),
+      checkpointBattleExp: clampedInt(rawTowerRules.checkpointBattleExp, 0, 999999, towerFallback.checkpointBattleExp),
+      checkpointMaterialQuantity: clampedInt(
+        rawTowerRules.checkpointMaterialQuantity,
+        0,
+        GAME_LIMITS.resourceQuantity,
+        towerFallback.checkpointMaterialQuantity
+      )
     },
     playerAttackRules: {
       energyCost: clampedInt(rawPlayerAttackRules.energyCost, 1, 100, playerAttackFallback.energyCost),
       maxRounds: clampedInt(rawPlayerAttackRules.maxRounds, 1, 12, playerAttackFallback.maxRounds),
-      attackerWinBattleExp: clampedInt(rawPlayerAttackRules.attackerWinBattleExp, 0, 999999, playerAttackFallback.attackerWinBattleExp),
-      attackerLoseBattleExp: clampedInt(rawPlayerAttackRules.attackerLoseBattleExp, 0, 999999, playerAttackFallback.attackerLoseBattleExp),
-      defenderWinBattleExp: clampedInt(rawPlayerAttackRules.defenderWinBattleExp, 0, 999999, playerAttackFallback.defenderWinBattleExp),
-      defenderLoseBattleExp: clampedInt(rawPlayerAttackRules.defenderLoseBattleExp, 0, 999999, playerAttackFallback.defenderLoseBattleExp),
-      baseGoldSteal: clampedInt(rawPlayerAttackRules.baseGoldSteal, 0, GAME_LIMITS.grantGold, playerAttackFallback.baseGoldSteal),
-      goldStealPerBattleLevel: Number.isFinite(Number(rawPlayerAttackRules.goldStealPerBattleLevel)) ? clamp(Number(rawPlayerAttackRules.goldStealPerBattleLevel), 0, 9999) : playerAttackFallback.goldStealPerBattleLevel,
-      goldStealLuckMultiplier: Number.isFinite(Number(rawPlayerAttackRules.goldStealLuckMultiplier)) ? clamp(Number(rawPlayerAttackRules.goldStealLuckMultiplier), 0, 9999) : playerAttackFallback.goldStealLuckMultiplier,
+      attackerWinBattleExp: clampedInt(
+        rawPlayerAttackRules.attackerWinBattleExp,
+        0,
+        999999,
+        playerAttackFallback.attackerWinBattleExp
+      ),
+      attackerLoseBattleExp: clampedInt(
+        rawPlayerAttackRules.attackerLoseBattleExp,
+        0,
+        999999,
+        playerAttackFallback.attackerLoseBattleExp
+      ),
+      defenderWinBattleExp: clampedInt(
+        rawPlayerAttackRules.defenderWinBattleExp,
+        0,
+        999999,
+        playerAttackFallback.defenderWinBattleExp
+      ),
+      defenderLoseBattleExp: clampedInt(
+        rawPlayerAttackRules.defenderLoseBattleExp,
+        0,
+        999999,
+        playerAttackFallback.defenderLoseBattleExp
+      ),
+      baseGoldSteal: clampedInt(
+        rawPlayerAttackRules.baseGoldSteal,
+        0,
+        GAME_LIMITS.grantGold,
+        playerAttackFallback.baseGoldSteal
+      ),
+      goldStealPerBattleLevel: Number.isFinite(Number(rawPlayerAttackRules.goldStealPerBattleLevel))
+        ? clamp(Number(rawPlayerAttackRules.goldStealPerBattleLevel), 0, 9999)
+        : playerAttackFallback.goldStealPerBattleLevel,
+      goldStealLuckMultiplier: Number.isFinite(Number(rawPlayerAttackRules.goldStealLuckMultiplier))
+        ? clamp(Number(rawPlayerAttackRules.goldStealLuckMultiplier), 0, 9999)
+        : playerAttackFallback.goldStealLuckMultiplier,
       minGoldSteal,
       maxGoldSteal
     },
@@ -458,24 +583,72 @@ function normalizeGameConfig(rawConfig: any): GameConfig {
       bossAttack: clampedInt(rawWorldBossRules.bossAttack, 1, GAME_LIMITS.monsterAttack, worldBossFallback.bossAttack),
       maxRounds: clampedInt(rawWorldBossRules.maxRounds, 1, 30, worldBossFallback.maxRounds),
       rewardGold: clampedInt(rawWorldBossRules.rewardGold, 0, GAME_LIMITS.grantGold, worldBossFallback.rewardGold),
-      rewardMaterials: clampedInt(rawWorldBossRules.rewardMaterials, 0, GAME_LIMITS.resourceQuantity, worldBossFallback.rewardMaterials),
+      rewardMaterials: clampedInt(
+        rawWorldBossRules.rewardMaterials,
+        0,
+        GAME_LIMITS.resourceQuantity,
+        worldBossFallback.rewardMaterials
+      ),
       materialType: worldBossMaterialType,
-      firstWinPersonalGoldRate: Number.isFinite(Number(rawWorldBossRules.firstWinPersonalGoldRate)) ? clamp(Number(rawWorldBossRules.firstWinPersonalGoldRate), 0, 1) : worldBossFallback.firstWinPersonalGoldRate,
-      firstWinMaterialRate: Number.isFinite(Number(rawWorldBossRules.firstWinMaterialRate)) ? clamp(Number(rawWorldBossRules.firstWinMaterialRate), 0, 1) : worldBossFallback.firstWinMaterialRate,
-      firstWinBattleExp: clampedInt(rawWorldBossRules.firstWinBattleExp, 0, 999999, worldBossFallback.firstWinBattleExp),
-      repeatWinPersonalGold: clampedInt(rawWorldBossRules.repeatWinPersonalGold, 0, GAME_LIMITS.grantGold, worldBossFallback.repeatWinPersonalGold),
-      repeatWinGuildGold: clampedInt(rawWorldBossRules.repeatWinGuildGold, 0, GAME_LIMITS.grantGold, worldBossFallback.repeatWinGuildGold),
-      repeatWinBattleExp: clampedInt(rawWorldBossRules.repeatWinBattleExp, 0, 999999, worldBossFallback.repeatWinBattleExp),
-      lossPersonalGold: clampedInt(rawWorldBossRules.lossPersonalGold, 0, GAME_LIMITS.grantGold, worldBossFallback.lossPersonalGold),
-      lossGuildGold: clampedInt(rawWorldBossRules.lossGuildGold, 0, GAME_LIMITS.grantGold, worldBossFallback.lossGuildGold),
+      firstWinPersonalGoldRate: Number.isFinite(Number(rawWorldBossRules.firstWinPersonalGoldRate))
+        ? clamp(Number(rawWorldBossRules.firstWinPersonalGoldRate), 0, 1)
+        : worldBossFallback.firstWinPersonalGoldRate,
+      firstWinMaterialRate: Number.isFinite(Number(rawWorldBossRules.firstWinMaterialRate))
+        ? clamp(Number(rawWorldBossRules.firstWinMaterialRate), 0, 1)
+        : worldBossFallback.firstWinMaterialRate,
+      firstWinBattleExp: clampedInt(
+        rawWorldBossRules.firstWinBattleExp,
+        0,
+        999999,
+        worldBossFallback.firstWinBattleExp
+      ),
+      repeatWinPersonalGold: clampedInt(
+        rawWorldBossRules.repeatWinPersonalGold,
+        0,
+        GAME_LIMITS.grantGold,
+        worldBossFallback.repeatWinPersonalGold
+      ),
+      repeatWinGuildGold: clampedInt(
+        rawWorldBossRules.repeatWinGuildGold,
+        0,
+        GAME_LIMITS.grantGold,
+        worldBossFallback.repeatWinGuildGold
+      ),
+      repeatWinBattleExp: clampedInt(
+        rawWorldBossRules.repeatWinBattleExp,
+        0,
+        999999,
+        worldBossFallback.repeatWinBattleExp
+      ),
+      lossPersonalGold: clampedInt(
+        rawWorldBossRules.lossPersonalGold,
+        0,
+        GAME_LIMITS.grantGold,
+        worldBossFallback.lossPersonalGold
+      ),
+      lossGuildGold: clampedInt(
+        rawWorldBossRules.lossGuildGold,
+        0,
+        GAME_LIMITS.grantGold,
+        worldBossFallback.lossGuildGold
+      ),
       lossBattleExp: clampedInt(rawWorldBossRules.lossBattleExp, 0, 999999, worldBossFallback.lossBattleExp),
-      participationMaterials: clampedInt(rawWorldBossRules.participationMaterials, 0, GAME_LIMITS.resourceQuantity, worldBossFallback.participationMaterials)
+      participationMaterials: clampedInt(
+        rawWorldBossRules.participationMaterials,
+        0,
+        GAME_LIMITS.resourceQuantity,
+        worldBossFallback.participationMaterials
+      )
     },
     roomBossRules: {
       bossName: String(rawRoomBossRules.bossName || roomBossFallback.bossName).trim() || roomBossFallback.bossName,
       tickIntervalMs: clampedInt(rawRoomBossRules.tickIntervalMs, 500, 10000, roomBossFallback.tickIntervalMs),
-      hpMultiplier: Number.isFinite(Number(rawRoomBossRules.hpMultiplier)) ? clamp(Number(rawRoomBossRules.hpMultiplier), 0.2, 5) : roomBossFallback.hpMultiplier,
-      attackMultiplier: Number.isFinite(Number(rawRoomBossRules.attackMultiplier)) ? clamp(Number(rawRoomBossRules.attackMultiplier), 0.2, 5) : roomBossFallback.attackMultiplier,
+      hpMultiplier: Number.isFinite(Number(rawRoomBossRules.hpMultiplier))
+        ? clamp(Number(rawRoomBossRules.hpMultiplier), 0.2, 5)
+        : roomBossFallback.hpMultiplier,
+      attackMultiplier: Number.isFinite(Number(rawRoomBossRules.attackMultiplier))
+        ? clamp(Number(rawRoomBossRules.attackMultiplier), 0.2, 5)
+        : roomBossFallback.attackMultiplier,
       winBattleExp: clampedInt(rawRoomBossRules.winBattleExp, 0, 999999, roomBossFallback.winBattleExp),
       lossBattleExp: clampedInt(rawRoomBossRules.lossBattleExp, 0, 999999, roomBossFallback.lossBattleExp),
       winInstinctExp: clampedInt(rawRoomBossRules.winInstinctExp, 0, 999999, roomBossFallback.winInstinctExp),
@@ -537,19 +710,116 @@ function createEmptyQueue(): ActionQueueState {
   };
 }
 
-function starterAchievements(character: Pick<CharacterProfile, "instinctLevel">): AchievementProgress[] {
-  const level = Number(character.instinctLevel || 1);
-  return [
-    {
-      id: "level_5",
-      title: "達到 5 級",
-      description: "角色等級達到 5 級。",
-      progress: Math.min(level, 5),
-      target: 5,
-      completed: level >= 5,
-      completedAt: level >= 5 ? nowIso() : null,
-      rewardSummary: "待領取"
+function buildAchievement(
+  id: string,
+  title: string,
+  description: string,
+  progress: number,
+  target: number,
+  rewardSummary = "里程碑"
+): AchievementProgress {
+  const normalizedProgress = Math.min(Math.max(0, Math.floor(progress)), target);
+  const completed = normalizedProgress >= target;
+  return {
+    id,
+    title,
+    description,
+    progress: normalizedProgress,
+    target,
+    completed,
+    completedAt: completed ? nowIso() : null,
+    rewardSummary
+  };
+}
+
+function normalizeSpecialSkillSlots(rawSlots: any, legacySkillId: any): Array<string | null> {
+  const source = Array.isArray(rawSlots) ? rawSlots.slice(0, SPECIAL_SKILL_SLOT_COUNT) : [];
+  if (!source.length && typeof legacySkillId === "string") source.push(legacySkillId);
+
+  const used = new Set<string>();
+  const slots: Array<string | null> = [];
+  for (let index = 0; index < SPECIAL_SKILL_SLOT_COUNT; index += 1) {
+    const skillId = typeof source[index] === "string" && source[index].trim() ? source[index].trim() : null;
+    if (skillId && !used.has(skillId)) {
+      slots.push(skillId);
+      used.add(skillId);
+    } else {
+      slots.push(null);
     }
+  }
+  return slots;
+}
+
+function equippedSpecialSkillIds(character: Partial<CharacterProfile>): string[] {
+  const slotSource = Array.isArray(character.specialSkillSlots)
+    ? character.specialSkillSlots
+    : [character.specialSkillSlot];
+  return slotSource.filter((skillId): skillId is string => typeof skillId === "string" && skillId.length > 0);
+}
+
+function syncLegacySpecialSkillSlot(character: CharacterProfile) {
+  character.specialSkillSlot = equippedSpecialSkillIds(character)[0] || null;
+}
+
+function starterAchievements(character: Partial<CharacterProfile>): AchievementProgress[] {
+  const level = Number(character.instinctLevel || 1);
+  const secondaryCount = (character.secondaryCharacters || []).filter((slot) => slot.characterId).length;
+  const classMasteryMax = Math.max(
+    1,
+    ...Object.values(character.classMastery || {}).map((entry) => Number(entry.level || 1))
+  );
+  const specialSkillCount = equippedSpecialSkillIds(character).length;
+  return [
+    buildAchievement("level_5", "本能 5 級", "本能等級達到 5 級。", level, 5, "基礎成長"),
+    buildAchievement("level_15", "本能 15 級", "本能等級達到 15 級。", level, 15, "高階成長"),
+    buildAchievement(
+      "battle_level_5",
+      "戰鬥 5 級",
+      "戰鬥等級達到 5 級。",
+      Number(character.battleLevel || 1),
+      5,
+      "打王入門"
+    ),
+    buildAchievement(
+      "battle_level_15",
+      "戰鬥 15 級",
+      "戰鬥等級達到 15 級。",
+      Number(character.battleLevel || 1),
+      15,
+      "連擊上限"
+    ),
+    buildAchievement(
+      "forge_level_3",
+      "鍛造 3 級",
+      "鍛造等級達到 3 級。",
+      Number(character.forgeLevel || 1),
+      3,
+      "工坊熟練"
+    ),
+    buildAchievement("gold_1000", "小有資產", "持有 1000 金幣。", Number(character.gold || 0), 1000, "經濟目標"),
+    buildAchievement("hp_200", "耐打體質", "最大 HP 達到 200。", Number(character.maxHp || 0), 200, "生存目標"),
+    buildAchievement("speed_10", "速度 10", "速度達到 10。", Number(character.stats?.spirit || 0), 10, "時間系基礎"),
+    buildAchievement(
+      "technique_10",
+      "技巧 10",
+      "技巧達到 10。",
+      Number(character.stats?.technique || 0),
+      10,
+      "反擊基礎"
+    ),
+    buildAchievement("secondary_1", "夥伴上場", "裝備 1 名次要角色。", secondaryCount, 1, "角色槽"),
+    buildAchievement("secondary_3", "三槽成形", "裝備 3 名次要角色。", secondaryCount, 3, "完整隊列"),
+    buildAchievement("special_skill_equipped", "密技上身", "裝備 1 個特殊技能。", specialSkillCount, 1, "技能槽"),
+    buildAchievement(
+      "manual_equipped",
+      "秘籍入門",
+      "裝備 1 本秘籍 Buff。",
+      Number(character.equippedManuals?.length || 0),
+      1,
+      "秘籍槽"
+    ),
+    buildAchievement("class_mastery_5", "職業熟練", "任一職業熟練達到 5 級。", classMasteryMax, 5, "定位成長"),
+    buildAchievement("joined_faction", "加入陣營", "加入任一陣營。", character.factionId ? 1 : 0, 1, "公會玩法")
   ];
 }
 
@@ -558,7 +828,10 @@ function normalizeSecondaryCharacters(rawSlots: any): SecondaryCharacterSlot[] {
   return starterSecondaryCharacters().map((starter) => {
     const raw = slots.find((entry: any) => Number(entry?.slot) === starter.slot) || slots[starter.slot - 1] || {};
     const level = clampedInt(raw.level, 1, 99, 1);
-    const definition = typeof raw.characterId === "string" ? gameplaySecondaryCharacterCatalog().find((entry) => entry.id === raw.characterId) : null;
+    const definition =
+      typeof raw.characterId === "string"
+        ? gameplaySecondaryCharacterCatalog().find((entry) => entry.id === raw.characterId)
+        : null;
     const unlockedSkillIds = definition
       ? definition.unlockedSkillIds.filter((skillId) => {
           const skill = gameplaySpecialSkillCatalog().find((entry) => entry.id === skillId);
@@ -620,7 +893,7 @@ function normalizeEquippedManuals(rawManualIds: any, learnedManuals: LearnedManu
     .slice(0, 3);
 }
 
-function normalizeAchievements(rawAchievements: any, character: Pick<CharacterProfile, "instinctLevel">): AchievementProgress[] {
+function normalizeAchievements(rawAchievements: any, character: Partial<CharacterProfile>): AchievementProgress[] {
   const defaults = starterAchievements(character);
   if (!Array.isArray(rawAchievements)) return defaults;
   return defaults.map((entry) => {
@@ -650,7 +923,10 @@ function secondaryLevelMultiplier(level: number) {
   return 1 + Math.max(0, level - 1) * 0.12;
 }
 
-function secondaryAffinity(definition: { classAffinity?: Partial<Record<CharacterClass, number>> }, className: CharacterClass) {
+function secondaryAffinity(
+  definition: { classAffinity?: Partial<Record<CharacterClass, number>> },
+  className: CharacterClass
+) {
   return definition.classAffinity?.[className] ?? 1;
 }
 
@@ -659,7 +935,11 @@ function equippedPreferenceMultiplier(character: CharacterProfile, preferredSlot
   return preferredSlots.some((slot) => Boolean(character.equipmentSlots[slot])) ? 1.12 : 1;
 }
 
-function effectiveSecondaryStatBonus(character: CharacterProfile, slot: SecondaryCharacterSlot, definition: { statBonus: Partial<CharacterStats>; classAffinity?: Partial<Record<CharacterClass, number>> }) {
+function effectiveSecondaryStatBonus(
+  character: CharacterProfile,
+  slot: SecondaryCharacterSlot,
+  definition: { statBonus: Partial<CharacterStats>; classAffinity?: Partial<Record<CharacterClass, number>> }
+) {
   const multiplier = secondaryLevelMultiplier(slot.level) * secondaryAffinity(definition, character.className);
   const result: Partial<CharacterStats> = {};
   for (const key of Object.keys(definition.statBonus) as CharacterStatKey[]) {
@@ -1078,7 +1358,9 @@ function removeInventoryQuantity(character: CharacterProfile, itemId: string, qu
 }
 
 function materialItems(character: CharacterProfile) {
-  return character.inventory.filter((item) => item.category === "material" && item.materialType && (item.quantity || 0) > 0);
+  return character.inventory.filter(
+    (item) => item.category === "material" && item.materialType && (item.quantity || 0) > 0
+  );
 }
 
 function materialCountForType(character: CharacterProfile, type: MaterialType) {
@@ -1097,7 +1379,10 @@ function addMaterialRewards(character: CharacterProfile, materialTypes: Material
   return added;
 }
 
-function addMaterialResourceRewards(character: CharacterProfile, resources: Array<{ materialType: MaterialType; quantity: number }>) {
+function addMaterialResourceRewards(
+  character: CharacterProfile,
+  resources: Array<{ materialType: MaterialType; quantity: number }>
+) {
   const added: InventoryItem[] = [];
   for (const resource of resources) {
     const quantity = clampedInt(resource.quantity, 0, GAME_LIMITS.resourceQuantity, 0);
@@ -1147,7 +1432,11 @@ function buildAdminCustomWeapon(payload: NonNullable<AdminGrantItemPayload["cust
   });
 }
 
-function buildGrantedItem(grant: { recipeId?: string; shopItemId?: string; customWeapon?: AdminGrantItemPayload["customWeapon"] | null }) {
+function buildGrantedItem(grant: {
+  recipeId?: string;
+  shopItemId?: string;
+  customWeapon?: AdminGrantItemPayload["customWeapon"] | null;
+}) {
   if (grant.customWeapon) {
     return buildAdminCustomWeapon(grant.customWeapon);
   }
@@ -1293,9 +1582,12 @@ function normalizeCharacter(rawCharacter: any): CharacterProfile {
 
   const instinctLevel = Number(rawCharacter.instinctLevel || rawCharacter.level || 1);
   const normalizedManuals = normalizeLearnedManuals(rawCharacter.learnedManuals);
+  const specialSkillSlots = normalizeSpecialSkillSlots(rawCharacter.specialSkillSlots, rawCharacter.specialSkillSlot);
   const equipmentSlots = starterEquipmentSlots();
   for (const slot of Object.keys(equipmentSlots) as EquipmentSlotKey[]) {
-    equipmentSlots[slot] = rawCharacter.equipmentSlots?.[slot] ? normalizeItem(rawCharacter.equipmentSlots[slot]) : null;
+    equipmentSlots[slot] = rawCharacter.equipmentSlots?.[slot]
+      ? normalizeItem(rawCharacter.equipmentSlots[slot])
+      : null;
   }
 
   const character: CharacterProfile = {
@@ -1343,11 +1635,15 @@ function normalizeCharacter(rawCharacter: any): CharacterProfile {
         : starterStatusEffects(),
     subRoleSlots:
       Array.isArray(rawCharacter.subRoleSlots) && rawCharacter.subRoleSlots.length === 3
-        ? rawCharacter.subRoleSlots.map((slot: any) => ({ slot: slot.slot, item: slot.item ? normalizeItem(slot.item) : null }))
+        ? rawCharacter.subRoleSlots.map((slot: any) => ({
+            slot: slot.slot,
+            item: slot.item ? normalizeItem(slot.item) : null
+          }))
         : starterSubRoleSlots(),
     secondaryCharacters: normalizeSecondaryCharacters(rawCharacter.secondaryCharacters),
     classMastery: normalizeClassMastery(rawCharacter.classMastery, className),
-    specialSkillSlot: typeof rawCharacter.specialSkillSlot === "string" ? rawCharacter.specialSkillSlot : null,
+    specialSkillSlot: specialSkillSlots.find((skillId): skillId is string => Boolean(skillId)) || null,
+    specialSkillSlots,
     learnedManuals: normalizedManuals,
     equippedManuals: normalizeEquippedManuals(rawCharacter.equippedManuals, normalizedManuals),
     achievements: normalizeAchievements(rawCharacter.achievements, { instinctLevel }),
@@ -1379,10 +1675,7 @@ function normalizeCharacter(rawCharacter: any): CharacterProfile {
     character.actionQueue.updatedAt = nowIso();
     storageNeedsMigration = true;
   }
-  if (character.specialSkillSlot && !unlockedSpecialSkills(character).some((skill) => skill.id === character.specialSkillSlot)) {
-    character.specialSkillSlot = null;
-    storageNeedsMigration = true;
-  }
+  if (reconcileSpecialSkillSlots(character)) storageNeedsMigration = true;
   const rawNotificationCount = character.notifications.length;
   character.notifications = character.notifications.filter((entry) => !isLegacyFactionQueueNotification(entry));
   if (character.notifications.length !== rawNotificationCount) {
@@ -1390,7 +1683,10 @@ function normalizeCharacter(rawCharacter: any): CharacterProfile {
   }
 
   if (character.materials > 0 && !materialItems(character).length) {
-    addMaterialRewards(character, Array.from({ length: character.materials }, () => "iron_ore"));
+    addMaterialRewards(
+      character,
+      Array.from({ length: character.materials }, () => "iron_ore")
+    );
   }
 
   sortInventory(character);
@@ -1429,7 +1725,11 @@ function normalizeCastle(rawCastle: any): CastleState {
     autoDefensePower: clampedInt(rawCastle.autoDefensePower, 0, 99999, layer === 0 ? 95 : 45 + layer * 12),
     garrisonSlots: clampedInt(rawCastle.garrisonSlots, 0, 99, layer === 0 ? 8 : 3 + Math.max(0, 4 - layer)),
     siegeResistance: clampedInt(rawCastle.siegeResistance, 0, 9999, layer === 0 ? 24 : 10 + layer * 2),
-    bossSkills: Array.isArray(rawCastle.bossSkills) ? rawCastle.bossSkills : layer === 0 ? ["統領號令", "壁壘反擊", "士氣重整"] : ["重擊", "防禦姿態"],
+    bossSkills: Array.isArray(rawCastle.bossSkills)
+      ? rawCastle.bossSkills
+      : layer === 0
+        ? ["統領號令", "壁壘反擊", "士氣重整"]
+        : ["重擊", "防禦姿態"],
     rewardSummary,
     mapNodePurpose: rawCastle.mapNodePurpose || purposeByLayer[layer] || "trade",
     wallRepairAt: rawCastle.wallRepairAt || null,
@@ -1463,11 +1763,76 @@ function toPublicCharacter(character: CharacterProfile): CharacterProfile {
 
 function seedFactionStore(): StoredFaction[] {
   return [
-    { id: "faction_ember", name: "炎燼", color: "#e85d4f", description: "攻勢與鍛造導向。", leaderUserId: null, allyIds: [], warTargetIds: [], treasury: { gold: 0, materials: 0 }, tech: defaultFactionTech(), tower: defaultFactionTower("炎燼"), memberCount: 0, leaderDisplayName: null },
-    { id: "faction_tide", name: "潮汐", color: "#4f9fe8", description: "支援與資源調度導向。", leaderUserId: null, allyIds: [], warTargetIds: [], treasury: { gold: 0, materials: 0 }, tech: defaultFactionTech(), tower: defaultFactionTower("潮汐"), memberCount: 0, leaderDisplayName: null },
-    { id: "faction_gale", name: "翠風", color: "#62c67f", description: "速度與偵查導向。", leaderUserId: null, allyIds: [], warTargetIds: [], treasury: { gold: 0, materials: 0 }, tech: defaultFactionTech(), tower: defaultFactionTower("翠風"), memberCount: 0, leaderDisplayName: null },
-    { id: "faction_stone", name: "岩盾", color: "#b58952", description: "防守與城防工程導向。", leaderUserId: null, allyIds: [], warTargetIds: [], treasury: { gold: 0, materials: 0 }, tech: defaultFactionTech(), tower: defaultFactionTower("岩盾"), memberCount: 0, leaderDisplayName: null },
-    { id: "faction_lumen", name: "曦光", color: "#d7bb4f", description: "治療與外交協作導向。", leaderUserId: null, allyIds: [], warTargetIds: [], treasury: { gold: 0, materials: 0 }, tech: defaultFactionTech(), tower: defaultFactionTower("曦光"), memberCount: 0, leaderDisplayName: null }
+    {
+      id: "faction_ember",
+      name: "炎燼",
+      color: "#e85d4f",
+      description: "攻勢與鍛造導向。",
+      leaderUserId: null,
+      allyIds: [],
+      warTargetIds: [],
+      treasury: { gold: 0, materials: 0 },
+      tech: defaultFactionTech(),
+      tower: defaultFactionTower("炎燼"),
+      memberCount: 0,
+      leaderDisplayName: null
+    },
+    {
+      id: "faction_tide",
+      name: "潮汐",
+      color: "#4f9fe8",
+      description: "支援與資源調度導向。",
+      leaderUserId: null,
+      allyIds: [],
+      warTargetIds: [],
+      treasury: { gold: 0, materials: 0 },
+      tech: defaultFactionTech(),
+      tower: defaultFactionTower("潮汐"),
+      memberCount: 0,
+      leaderDisplayName: null
+    },
+    {
+      id: "faction_gale",
+      name: "翠風",
+      color: "#62c67f",
+      description: "速度與偵查導向。",
+      leaderUserId: null,
+      allyIds: [],
+      warTargetIds: [],
+      treasury: { gold: 0, materials: 0 },
+      tech: defaultFactionTech(),
+      tower: defaultFactionTower("翠風"),
+      memberCount: 0,
+      leaderDisplayName: null
+    },
+    {
+      id: "faction_stone",
+      name: "岩盾",
+      color: "#b58952",
+      description: "防守與城防工程導向。",
+      leaderUserId: null,
+      allyIds: [],
+      warTargetIds: [],
+      treasury: { gold: 0, materials: 0 },
+      tech: defaultFactionTech(),
+      tower: defaultFactionTower("岩盾"),
+      memberCount: 0,
+      leaderDisplayName: null
+    },
+    {
+      id: "faction_lumen",
+      name: "曦光",
+      color: "#d7bb4f",
+      description: "治療與外交協作導向。",
+      leaderUserId: null,
+      allyIds: [],
+      warTargetIds: [],
+      treasury: { gold: 0, materials: 0 },
+      tech: defaultFactionTech(),
+      tower: defaultFactionTower("曦光"),
+      memberCount: 0,
+      leaderDisplayName: null
+    }
   ].map(({ memberCount: _memberCount, leaderDisplayName: _leaderDisplayName, ...rest }) => rest);
 }
 
@@ -1482,18 +1847,21 @@ function normalizeSiege(raw: any): SiegeBattleState {
     endsAt: String(raw?.endsAt || nowIso()),
     lastResolvedTick: clampedInt(raw?.lastResolvedTick, 0, 999999, 0),
     participants: Array.isArray(raw?.participants)
-      ? raw.participants.map((participant: any) => ({
-          userId: String(participant?.userId || ""),
-          characterId: String(participant?.characterId || ""),
-          characterName: String(participant?.characterName || ""),
-          factionId: String(participant?.factionId || ""),
-          side: participant?.side === "defense" ? "defense" : "attack",
-          joinedAt: String(participant?.joinedAt || nowIso()),
-          status: participant?.status === "retreated" || participant?.status === "downed" ? participant.status : "active",
-          damageDealt: clampedInt(participant?.damageDealt, 0, GAME_LIMITS.monsterHp, 0),
-          damageTaken: clampedInt(participant?.damageTaken, 0, GAME_LIMITS.monsterHp, 0),
-          energySpent: clampedInt(participant?.energySpent, 0, GAME_LIMITS.resourceQuantity, 0)
-        })).filter((participant: SiegeParticipant) => participant.userId && participant.characterId)
+      ? raw.participants
+          .map((participant: any) => ({
+            userId: String(participant?.userId || ""),
+            characterId: String(participant?.characterId || ""),
+            characterName: String(participant?.characterName || ""),
+            factionId: String(participant?.factionId || ""),
+            side: participant?.side === "defense" ? "defense" : "attack",
+            joinedAt: String(participant?.joinedAt || nowIso()),
+            status:
+              participant?.status === "retreated" || participant?.status === "downed" ? participant.status : "active",
+            damageDealt: clampedInt(participant?.damageDealt, 0, GAME_LIMITS.monsterHp, 0),
+            damageTaken: clampedInt(participant?.damageTaken, 0, GAME_LIMITS.monsterHp, 0),
+            energySpent: clampedInt(participant?.energySpent, 0, GAME_LIMITS.resourceQuantity, 0)
+          }))
+          .filter((participant: SiegeParticipant) => participant.userId && participant.characterId)
       : [],
     logs: Array.isArray(raw?.logs)
       ? raw.logs.map((log: any) => ({
@@ -1691,7 +2059,7 @@ export async function resolveUserByCharacterName(characterName: string) {
 function baseCharacterFromPayload(user: StoredUser, payload: RegisterPayload): CharacterProfile {
   const stats = classBaseStats(payload.className);
   const level = 1;
-  return {
+  const character: CharacterProfile = {
     id: randomId("char"),
     userId: user.id,
     factionId: null,
@@ -1726,6 +2094,7 @@ function baseCharacterFromPayload(user: StoredUser, payload: RegisterPayload): C
     secondaryCharacters: starterSecondaryCharacters(),
     classMastery: normalizeClassMastery(null, payload.className),
     specialSkillSlot: null,
+    specialSkillSlots: Array.from({ length: SPECIAL_SKILL_SLOT_COUNT }, () => null),
     learnedManuals: [],
     equippedManuals: [],
     achievements: starterAchievements({ instinctLevel: 1 }),
@@ -1734,6 +2103,8 @@ function baseCharacterFromPayload(user: StoredUser, payload: RegisterPayload): C
     actionQueue: createEmptyQueue(),
     notifications: []
   };
+  grantJotaroLoginGift(character, false);
+  return character;
 }
 
 function appendNotification(character: CharacterProfile, kind: NotificationEntry["kind"], title: string, body: string) {
@@ -1746,6 +2117,33 @@ function appendNotification(character: CharacterProfile, kind: NotificationEntry
     read: false
   });
   character.notifications = character.notifications.slice(0, 120);
+}
+
+function grantJotaroLoginGift(character: CharacterProfile, notify = true) {
+  if (character.secondaryCharacters.some((slot) => slot.characterId === "jotaro")) return false;
+  const slot = character.secondaryCharacters.find((entry) => !entry.characterId);
+  const definition = gameplaySecondaryCharacterCatalog().find((entry) => entry.id === "jotaro");
+  if (!slot || !definition) return false;
+
+  slot.characterId = definition.id;
+  slot.level = Math.max(1, slot.level || 1);
+  slot.exp = Math.max(0, slot.exp || 0);
+  slot.lastTriggeredSkillId = null;
+  slot.cooldownUntilTick = null;
+  updateSecondaryUnlockedSkills(slot, definition.id);
+  applyStatBonus(character, effectiveSecondaryStatBonus(character, slot, definition), 1);
+  refreshCharacterLoadout(character);
+  recalcResources(character);
+  syncCharacterAchievements(character);
+  if (notify) {
+    appendNotification(
+      character,
+      "system",
+      "登入贈禮：承太郎",
+      "承太郎已加入次要角色槽，可在戰鬥中觸發歐拉歐拉與時間系技能。"
+    );
+  }
+  return true;
 }
 
 function syncQueueStatuses(character: CharacterProfile) {
@@ -1772,7 +2170,12 @@ function awardInstinctExperience(character: CharacterProfile, gained: number) {
     character.hp = character.maxHp;
     character.mp = character.maxMp;
     character.energy = character.maxEnergy;
-    appendNotification(character, "system", "本能升級", `${character.name} 的本能等級提升到 ${character.instinctLevel}`);
+    appendNotification(
+      character,
+      "system",
+      "本能升級",
+      `${character.name} 的本能等級提升到 ${character.instinctLevel}`
+    );
   }
   syncProgressionLevel(character);
 }
@@ -1831,7 +2234,10 @@ function actionEnergyCost(character: CharacterProfile, actionType: ActionType, d
 
   const randomDelta =
     actionType === "mine_shallow" || actionType === "mine_deep"
-      ? Array.from({ length: durationHours || 1 }, () => Math.floor(Math.random() * 3) - 1).reduce((sum, n) => sum + n, 0)
+      ? Array.from({ length: durationHours || 1 }, () => Math.floor(Math.random() * 3) - 1).reduce(
+          (sum, n) => sum + n,
+          0
+        )
       : Math.floor(Math.random() * 3) - 1;
 
   const levelModifier = 1 + Math.min(0.5, (character.instinctLevel - 1) * 0.02);
@@ -1927,7 +2333,9 @@ function recalibrateProjectEndsAt(project: FactionProject, nextContributorCount:
   const remainingMs = Math.max(5 * 60 * 1000, new Date(project.endsAt).getTime() - now);
   const currentCount = Math.max(1, project.contributorUserIds.length);
   const nextCount = Math.max(1, nextContributorCount);
-  project.endsAt = new Date(now + Math.max(5 * 60 * 1000, Math.round((remainingMs * currentCount) / nextCount))).toISOString();
+  project.endsAt = new Date(
+    now + Math.max(5 * 60 * 1000, Math.round((remainingMs * currentCount) / nextCount))
+  ).toISOString();
 }
 
 function processWorldProgress(data: StoreData) {
@@ -2066,11 +2474,15 @@ function buildFactionState(data: StoreData, userId: string): FactionState {
     castles: data.castles,
     garrisons: listCastleGarrisons(data, myFactionId),
     sieges: myFactionId
-      ? data.sieges.filter((siege) => siege.attackerFactionId === myFactionId || siege.defenderFactionId === myFactionId)
+      ? data.sieges.filter(
+          (siege) => siege.attackerFactionId === myFactionId || siege.defenderFactionId === myFactionId
+        )
       : [],
     projects: myFactionId ? data.factionProjects.filter((project) => project.factionId === myFactionId) : [],
     diplomacyRequests: myFactionId
-      ? data.diplomacyRequests.filter((request) => request.fromFactionId === myFactionId || request.toFactionId === myFactionId)
+      ? data.diplomacyRequests.filter(
+          (request) => request.fromFactionId === myFactionId || request.toFactionId === myFactionId
+        )
       : [],
     marketListings: listings,
     myFactionId,
@@ -2078,7 +2490,11 @@ function buildFactionState(data: StoreData, userId: string): FactionState {
   };
 }
 
-function nearbyPlayerRelation(data: StoreData, viewer: CharacterProfile, target: CharacterProfile): NearbyPlayerSummary["relation"] {
+function nearbyPlayerRelation(
+  data: StoreData,
+  viewer: CharacterProfile,
+  target: CharacterProfile
+): NearbyPlayerSummary["relation"] {
   if (viewer.factionId && target.factionId && viewer.factionId === target.factionId) return "same_faction";
   const viewerFaction = viewer.factionId ? data.factions.find((entry) => entry.id === viewer.factionId) : null;
   const targetFaction = target.factionId ? data.factions.find((entry) => entry.id === target.factionId) : null;
@@ -2103,10 +2519,16 @@ function nearbyAttackReason(data: StoreData, actor: CharacterProfile, target: Ch
   return null;
 }
 
-function buildNearbyPlayerSummary(data: StoreData, actor: CharacterProfile, target: CharacterProfile): NearbyPlayerSummary {
+function buildNearbyPlayerSummary(
+  data: StoreData,
+  actor: CharacterProfile,
+  target: CharacterProfile
+): NearbyPlayerSummary {
   const user = data.users.find((entry) => entry.id === target.userId) || null;
   const faction = target.factionId ? data.factions.find((entry) => entry.id === target.factionId) || null : null;
-  const castle = target.currentCastleId ? data.castles.find((entry) => entry.id === target.currentCastleId) || null : null;
+  const castle = target.currentCastleId
+    ? data.castles.find((entry) => entry.id === target.currentCastleId) || null
+    : null;
   const reason = nearbyAttackReason(data, actor, target);
   return {
     userId: target.userId,
@@ -2134,7 +2556,12 @@ function listNearbyPlayerSummaries(data: StoreData, actor: CharacterProfile): Ne
   return data.characters
     .filter((target) => target.userId !== actor.userId && target.currentCastleId === actor.currentCastleId)
     .map((target) => buildNearbyPlayerSummary(data, actor, target))
-    .sort((left, right) => Number(right.canAttack) - Number(left.canAttack) || right.battleLevel - left.battleLevel || left.characterName.localeCompare(right.characterName))
+    .sort(
+      (left, right) =>
+        Number(right.canAttack) - Number(left.canAttack) ||
+        right.battleLevel - left.battleLevel ||
+        left.characterName.localeCompare(right.characterName)
+    )
     .slice(0, 80);
 }
 
@@ -2162,7 +2589,11 @@ function pvpStrike(attacker: CharacterProfile, defender: CharacterProfile, round
   attacker.energy = clamp(attacker.energy - 2, 0, attacker.maxEnergy);
   return {
     damage,
-    logs: [`第 ${round} 回合：${attacker.name} 攻擊 ${defender.name}。`, ...combo.logs, `${defender.name} 防禦後承受 ${damage} 點傷害。`]
+    logs: [
+      `第 ${round} 回合：${attacker.name} 攻擊 ${defender.name}。`,
+      ...combo.logs,
+      `${defender.name} 防禦後承受 ${damage} 點傷害。`
+    ]
   };
 }
 
@@ -2188,7 +2619,11 @@ function runPlayerSkirmish(attacker: CharacterProfile, defender: CharacterProfil
     logs.push(...counter.logs);
   }
   const attackerWon = defender.hp <= 0 || (attacker.hp > 0 && attackerDamage >= defenderDamage);
-  logs.push(attackerWon ? `${attacker.name} 壓制 ${defender.name}，取得遭遇戰勝利。` : `${defender.name} 守住攻勢，${attacker.name} 撤退。`);
+  logs.push(
+    attackerWon
+      ? `${attacker.name} 壓制 ${defender.name}，取得遭遇戰勝利。`
+      : `${defender.name} 守住攻勢，${attacker.name} 撤退。`
+  );
   return {
     attackerWon,
     rounds: Math.max(1, rounds),
@@ -2220,8 +2655,13 @@ export async function attackNearbyPlayer(userId: string, payload: PlayerAttackPa
   character.energy = clamp(character.energy - rules.energyCost, 0, character.maxEnergy);
   const result = runPlayerSkirmish(character, target, rules.maxRounds);
   const goldStealCap = Math.max(rules.minGoldSteal, rules.maxGoldSteal);
-  const rawGoldSteal = rules.baseGoldSteal + character.battleLevel * rules.goldStealPerBattleLevel + character.stats.luck * rules.goldStealLuckMultiplier;
-  const gold = result.attackerWon ? Math.min(target.gold, Math.round(clamp(rawGoldSteal, rules.minGoldSteal, goldStealCap))) : 0;
+  const rawGoldSteal =
+    rules.baseGoldSteal +
+    character.battleLevel * rules.goldStealPerBattleLevel +
+    character.stats.luck * rules.goldStealLuckMultiplier;
+  const gold = result.attackerWon
+    ? Math.min(target.gold, Math.round(clamp(rawGoldSteal, rules.minGoldSteal, goldStealCap)))
+    : 0;
   const attackerBattleExp = result.attackerWon ? rules.attackerWinBattleExp : rules.attackerLoseBattleExp;
   const defenderBattleExp = result.attackerWon ? rules.defenderLoseBattleExp : rules.defenderWinBattleExp;
 
@@ -2279,8 +2719,20 @@ export async function attackNearbyPlayer(userId: string, payload: PlayerAttackPa
   };
   data.battleRecords.unshift(record);
   data.battleRecords = data.battleRecords.slice(0, 120);
-  appendNotification(character, "battle", "玩家遭遇", result.attackerWon ? `擊敗 ${target.name}，獲得 ${gold} 金幣。` : `${target.name} 守住了你的攻勢。`);
-  appendNotification(target, "battle", "玩家遭遇", result.attackerWon ? `${character.name} 在 ${castle?.name || "同據點"} 擊敗了你。` : `你守住了 ${character.name} 的攻擊。`);
+  appendNotification(
+    character,
+    "battle",
+    "玩家遭遇",
+    result.attackerWon ? `擊敗 ${target.name}，獲得 ${gold} 金幣。` : `${target.name} 守住了你的攻勢。`
+  );
+  appendNotification(
+    target,
+    "battle",
+    "玩家遭遇",
+    result.attackerWon
+      ? `${character.name} 在 ${castle?.name || "同據點"} 擊敗了你。`
+      : `你守住了 ${character.name} 的攻擊。`
+  );
   await persist();
   return {
     message: result.attackerWon ? `擊敗 ${target.name}` : `${target.name} 守住攻勢`,
@@ -2318,7 +2770,12 @@ function damageEquippedForBattle(character: CharacterProfile, tookDamage: boolea
   }
 }
 
-function completeAction(data: StoreData, character: CharacterProfile, item: StoredQueuedAction, isOnline: boolean): ActivityResult {
+function completeAction(
+  data: StoreData,
+  character: CharacterProfile,
+  item: StoredQueuedAction,
+  isOnline: boolean
+): ActivityResult {
   const multiplier = item.onlineBonusEligible && isOnline ? 1.2 : 1;
   const rewards: ActivityResult["rewards"] = {};
   let message = `${character.name} 完成了 ${item.label}。`;
@@ -2336,7 +2793,7 @@ function completeAction(data: StoreData, character: CharacterProfile, item: Stor
       luck: "運氣",
       intelligence: "智慧",
       vitality: "體力",
-      spirit: "精神",
+      spirit: "速度",
       technique: "技巧",
       tenacity: "韌性"
     })[key];
@@ -2354,7 +2811,7 @@ function completeAction(data: StoreData, character: CharacterProfile, item: Stor
     rewards.gold = roundReward(10, multiplier);
     character.gold += rewards.gold;
     awardInstinctExperience(character, rewards.instinctExp);
-    message = `${character.name} 完成釣魚訓練，技巧與精神提升。`;
+    message = `${character.name} 完成釣魚訓練，技巧與速度提升。`;
     notificationBody = `${message}\n獲得 ${rewards.gold} 金幣、${rewards.experience} 經驗、${rewards.instinctExp} 本能經驗。\n提升：${(rewards.statKeys || []).map(statLabel).join("、")}`;
   } else if (item.actionType === "jump_rope") {
     updateCharacterStat(character, "vitality", 1);
@@ -2402,7 +2859,7 @@ function completeAction(data: StoreData, character: CharacterProfile, item: Stor
     rewards.experience = roundReward(11, multiplier);
     rewards.instinctExp = Math.max(1, Math.round(rewards.experience * 0.35));
     awardInstinctExperience(character, rewards.instinctExp);
-    message = `${character.name} 完成沉思，運氣與精神更加集中。`;
+    message = `${character.name} 完成沉思，運氣與速度更加集中。`;
     notificationBody = `${message}\n獲得 ${rewards.experience} 經驗、${rewards.instinctExp} 本能經驗。\n提升：${(rewards.statKeys || []).map(statLabel).join("、")}`;
   } else if (item.actionType === "boxing") {
     updateCharacterStat(character, "attack", 1);
@@ -2423,9 +2880,21 @@ function completeAction(data: StoreData, character: CharacterProfile, item: Stor
     const prevHp = character.hp;
     const prevMp = character.mp;
     const prevEnergy = character.energy;
-    character.hp = clamp(character.hp + roundReward(Math.max(20, character.maxHp * 0.45), multiplier), 0, character.maxHp);
-    character.mp = clamp(character.mp + roundReward(Math.max(12, character.maxMp * 0.4), multiplier), 0, character.maxMp);
-    character.energy = clamp(character.energy + roundReward(Math.max(18, character.maxEnergy * 0.5), multiplier), 0, character.maxEnergy);
+    character.hp = clamp(
+      character.hp + roundReward(Math.max(20, character.maxHp * 0.45), multiplier),
+      0,
+      character.maxHp
+    );
+    character.mp = clamp(
+      character.mp + roundReward(Math.max(12, character.maxMp * 0.4), multiplier),
+      0,
+      character.maxMp
+    );
+    character.energy = clamp(
+      character.energy + roundReward(Math.max(18, character.maxEnergy * 0.5), multiplier),
+      0,
+      character.maxEnergy
+    );
     rewards.hpRestored = character.hp - prevHp;
     rewards.mpRestored = character.mp - prevMp;
     rewards.energyRestored = character.energy - prevEnergy;
@@ -2450,7 +2919,11 @@ function completeAction(data: StoreData, character: CharacterProfile, item: Stor
     rewards.experience = experience;
     rewards.instinctExp = Math.max(1, Math.round(experience * 0.4));
     awardInstinctExperience(character, rewards.instinctExp);
-    character.hp = clamp(character.hp - Math.ceil(hours * Math.max(1, (isDeep ? 6 : 3) - Math.floor(character.stats.tenacity / 8))), 0, character.maxHp);
+    character.hp = clamp(
+      character.hp - Math.ceil(hours * Math.max(1, (isDeep ? 6 : 3) - Math.floor(character.stats.tenacity / 8))),
+      0,
+      character.maxHp
+    );
     character.mp = clamp(character.mp - Math.ceil(hours * (isDeep ? 5 : 2)), 0, character.maxMp);
     damageEquippedForMining(character, hours);
     const dropSummary = addedItems.reduce<Record<string, number>>((summary, entry) => {
@@ -2476,7 +2949,12 @@ function completeAction(data: StoreData, character: CharacterProfile, item: Stor
   return result;
 }
 
-async function processCharacterQueueInternal(data: StoreData, character: CharacterProfile, isOnline: boolean, now = Date.now()) {
+async function processCharacterQueueInternal(
+  data: StoreData,
+  character: CharacterProfile,
+  isOnline: boolean,
+  now = Date.now()
+) {
   let changed = false;
   const completedActivities: ActivityResult[] = [];
   while (character.actionQueue.items.length > 0) {
@@ -2526,6 +3004,7 @@ export async function loginUser(emailInput: string, password: string) {
   if (!user) throw new Error("登入失敗，請確認帳號與密碼。");
   const character = data.characters.find((entry) => entry.userId === user.id);
   if (!character) throw new Error("找不到角色資料。");
+  if (grantJotaroLoginGift(character)) await persist();
   return { user: toAuthUser(user), character: toPublicCharacter(character) };
 }
 
@@ -2551,8 +3030,10 @@ export async function getUserById(userId: string) {
 
 export async function getCharacterByUserId(userId: string) {
   const data = await ensureLoaded();
-  if (processWorldProgress(data)) await persist();
+  const worldProgressChanged = processWorldProgress(data);
   const character = data.characters.find((entry) => entry.userId === userId);
+  const giftChanged = character ? grantJotaroLoginGift(character) : false;
+  if (worldProgressChanged || giftChanged) await persist();
   return character ? toPublicCharacter(character) : null;
 }
 
@@ -2577,20 +3058,25 @@ export async function changeCharacterClass(userId: string, className: CharacterC
   if (!config?.active) {
     throw new Error("這個職業目前未開放。");
   }
-  if (character.specialSkillSlot) {
-    const previous = gameplaySpecialSkillCatalog().find((entry) => entry.id === character.specialSkillSlot);
+  for (const skillId of equippedSpecialSkillIds(character)) {
+    const previous = gameplaySpecialSkillCatalog().find((entry) => entry.id === skillId);
     applyStatBonus(character, statBonusFromSkill(previous), -1);
   }
   for (const slot of character.secondaryCharacters) {
-    const definition = slot.characterId ? gameplaySecondaryCharacterCatalog().find((entry) => entry.id === slot.characterId) : null;
+    const definition = slot.characterId
+      ? gameplaySecondaryCharacterCatalog().find((entry) => entry.id === slot.characterId)
+      : null;
     if (definition) applyStatBonus(character, effectiveSecondaryStatBonus(character, slot, definition), -1);
   }
   character.className = className;
   character.classMastery[className].unlocked = true;
   character.classChangedOn = taipeiDayKey();
   character.specialSkillSlot = null;
+  character.specialSkillSlots = Array.from({ length: SPECIAL_SKILL_SLOT_COUNT }, () => null);
   for (const slot of character.secondaryCharacters) {
-    const definition = slot.characterId ? gameplaySecondaryCharacterCatalog().find((entry) => entry.id === slot.characterId) : null;
+    const definition = slot.characterId
+      ? gameplaySecondaryCharacterCatalog().find((entry) => entry.id === slot.characterId)
+      : null;
     if (definition) applyStatBonus(character, effectiveSecondaryStatBonus(character, slot, definition), 1);
   }
   refreshCharacterLoadout(character);
@@ -2652,7 +3138,9 @@ export async function syncBattleResult(userId: string, hp: number, mp: number, e
 
 export async function listBattleRecordsForUser(userId: string) {
   const data = await ensureLoaded();
-  return data.battleRecords.filter((record) => record.participants.some((participant) => participant.userId === userId));
+  return data.battleRecords.filter((record) =>
+    record.participants.some((participant) => participant.userId === userId)
+  );
 }
 
 export async function processCharacterQueue(userId: string, isOnline: boolean) {
@@ -2673,11 +3161,15 @@ export async function processAllCharacterQueues(isUserOnline: (userId: string) =
   if (changed) await persist();
 }
 
-export async function enqueueAction(userId: string, actionType: ActionType, durationHours?: number): Promise<QueueMutationResult> {
+export async function enqueueAction(
+  userId: string,
+  actionType: ActionType,
+  durationHours?: number
+): Promise<QueueMutationResult> {
   const { data, character } = await findCharacterForUpdate(userId);
   processWorldProgress(data);
   await processCharacterQueueInternal(data, character, false);
-  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法加入新的行動。");
+  if (isCharacterQueueLocked(character)) throw new Error("角色正在移動或駐防中，無法加入新的行動。");
   if (actionType === "mine_deep" && character.instinctLevel < 10) {
     throw new Error("深層挖礦需要本能等級 10。");
   }
@@ -2703,7 +3195,11 @@ export async function enqueueAction(userId: string, actionType: ActionType, dura
 
 export async function getQueueState(userId: string, isOnline: boolean) {
   const result = await processCharacterQueue(userId, isOnline);
-  return { queue: result.character.actionQueue, character: result.character, completedActivities: result.completedActivities };
+  return {
+    queue: result.character.actionQueue,
+    character: result.character,
+    completedActivities: result.completedActivities
+  };
 }
 
 export async function cancelQueuedAction(userId: string, actionId: string): Promise<QueueMutationResult> {
@@ -2718,7 +3214,11 @@ export async function cancelQueuedAction(userId: string, actionId: string): Prom
   syncQueueStatuses(character);
   appendNotification(character, "system", "行動佇列", `${item.label} 已從佇列取消。`);
   await persist();
-  return { message: "已取消佇列行動", character: toPublicCharacter(character), queue: toPublicQueue(character.actionQueue) };
+  return {
+    message: "已取消佇列行動",
+    character: toPublicCharacter(character),
+    queue: toPublicQueue(character.actionQueue)
+  };
 }
 
 export async function cancelQueuedActionsExceptActive(userId: string): Promise<QueueMutationResult> {
@@ -2876,7 +3376,9 @@ export async function getInventory(userId: string): Promise<InventoryResult> {
 }
 
 function selectedSecondaryDefinitions(character: CharacterProfile) {
-  const selectedIds = new Set(character.secondaryCharacters.map((slot) => slot.characterId).filter(Boolean) as string[]);
+  const selectedIds = new Set(
+    character.secondaryCharacters.map((slot) => slot.characterId).filter(Boolean) as string[]
+  );
   return gameplaySecondaryCharacterCatalog().filter((entry) => selectedIds.has(entry.id));
 }
 
@@ -2884,7 +3386,12 @@ function unlockedSpecialSkills(character: CharacterProfile) {
   const skillIds = new Set<string>();
   for (const skill of gameplaySpecialSkillCatalog()) {
     const masteryLevel = character.classMastery?.[character.className]?.level || 1;
-    if (skill.source === "class" && skill.requiredClass === character.className && (skill.unlockLevel || 1) <= masteryLevel) skillIds.add(skill.id);
+    if (
+      skill.source === "class" &&
+      skill.requiredClass === character.className &&
+      (skill.unlockLevel || 1) <= masteryLevel
+    )
+      skillIds.add(skill.id);
   }
   for (const slot of character.secondaryCharacters) {
     if (!slot.characterId) continue;
@@ -2894,6 +3401,34 @@ function unlockedSpecialSkills(character: CharacterProfile) {
     if (manual.unlockedSkillId) skillIds.add(manual.unlockedSkillId);
   }
   return gameplaySpecialSkillCatalog().filter((skill) => skillIds.has(skill.id));
+}
+
+function reconcileSpecialSkillSlots(character: CharacterProfile) {
+  const unlockedIds = new Set(unlockedSpecialSkills(character).map((skill) => skill.id));
+  const nextSlots: Array<string | null> = [];
+  const seen = new Set<string>();
+  const removedSkillIds: string[] = [];
+
+  for (const skillId of equippedSpecialSkillIds(character)) {
+    if (unlockedIds.has(skillId) && !seen.has(skillId) && nextSlots.length < SPECIAL_SKILL_SLOT_COUNT) {
+      nextSlots.push(skillId);
+      seen.add(skillId);
+    } else {
+      removedSkillIds.push(skillId);
+    }
+  }
+
+  while (nextSlots.length < SPECIAL_SKILL_SLOT_COUNT) nextSlots.push(null);
+  const before = JSON.stringify(normalizeSpecialSkillSlots(character.specialSkillSlots, character.specialSkillSlot));
+  character.specialSkillSlots = nextSlots;
+  syncLegacySpecialSkillSlot(character);
+
+  for (const skillId of removedSkillIds) {
+    const oldSkill = gameplaySpecialSkillCatalog().find((entry) => entry.id === skillId);
+    applyStatBonus(character, statBonusFromSkill(oldSkill), -1);
+  }
+
+  return before !== JSON.stringify(nextSlots);
 }
 
 function refreshCharacterLoadout(character: CharacterProfile) {
@@ -2906,8 +3441,8 @@ function refreshCharacterLoadout(character: CharacterProfile) {
       if (skill) skills.add(skill.name);
     }
   }
-  if (character.specialSkillSlot) {
-    const special = gameplaySpecialSkillCatalog().find((entry) => entry.id === character.specialSkillSlot);
+  for (const skillId of equippedSpecialSkillIds(character)) {
+    const special = gameplaySpecialSkillCatalog().find((entry) => entry.id === skillId);
     if (special) skills.add(`特殊技能：${special.name}`);
   }
   character.loadout = {
@@ -2919,11 +3454,10 @@ function refreshCharacterLoadout(character: CharacterProfile) {
 
 function syncCharacterAchievements(character: CharacterProfile) {
   character.achievements = normalizeAchievements(character.achievements, character).map((achievement) => {
-    if (achievement.id !== "level_5") return achievement;
-    const completed = character.instinctLevel >= achievement.target || achievement.completed;
+    const next = starterAchievements(character).find((entry) => entry.id === achievement.id) || achievement;
+    const completed = next.completed || achievement.completed;
     return {
-      ...achievement,
-      progress: Math.min(character.instinctLevel, achievement.target),
+      ...next,
       completed,
       completedAt: completed ? achievement.completedAt || nowIso() : null
     };
@@ -2947,13 +3481,19 @@ export async function selectSecondaryCharacter(userId: string, payload: { slot: 
   const catalog = gameplaySecondaryCharacterCatalog();
   const nextDefinition = nextCharacterId ? catalog.find((entry) => entry.id === nextCharacterId) : null;
   if (nextCharacterId && !nextDefinition) throw new Error("找不到次要角色。");
-  if (nextCharacterId && character.secondaryCharacters.some((slot) => slot.slot !== slotNumber && slot.characterId === nextCharacterId)) {
+  if (
+    nextCharacterId &&
+    character.secondaryCharacters.some((slot) => slot.slot !== slotNumber && slot.characterId === nextCharacterId)
+  ) {
     throw new Error("同一個次要角色不能重複裝備。");
   }
   const currentSlot = character.secondaryCharacters.find((slot) => slot.slot === slotNumber);
   if (!currentSlot) throw new Error("找不到次要角色欄位。");
-  const previousDefinition = currentSlot.characterId ? catalog.find((entry) => entry.id === currentSlot.characterId) : null;
-  if (previousDefinition) applyStatBonus(character, effectiveSecondaryStatBonus(character, currentSlot, previousDefinition), -1);
+  const previousDefinition = currentSlot.characterId
+    ? catalog.find((entry) => entry.id === currentSlot.characterId)
+    : null;
+  if (previousDefinition)
+    applyStatBonus(character, effectiveSecondaryStatBonus(character, currentSlot, previousDefinition), -1);
   currentSlot.characterId = nextCharacterId;
   currentSlot.level = currentSlot.level || 1;
   currentSlot.exp = currentSlot.exp || 0;
@@ -2961,31 +3501,70 @@ export async function selectSecondaryCharacter(userId: string, payload: { slot: 
   currentSlot.cooldownUntilTick = null;
   updateSecondaryUnlockedSkills(currentSlot, nextCharacterId);
   if (nextDefinition) applyStatBonus(character, effectiveSecondaryStatBonus(character, currentSlot, nextDefinition), 1);
-  if (character.specialSkillSlot && !unlockedSpecialSkills(character).some((skill) => skill.id === character.specialSkillSlot)) {
-    const oldSkill = gameplaySpecialSkillCatalog().find((entry) => entry.id === character.specialSkillSlot);
-    applyStatBonus(character, statBonusFromSkill(oldSkill), -1);
-    character.specialSkillSlot = null;
-  }
+  reconcileSpecialSkillSlots(character);
   refreshCharacterLoadout(character);
   recalcResources(character);
-  appendNotification(character, "system", "次要角色", nextDefinition ? `已裝備 ${nextDefinition.name}` : `第 ${slotNumber} 格已卸下`);
+  appendNotification(
+    character,
+    "system",
+    "次要角色",
+    nextDefinition ? `已裝備 ${nextDefinition.name}` : `第 ${slotNumber} 格已卸下`
+  );
   await persist();
   return toPublicCharacter(character);
 }
 
-export async function equipSpecialSkill(userId: string, payload: { skillId: string | null }) {
+function requestedSpecialSkillSlots(
+  payload: { skillId?: string | null; skillIds?: Array<string | null>; slot?: number },
+  currentSlots: Array<string | null>
+) {
+  if (Array.isArray(payload.skillIds)) {
+    return normalizeSpecialSkillSlots(payload.skillIds, null);
+  }
+
+  const nextSkillId = typeof payload.skillId === "string" && payload.skillId.trim() ? payload.skillId.trim() : null;
+  if (payload.slot != null) {
+    const slotNumber = Number(payload.slot);
+    if (![1, 2, 3].includes(slotNumber)) throw new Error("特殊技能欄位必須是 1 到 3。");
+    const nextSlots = normalizeSpecialSkillSlots(currentSlots, null);
+    nextSlots[slotNumber - 1] = nextSkillId;
+    return normalizeSpecialSkillSlots(nextSlots, null);
+  }
+
+  return normalizeSpecialSkillSlots(nextSkillId ? [nextSkillId] : [], null);
+}
+
+export async function equipSpecialSkill(
+  userId: string,
+  payload: { skillId?: string | null; skillIds?: Array<string | null>; slot?: number }
+) {
   const { character } = await findCharacterForUpdate(userId);
   if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法調整特殊技能。");
-  const nextSkillId = payload.skillId || null;
-  const previous = character.specialSkillSlot ? gameplaySpecialSkillCatalog().find((entry) => entry.id === character.specialSkillSlot) : null;
-  const next = nextSkillId ? unlockedSpecialSkills(character).find((entry) => entry.id === nextSkillId) : null;
-  if (nextSkillId && !next) throw new Error("這個特殊技能尚未解鎖。");
-  if (previous) applyStatBonus(character, statBonusFromSkill(previous), -1);
-  character.specialSkillSlot = nextSkillId;
-  if (next) applyStatBonus(character, statBonusFromSkill(next), 1);
+  const nextSlots = requestedSpecialSkillSlots(payload, character.specialSkillSlots || []);
+  const nextSkillIds = nextSlots.filter((skillId): skillId is string => Boolean(skillId));
+  const unlocked = new Map(unlockedSpecialSkills(character).map((skill) => [skill.id, skill]));
+  for (const skillId of nextSkillIds) {
+    if (!unlocked.has(skillId)) throw new Error("這個特殊技能尚未解鎖。");
+  }
+
+  for (const skillId of equippedSpecialSkillIds(character)) {
+    const previous = gameplaySpecialSkillCatalog().find((entry) => entry.id === skillId);
+    applyStatBonus(character, statBonusFromSkill(previous), -1);
+  }
+  character.specialSkillSlots = nextSlots;
+  syncLegacySpecialSkillSlot(character);
+  for (const skillId of nextSkillIds) {
+    applyStatBonus(character, statBonusFromSkill(unlocked.get(skillId)), 1);
+  }
   refreshCharacterLoadout(character);
   recalcResources(character);
-  appendNotification(character, "system", "特殊技能", next ? `已裝備 ${next.name}` : "已卸下特殊技能");
+  const equippedNames = nextSkillIds.map((skillId) => unlocked.get(skillId)?.name).filter(Boolean);
+  appendNotification(
+    character,
+    "system",
+    "特殊技能",
+    equippedNames.length ? `已裝備 ${equippedNames.join("、")}` : "已卸下特殊技能"
+  );
   await persist();
   return toPublicCharacter(character);
 }
@@ -3005,7 +3584,8 @@ export async function learnManual(userId: string, payload: { itemId: string }) {
     name: item.name,
     effectSummary: item.effectSummary,
     statBonus: item.statBonus || {},
-    unlockedSkillId: "manual_secret_breath",
+    unlockedSkillId:
+      item.id === "shop_time_manual" || manualId.includes("時脈") ? "manual_time_pulse" : "manual_secret_breath",
     learnedAt: nowIso()
   };
   character.learnedManuals.push(learned);
@@ -3052,7 +3632,10 @@ export async function getAchievements(userId: string) {
   return { achievements: character.achievements, character: toPublicCharacter(character) };
 }
 
-export async function updateInventorySortOrder(userId: string, payload: InventorySortPayload): Promise<InventoryResult> {
+export async function updateInventorySortOrder(
+  userId: string,
+  payload: InventorySortPayload
+): Promise<InventoryResult> {
   const { character } = await findCharacterForUpdate(userId);
   if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法整理背包。");
   const orderedIds = payload.orderedItemIds.filter(Boolean);
@@ -3138,8 +3721,6 @@ export async function listForgeRecipes(): Promise<ForgeRecipe[]> {
 export async function craftEquipment(userId: string, payload: CraftPayload) {
   const { data, character } = await findCharacterForUpdate(userId);
   processWorldProgress(data);
-  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法鍛造。");
-  if (character.actionQueue.items.length > 0) throw new Error("角色已有行動佇列，暫時無法鍛造。");
   if (!payload.materialItemIds?.length || payload.materialItemIds.length > 16) {
     throw new Error("鍛造材料需介於 1 到 16 個。");
   }
@@ -3201,7 +3782,6 @@ export async function craftEquipment(userId: string, payload: CraftPayload) {
 
 export async function repairEquipment(userId: string, payload: RepairPayload) {
   const { character } = await findCharacterForUpdate(userId);
-  if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法修復裝備。");
   const item =
     payload.source === "equipment" && payload.slot
       ? character.equipmentSlots[payload.slot]
@@ -3232,7 +3812,8 @@ export async function getFactionState(userId: string): Promise<FactionState> {
   const data = await ensureLoaded();
   const progressed = processWorldProgress(data);
   processAllSieges(data);
-  if (progressed || data.sieges.some((siege) => siege.status === "active" || siege.status === "resolved")) await persist();
+  if (progressed || data.sieges.some((siege) => siege.status === "active" || siege.status === "resolved"))
+    await persist();
   return buildFactionState(data, userId);
 }
 
@@ -3298,7 +3879,12 @@ export async function enqueueCastleBuild(userId: string, payload: BuildFacilityP
   if (!facilityName) throw new Error("請輸入設施名稱。");
   if (castle.facilities.includes(facilityName)) throw new Error("這個設施已存在。");
   if (castle.facilities.length >= castle.buildSlots) throw new Error("建設槽已滿。");
-  if (data.factionProjects.some((project) => project.status === "active" && project.castleId === castle.id && project.facilityName === facilityName)) {
+  if (
+    data.factionProjects.some(
+      (project) =>
+        project.status === "active" && project.castleId === castle.id && project.facilityName === facilityName
+    )
+  ) {
     throw new Error("這個設施已經在建設中。");
   }
 
@@ -3339,7 +3925,11 @@ export async function enqueueCastleRepair(userId: string, payload: RepairCastleP
   if (character.currentCastleId !== castle.id) throw new Error("必須在該城池才能修建。");
   if (castle.fortification >= castle.maxFortification) throw new Error("城牆耐久已滿。");
   if (isCharacterBusy(character)) throw new Error("角色忙碌中，不能修建。");
-  if (data.factionProjects.some((project) => project.status === "active" && project.castleId === castle.id && project.kind === "repair_castle")) {
+  if (
+    data.factionProjects.some(
+      (project) => project.status === "active" && project.castleId === castle.id && project.kind === "repair_castle"
+    )
+  ) {
     throw new Error("這座城池已經有修建工程。");
   }
 
@@ -3455,7 +4045,8 @@ export async function respondCooperation(userId: string, payload: CooperateRespo
   if (!isFactionLeader(data, userId) && user.role !== "admin") throw new Error("只有陣營領袖或 admin 可以回應合作。");
   const request = data.diplomacyRequests.find((entry) => entry.id === payload.requestId);
   if (!request || request.status !== "pending") throw new Error("找不到待處理的合作申請。");
-  if (request.toFactionId !== character.factionId && user.role !== "admin") throw new Error("你不能回應其他陣營的合作申請。");
+  if (request.toFactionId !== character.factionId && user.role !== "admin")
+    throw new Error("你不能回應其他陣營的合作申請。");
 
   request.status = payload.accept ? "accepted" : "rejected";
   request.respondedAt = nowIso();
@@ -3511,7 +4102,12 @@ export async function upgradeFactionTech(userId: string, payload: FactionTechUpg
   faction.treasury.gold -= cost;
   faction.tech[payload.techKey] = currentLevel + 1;
   for (const member of data.characters.filter((entry) => entry.factionId === faction.id)) {
-    appendNotification(member, "faction", "公會科技升級", `${factionTechLabel(payload.techKey)} 已升到 Lv.${currentLevel + 1}。`);
+    appendNotification(
+      member,
+      "faction",
+      "公會科技升級",
+      `${factionTechLabel(payload.techKey)} 已升到 Lv.${currentLevel + 1}。`
+    );
   }
   await persist();
   return buildFactionState(data, userId);
@@ -3567,7 +4163,12 @@ export async function buyMarketListing(userId: string, payload: MarketBuyPayload
   sellerCharacter.gold += listing.price;
   mergeInventoryStack(character, normalizeItem(listing.item));
   data.marketListings.splice(index, 1);
-  appendNotification(sellerCharacter, "faction", "市場售出", `${listing.item.name} 已售出，獲得 ${listing.price} 金幣。`);
+  appendNotification(
+    sellerCharacter,
+    "faction",
+    "市場售出",
+    `${listing.item.name} 已售出，獲得 ${listing.price} 金幣。`
+  );
   await persist();
   return buildFactionState(data, userId);
 }
@@ -3600,16 +4201,25 @@ type InstantBattleConfig = {
 function sceneDifficultyForCastle(castle: CastleState): SoloBattleDifficulty {
   if (castle.mapNodePurpose === "guild_boss") return "elite";
   if (castle.mapNodePurpose === "mining") return castle.layer >= 3 ? "elite" : "hard";
-  if (castle.mapNodePurpose === "trade" || castle.mapNodePurpose === "solo_combat") return castle.layer >= 3 ? "hard" : "normal";
+  if (castle.mapNodePurpose === "trade" || castle.mapNodePurpose === "solo_combat")
+    return castle.layer >= 3 ? "hard" : "normal";
   if (castle.mapNodePurpose === "capital") return "normal";
   return castle.layer >= 2 ? "normal" : "easy";
 }
 
-function soloDifficultyConfig(difficulty: SoloBattleDifficulty, castle: CastleState, battleLevel = 1): InstantBattleConfig {
+function soloDifficultyConfig(
+  difficulty: SoloBattleDifficulty,
+  castle: CastleState,
+  battleLevel = 1
+): InstantBattleConfig {
   const configs = gameplaySoloDifficulties();
   const config = configs[difficulty] || configs.normal;
   const materialType: MaterialType =
-    castle.mapNodePurpose === "mining" ? "silver_ore" : castle.mapNodePurpose === "guild_boss" ? "stardust" : "iron_ore";
+    castle.mapNodePurpose === "mining"
+      ? "silver_ore"
+      : castle.mapNodePurpose === "guild_boss"
+        ? "stardust"
+        : "iron_ore";
   // 敵方與獎勵都跟著戰鬥等級成長，讓挑戰與收益曲線一致
   const levelFactor = Math.max(0, battleLevel - 1);
   return {
@@ -3628,7 +4238,10 @@ function soloDifficultyConfig(difficulty: SoloBattleDifficulty, castle: CastleSt
 }
 
 function adventureEncounter(purpose: CastleState["mapNodePurpose"] = "solo_combat", round: number) {
-  const pools: Record<CastleState["mapNodePurpose"], Array<{ name: string; intro: string; hp: number; attack: number }>> = {
+  const pools: Record<
+    CastleState["mapNodePurpose"],
+    Array<{ name: string; intro: string; hp: number; attack: number }>
+  > = {
     capital: [
       { name: "城門訓練傀儡", intro: "守備教官放出訓練傀儡，測試你的起手節奏。", hp: 0.9, attack: 0.85 },
       { name: "潛入斥候", intro: "城門陰影裡竄出一名潛入斥候。", hp: 1, attack: 1 },
@@ -3675,35 +4288,59 @@ function rollInstantSecondarySkills(character: CharacterProfile, bossName: strin
   let damageTotal = 0;
   let healingTotal = 0;
   let bossAttackModifier = 1;
+  const equippedSkillIds = new Set(equippedSpecialSkillIds(character));
   for (const slot of character.secondaryCharacters) {
     if (!slot.characterId || (slot.cooldownUntilTick || 0) > round) continue;
     const definition = gameplaySecondaryCharacterCatalog().find((entry) => entry.id === slot.characterId);
     if (!definition) continue;
     const skills = slot.unlockedSkillIds
+      .filter((skillId) => equippedSkillIds.has(skillId))
       .map((skillId) => gameplaySpecialSkillCatalog().find((entry) => entry.id === skillId))
       .filter((skill): skill is SpecialSkillDefinition => Boolean(skill));
     if (!skills.length) continue;
     const skill = randomFrom(skills);
     const affinity = secondaryAffinity(definition, character.className);
     const equipmentMultiplier = equippedPreferenceMultiplier(character, definition.preferredEquipmentSlots);
-    const chance = Math.min(0.86, (skill.baseChance || 0.38) + 0.18 + (slot.level - 1) * 0.025 + (affinity - 1) * 0.14 + (equipmentMultiplier - 1) * 0.08);
+    const chance = Math.min(
+      0.86,
+      (skill.baseChance || 0.38) +
+        0.18 +
+        (slot.level - 1) * 0.025 +
+        (affinity - 1) * 0.14 +
+        (equipmentMultiplier - 1) * 0.08
+    );
     if (Math.random() >= chance) continue;
+    const timeManualActive = skill.id.includes("time_stop") && hasEquippedTimeManual(character);
+    const skillDamageMultiplier = skill.id.includes("time_stop") ? 1.04 : skill.id.includes("ora_ora") ? 1.12 : 1;
     const damage = Math.max(
       8,
       Math.round(
-        (10 + character.stats.attack + character.stats.technique + Math.floor(character.stats.intelligence * 0.7) + Math.floor(character.stats.luck * 0.5)) *
+        (10 +
+          character.stats.attack +
+          character.stats.technique +
+          Math.floor(character.stats.intelligence * 0.7) +
+          Math.floor(character.stats.luck * 0.5)) *
           (1 + (slot.level - 1) * 0.12) *
           affinity *
-          equipmentMultiplier
+          equipmentMultiplier *
+          skillDamageMultiplier
       )
     );
-    const healing = skill.id.includes("healing") || skill.id.includes("rosario") ? Math.max(4, Math.round(character.stats.spirit * 0.7 + slot.level * 2)) : 0;
-    const modifier = skill.id.includes("infinity") || skill.id.includes("parry") ? 0.92 : 1;
+    const healing =
+      skill.id.includes("healing") || skill.id.includes("rosario")
+        ? Math.max(4, Math.round(character.stats.spirit * 0.7 + slot.level * 2))
+        : 0;
+    let modifier = skill.id.includes("time_stop")
+      ? 1
+      : skill.id.includes("opening_thread")
+        ? 0.88
+        : skill.id.includes("infinity") || skill.id.includes("parry")
+          ? 0.92
+          : 1;
     slot.lastTriggeredSkillId = skill.id;
     slot.cooldownUntilTick = round + (skill.cooldownTurns || 2);
     damageTotal += damage;
     healingTotal += healing;
-    bossAttackModifier *= modifier;
     const logLines = buildSkillLogLines({
       actorName: character.name,
       characterName: definition.name,
@@ -3713,6 +4350,30 @@ function rollInstantSecondarySkills(character: CharacterProfile, bossName: strin
       healing,
       healingTargetName: character.name
     });
+    let extraDamage = 0;
+    if (skill.id.includes("time_stop")) {
+      const followUpSkillNames = gameplaySpecialSkillCatalog()
+        .filter((entry) => equippedSkillIds.has(entry.id) && entry.id !== skill.id)
+        .map((entry) => entry.name);
+      const window = resolveTimeStopWindow({
+        actorName: character.name,
+        targetName: bossName,
+        stats: character.stats,
+        battleLevel: character.battleLevel,
+        slotLevel: slot.level,
+        manualActive: timeManualActive,
+        followUpSkillNames
+      });
+      extraDamage = window.damage;
+      damageTotal += extraDamage;
+      modifier = window.bossAttackModifier;
+      character.energy = clamp(character.energy + window.recoveredEnergy, 0, character.maxEnergy);
+      if (window.recoveredMp > 0) {
+        character.mp = clamp(character.mp + window.recoveredMp, 0, character.maxMp);
+      }
+      logLines.push(...window.logs);
+    }
+    bossAttackModifier *= modifier;
     logs.push(...logLines);
     events.push({
       kind: "secondary_skill",
@@ -3720,7 +4381,7 @@ function rollInstantSecondarySkills(character: CharacterProfile, bossName: strin
       label: skill.name,
       message: logLines.join("\n"),
       impact: {
-        damage,
+        damage: damage + extraDamage,
         ...(healing ? { healing } : {}),
         ...(modifier !== 1 ? { bossAttackModifier: modifier } : {})
       }
@@ -3736,8 +4397,12 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
   let bossHp = config.context === "adventure" ? 0 : config.bossHp;
   let currentTargetName = config.bossName;
   let currentAttack = config.bossAttack;
-  const battleTypeLabel = config.context === "adventure" ? "探險" : config.context === "guildBoss" ? "公會 Boss" : "世界 Boss";
-  const logs: string[] = [`【${battleTypeLabel}】目標：${config.bossName}`, `開戰：${character.name} 進入 ${battleTypeLabel}。`];
+  const battleTypeLabel =
+    config.context === "adventure" ? "探險" : config.context === "guildBoss" ? "公會 Boss" : "世界 Boss";
+  const logs: string[] = [
+    `【${battleTypeLabel}】目標：${config.bossName}`,
+    `開戰：${character.name} 進入 ${battleTypeLabel}。`
+  ];
   const specialEvents: BattleSpecialEvent[] = [];
   const participant = {
     damageDealt: 0,
@@ -3755,7 +4420,9 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
       currentTargetName = encounter.name;
       currentAttack = Math.round(config.bossAttack * encounter.attack);
       bossHp = Math.round((config.bossHp + round * 14) * encounter.hp);
-      const difficultyName = ({ easy: "簡單", normal: "普通", hard: "困難", elite: "菁英" } as Record<SoloBattleDifficulty, string>)[config.difficulty || "normal"];
+      const difficultyName = (
+        { easy: "簡單", normal: "普通", hard: "困難", elite: "菁英" } as Record<SoloBattleDifficulty, string>
+      )[config.difficulty || "normal"];
       logs.push(`第 ${round} 步：${encounter.intro}`);
       logs.push(`遭遇 ${currentTargetName}，場景難度 ${difficultyName}，HP ${bossHp}。`);
       if (round > 1 && Math.random() < 0.28) {
@@ -3768,9 +4435,9 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
     if (config.context === "adventure") {
       logs.push(`第 ${round} 步交戰：${currentTargetName} 剩餘 ${bossHp} HP。`);
     } else {
-      logs.push(`第 ${round} 回合：${config.bossName} 仍有 ${bossHp} HP。`);
+      logs.push(`第 ${round} 回合。`);
     }
-    // 精神回魔、體力回精力，支撐連擊持久度
+    // 速度回魔、體力回精力，支撐連擊持久度
     character.mp = clamp(character.mp + Math.floor(character.stats.spirit / 6), 0, character.maxMp);
     character.energy = clamp(character.energy + Math.floor(character.stats.vitality / 8), 0, character.maxEnergy);
 
@@ -3851,14 +4518,24 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
         combo.bossAttackModifier
     );
     const incoming = mitigateIncomingDamage(incomingRaw, character.stats);
+    const block = rollBlockMitigation({
+      actorUserId: character.userId,
+      actorName: character.name,
+      stats: character.stats,
+      incomingDamage: incoming
+    });
+    if (block.event) {
+      specialEvents.push(block.event);
+      logs.push(block.event.message);
+    }
     const dodge = rollDangerDodge({
       actorUserId: character.userId,
       actorName: character.name,
       stats: character.stats,
       hpRatio: character.hp / character.maxHp,
-      incomingDamage: incoming
+      incomingDamage: Math.max(1, incoming - block.damageReduction)
     });
-    const damage = Math.max(1, incoming - dodge.damageReduction);
+    const damage = Math.max(1, incoming - block.damageReduction - dodge.damageReduction);
     if (dodge.event) {
       specialEvents.push(dodge.event);
       logs.push(dodge.event.message);
@@ -3867,7 +4544,21 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
     character.mp = clamp(character.mp - Math.ceil(damage / 4), 0, character.maxMp);
     character.energy = clamp(character.energy - 4, 0, character.maxEnergy);
     participant.damageTaken += damage;
-    logs.push(`${currentTargetName} 反擊 ${character.name}，造成 ${damage} 點傷害。`);
+    logs.push(`${currentTargetName} 攻擊 ${character.name}，造成 ${damage} 點傷害。`);
+
+    const counter = rollCounterStrike({
+      actorUserId: character.userId,
+      actorName: character.name,
+      targetName: currentTargetName,
+      stats: character.stats,
+      battleLevel: Math.max(1, character.battleLevel || 1)
+    });
+    if (counter.event) {
+      bossHp = Math.max(0, bossHp - counter.damage);
+      participant.damageDealt += counter.damage;
+      specialEvents.push(counter.event);
+      logs.push(counter.event.message);
+    }
   }
 
   const won = config.context === "adventure" ? character.hp > 0 && roundCount >= adventureSteps : bossHp <= 0;
@@ -3876,11 +4567,21 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
       counts[event.label] = (counts[event.label] || 0) + 1;
       return counts;
     }, {});
-    logs.push(`特殊事件 ${specialEvents.length} 次：${Object.entries(eventCounts).map(([label, count]) => `${label} x${count}`).join("、")}`);
+    logs.push(
+      `特殊事件 ${specialEvents.length} 次：${Object.entries(eventCounts)
+        .map(([label, count]) => `${label} x${count}`)
+        .join("、")}`
+    );
   } else {
     logs.push("特殊事件：本場沒有觸發特殊事件。");
   }
-  logs.push(won ? (config.context === "adventure" ? `${config.bossName} 探險完成，取得勝利。` : `${config.bossName} 已被擊敗，取得勝利。`) : `${character.name} 戰敗，等待下次挑戰。`);
+  logs.push(
+    won
+      ? config.context === "adventure"
+        ? `${config.bossName} 探險完成，取得勝利。`
+        : `${config.bossName} 已被擊敗，取得勝利。`
+      : `${character.name} 戰敗，等待下次挑戰。`
+  );
   return {
     won,
     logs,
@@ -3891,7 +4592,10 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
   };
 }
 
-export async function startAdventureBattle(userId: string, payload: AdventureBattlePayload): Promise<AdventureBattleResult> {
+export async function startAdventureBattle(
+  userId: string,
+  payload: AdventureBattlePayload
+): Promise<AdventureBattleResult> {
   const { data, character } = await findCharacterForUpdate(userId);
   processWorldProgress(data);
   if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法開始探險。");
@@ -3900,7 +4604,11 @@ export async function startAdventureBattle(userId: string, payload: AdventureBat
   if (!castle) throw new Error("找不到探險場景。");
   if (castle.ownerFactionId !== character.factionId) throw new Error("只能在自己陣營的場景探險。");
 
-  const config = soloDifficultyConfig(sceneDifficultyForCastle(castle), castle, Math.max(1, character.battleLevel || 1));
+  const config = soloDifficultyConfig(
+    sceneDifficultyForCastle(castle),
+    castle,
+    Math.max(1, character.battleLevel || 1)
+  );
   const result = runInstantBattle(character, config);
   const materialQuantity = result.won ? config.materialQuantity : Math.max(1, Math.floor(config.materialQuantity / 2));
   // 運氣提高金幣繳獲
@@ -3911,7 +4619,12 @@ export async function startAdventureBattle(userId: string, payload: AdventureBat
   mergeInventoryStack(character, createMaterialItem(config.materialType, materialQuantity));
   awardBattleExperience(character, battleExp);
   damageEquippedForBattle(character, result.participant.damageTaken > 0);
-  appendNotification(character, "battle", "個人戰鬥", `獲得 ${gold} 金幣、${materialName(config.materialType)} x${materialQuantity}、戰鬥經驗 ${battleExp}。`);
+  appendNotification(
+    character,
+    "battle",
+    "個人戰鬥",
+    `獲得 ${gold} 金幣、${materialName(config.materialType)} x${materialQuantity}、戰鬥經驗 ${battleExp}。`
+  );
 
   const record: BattleRecordSummary = {
     id: randomId("battle"),
@@ -3955,7 +4668,12 @@ function syncTowerProgress(tower: FactionTowerProgress) {
   tower.steps = clamp(tower.steps, 0, tower.stepsRequired);
   tower.progress = clamp(Math.round((tower.steps / tower.stepsRequired) * 100), 0, 100);
   tower.bossHp = clampedInt(tower.bossHp, 80, GAME_LIMITS.monsterHp, towerBossHpForLayer(tower.currentLayer));
-  tower.bossAttack = clampedInt(tower.bossAttack, 1, GAME_LIMITS.monsterAttack, towerBossAttackForLayer(tower.currentLayer));
+  tower.bossAttack = clampedInt(
+    tower.bossAttack,
+    1,
+    GAME_LIMITS.monsterAttack,
+    towerBossAttackForLayer(tower.currentLayer)
+  );
 }
 
 function prepareTowerLayer(faction: StoredFaction, layer: number, lastEvent: string | null) {
@@ -3995,7 +4713,10 @@ function assertAtTowerCastle(character: CharacterProfile, castle: CastleState) {
   }
 }
 
-export async function advanceFactionTower(userId: string, payload: FactionTowerAdvancePayload): Promise<FactionTowerAdvanceResult> {
+export async function advanceFactionTower(
+  userId: string,
+  payload: FactionTowerAdvancePayload
+): Promise<FactionTowerAdvanceResult> {
   const { data, character } = await findCharacterForUpdate(userId);
   processWorldProgress(data);
   if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法推進塔層。");
@@ -4027,6 +4748,7 @@ export async function advanceFactionTower(userId: string, payload: FactionTowerA
       : moveRoll < rules.huntStepChance
         ? 1
         : 0;
+  const previousSteps = faction.tower.steps;
   faction.tower.steps = clamp(faction.tower.steps + stepsGained, 0, faction.tower.stepsRequired);
   syncTowerProgress(faction.tower);
 
@@ -4034,6 +4756,27 @@ export async function advanceFactionTower(userId: string, payload: FactionTowerA
   let rewardGold = Math.round((mode === "rush" ? 8 + layer * 2 : 14 + layer * 4) * rules.rewardMultiplier);
   let battleExp = Math.round((mode === "rush" ? 8 + layer * 2 : 14 + layer * 4) * rules.rewardMultiplier);
   let materialQuantity = mode === "hunt" ? 1 : 0;
+  const checkpointInterval = rules.checkpointInterval;
+  const checkpointsPassed =
+    checkpointInterval > 0
+      ? Math.max(
+          0,
+          Math.floor(faction.tower.steps / checkpointInterval) - Math.floor(previousSteps / checkpointInterval)
+        )
+      : 0;
+  let checkpointGoldBonus = 0;
+  let checkpointBattleExpBonus = 0;
+  let checkpointMaterialBonus = 0;
+  if (checkpointsPassed > 0) {
+    checkpointGoldBonus = Math.round(checkpointsPassed * (rules.checkpointGold + layer * 2) * rules.rewardMultiplier);
+    checkpointBattleExpBonus = Math.round(
+      checkpointsPassed * (rules.checkpointBattleExp + layer) * rules.rewardMultiplier
+    );
+    checkpointMaterialBonus = checkpointsPassed * rules.checkpointMaterialQuantity;
+    rewardGold += checkpointGoldBonus;
+    battleExp += checkpointBattleExpBonus;
+    materialQuantity += checkpointMaterialBonus;
+  }
   let battleRecord: BattleRecordSummary | null = null;
   let encounterKind: FactionTowerAdvanceResult["encounter"]["kind"] = "travel";
   const logs = [
@@ -4041,6 +4784,11 @@ export async function advanceFactionTower(userId: string, payload: FactionTowerA
     `場景：${castle.name} · ${towerSceneBand(layer)}。`,
     `前進 ${stepsGained} 步，進度 ${faction.tower.steps}/${faction.tower.stepsRequired}。`
   ];
+  if (checkpointsPassed > 0) {
+    logs.push(
+      `通過 ${checkpointsPassed} 個小關節點，追加節點獎勵：金幣 ${checkpointGoldBonus}、戰鬥經驗 ${checkpointBattleExpBonus}、素材 ${checkpointMaterialBonus}。`
+    );
+  }
 
   const bossCheckChance = mode === "rush" ? rules.bossFindChanceRush : rules.bossFindChanceHunt;
   if (faction.tower.steps >= faction.tower.stepsRequired && Math.random() < bossCheckChance) {
@@ -4058,7 +4806,9 @@ export async function advanceFactionTower(userId: string, payload: FactionTowerA
         context: "guildBoss",
         bossName: `${faction.name} 第 ${layer} 層巡邏小王`,
         bossHp: Math.round((120 + layer * 34) * towerLevelFactor * rules.bossHpMultiplier),
-        bossAttack: Math.round((15 + layer * 2) * (1 + Math.max(0, (character.battleLevel || 1) - 1) * 0.04) * rules.bossAttackMultiplier),
+        bossAttack: Math.round(
+          (15 + layer * 2) * (1 + Math.max(0, (character.battleLevel || 1) - 1) * 0.04) * rules.bossAttackMultiplier
+        ),
         maxRounds: 6,
         rewardGold: Math.round((55 + layer * 12) * towerLevelFactor * rules.rewardMultiplier),
         battleExp: Math.round((34 + layer * 8) * towerLevelFactor * rules.rewardMultiplier),
@@ -4093,21 +4843,81 @@ export async function advanceFactionTower(userId: string, payload: FactionTowerA
         ],
         logs: [...logs, ...result.logs]
       };
-      faction.treasury.gold = clamp(faction.treasury.gold + (result.won ? 18 + layer * 4 : 8 + layer * 2), 0, GAME_LIMITS.goldBalance);
+      faction.treasury.gold = clamp(
+        faction.treasury.gold + (result.won ? 18 + layer * 4 : 8 + layer * 2),
+        0,
+        GAME_LIMITS.goldBalance
+      );
       faction.tower.lastEvent = result.won ? `第 ${layer} 層巡邏小王已擊倒。` : `第 ${layer} 層巡邏小王逼退了隊伍。`;
       damageEquippedForBattle(character, result.participant.damageTaken > 0);
     } else {
-      faction.tower.lastEvent =
-        faction.tower.steps >= faction.tower.stepsRequired
-          ? `第 ${layer} 層 Boss 氣息已出現，但尚未鎖定位置。`
-          : `${towerModeLabel(mode)}推進中，尚未遇到大型目標。`;
+      encounterKind = "patrol";
+      logs.push(`途中遭遇第 ${layer} 層巡邏怪，${towerModeLabel(mode)}轉入短戰。`);
+      const towerLevelFactor = 1 + Math.max(0, (character.battleLevel || 1) - 1) * 0.08;
+      const config: InstantBattleConfig = {
+        context: "guildBoss",
+        bossName: `${faction.name} 第 ${layer} 層巡邏怪`,
+        bossHp: Math.round((64 + layer * 18) * towerLevelFactor * rules.bossHpMultiplier),
+        bossAttack: Math.round(
+          (9 + layer * 1.5) * (1 + Math.max(0, (character.battleLevel || 1) - 1) * 0.03) * rules.bossAttackMultiplier
+        ),
+        maxRounds: 4,
+        rewardGold: Math.round((22 + layer * 6) * towerLevelFactor * rules.rewardMultiplier),
+        battleExp: Math.round((16 + layer * 4) * towerLevelFactor * rules.rewardMultiplier),
+        materialType,
+        materialQuantity: mode === "hunt" ? 1 : 0
+      };
+      const result = runInstantBattle(character, config);
+      rewardGold += result.won ? Math.floor(config.rewardGold * 0.32) : Math.floor(config.rewardGold * 0.08);
+      battleExp += result.won ? config.battleExp : Math.floor(config.battleExp * 0.25);
+      materialQuantity += result.won ? config.materialQuantity : 0;
+      battleRecord = {
+        id: randomId("battle"),
+        roomId: randomId("guild"),
+        bossName: config.bossName,
+        winner: result.won ? "players" : "boss",
+        durationMs: result.roundCount * 1000,
+        totalTicks: result.roundCount,
+        createdAt: nowIso(),
+        battleContext: "guildBoss",
+        battleKind: "guildBoss",
+        castleId: castle.id,
+        targetFactionId: faction.id,
+        participants: [
+          {
+            userId: character.userId,
+            displayName: character.name,
+            className: character.className,
+            damageDealt: result.participant.damageDealt,
+            healingDone: result.participant.healingDone,
+            damageTaken: result.participant.damageTaken
+          }
+        ],
+        logs: [...logs, ...result.logs]
+      };
+      faction.treasury.gold = clamp(
+        faction.treasury.gold + (result.won ? 8 + layer * 2 : 3 + layer),
+        0,
+        GAME_LIMITS.goldBalance
+      );
+      faction.tower.lastEvent = result.won ? `第 ${layer} 層巡邏怪已清除。` : `第 ${layer} 層巡邏怪拖慢了隊伍。`;
+      damageEquippedForBattle(character, result.participant.damageTaken > 0);
     }
   }
 
   character.gold = clamp(character.gold + rewardGold, 0, GAME_LIMITS.goldBalance);
-  if (materialQuantity > 0) mergeInventoryStack(character, createMaterialItem(encounterKind === "minor_boss" && layer >= 3 ? "stardust" : materialType, materialQuantity));
+  if (materialQuantity > 0)
+    mergeInventoryStack(
+      character,
+      createMaterialItem(encounterKind === "minor_boss" && layer >= 3 ? "stardust" : materialType, materialQuantity)
+    );
   awardBattleExperience(character, battleExp);
-  appendNotification(character, "battle", "公會爬塔", `${towerModeLabel(mode)}推進第 ${layer} 層：${faction.tower.lastEvent || "無特殊遭遇"}。`);
+  appendNotification(
+    character,
+    "battle",
+    "公會爬塔",
+    `${towerModeLabel(mode)}推進第 ${layer} 層：${faction.tower.lastEvent || "無特殊遭遇"}。`
+  );
 
   if (battleRecord) {
     await recordBattle(battleRecord);
@@ -4119,7 +4929,9 @@ export async function advanceFactionTower(userId: string, payload: FactionTowerA
         ? `目前遇到第 ${layer} 層 Boss，挑戰 Boss 區已開啟。`
         : encounterKind === "minor_boss"
           ? `第 ${layer} 層遭遇小王，已完成即時戰鬥。`
-          : `第 ${layer} 層${towerModeLabel(mode)}完成。`,
+          : encounterKind === "patrol"
+            ? `第 ${layer} 層遭遇巡邏怪，已完成即時戰鬥。`
+            : `第 ${layer} 層${towerModeLabel(mode)}完成。`,
     character: toPublicCharacter(character),
     factionState: buildFactionState(data, userId),
     battleRecord,
@@ -4128,6 +4940,7 @@ export async function advanceFactionTower(userId: string, payload: FactionTowerA
       mode,
       layer,
       stepsGained,
+      checkpointsPassed,
       rewardGold,
       battleExp,
       materialType: encounterKind === "minor_boss" && layer >= 3 ? "stardust" : materialType,
@@ -4160,7 +4973,10 @@ export async function retreatFactionTowerBoss(userId: string): Promise<FactionAc
   };
 }
 
-export async function startFactionTowerBattle(userId: string, payload: FactionTowerBattlePayload): Promise<FactionTowerBattleResult> {
+export async function startFactionTowerBattle(
+  userId: string,
+  payload: FactionTowerBattlePayload
+): Promise<FactionTowerBattleResult> {
   const { data, character } = await findCharacterForUpdate(userId);
   processWorldProgress(data);
   if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法挑戰公會 Boss。");
@@ -4180,8 +4996,13 @@ export async function startFactionTowerBattle(userId: string, payload: FactionTo
   const config: InstantBattleConfig = {
     context: "guildBoss",
     bossName: isBoss ? faction.tower.bossName : `${castle.name} 公會 Boss 準備戰`,
-    bossHp: Math.round((isBoss ? faction.tower.bossHp + layer * 60 : (130 + layer * 20) * rules.bossHpMultiplier) * towerLevelFactor),
-    bossAttack: Math.round((isBoss ? faction.tower.bossAttack : (16 + layer * 2) * rules.bossAttackMultiplier) * (1 + Math.max(0, (character.battleLevel || 1) - 1) * 0.05)),
+    bossHp: Math.round(
+      (isBoss ? faction.tower.bossHp + layer * 60 : (130 + layer * 20) * rules.bossHpMultiplier) * towerLevelFactor
+    ),
+    bossAttack: Math.round(
+      (isBoss ? faction.tower.bossAttack : (16 + layer * 2) * rules.bossAttackMultiplier) *
+        (1 + Math.max(0, (character.battleLevel || 1) - 1) * 0.05)
+    ),
     maxRounds: isBoss ? 10 : 7,
     rewardGold: Math.round((isBoss ? 140 + layer * 35 : 45 + layer * 10) * towerLevelFactor * rules.rewardMultiplier),
     battleExp: Math.round((isBoss ? 80 + layer * 18 : 30 + layer * 8) * towerLevelFactor * rules.rewardMultiplier),
@@ -4207,7 +5028,12 @@ export async function startFactionTowerBattle(userId: string, payload: FactionTo
       faction.tower.lastEvent = `目前遇到第 ${layer} 層 Boss：${faction.tower.bossName}`;
     }
   }
-  appendNotification(character, "battle", "公會戰鬥", `公庫獲得 ${guildGold} 金幣，個人獲得 ${personalGold} 金幣與戰鬥經驗 ${battleExp}。`);
+  appendNotification(
+    character,
+    "battle",
+    "公會戰鬥",
+    `公庫獲得 ${guildGold} 金幣，個人獲得 ${personalGold} 金幣與戰鬥經驗 ${battleExp}。`
+  );
 
   const record: BattleRecordSummary = {
     id: randomId("battle"),
@@ -4271,10 +5097,20 @@ export async function challengeWorldBoss(userId: string): Promise<WorldBossChall
   };
   const result = runInstantBattle(character, config);
   const isFirstWinner = result.won && !worldBoss.winnerFactionId;
-  const personalGold = isFirstWinner ? Math.floor(worldBoss.rewardGold * rules.firstWinPersonalGoldRate) : result.won ? rules.repeatWinPersonalGold : rules.lossPersonalGold;
+  const personalGold = isFirstWinner
+    ? Math.floor(worldBoss.rewardGold * rules.firstWinPersonalGoldRate)
+    : result.won
+      ? rules.repeatWinPersonalGold
+      : rules.lossPersonalGold;
   const guildGold = isFirstWinner ? worldBoss.rewardGold : result.won ? rules.repeatWinGuildGold : rules.lossGuildGold;
-  const materialQuantity = isFirstWinner ? Math.max(1, Math.floor(worldBoss.rewardMaterials * rules.firstWinMaterialRate)) : rules.participationMaterials;
-  const battleExp = isFirstWinner ? rules.firstWinBattleExp : result.won ? rules.repeatWinBattleExp : rules.lossBattleExp;
+  const materialQuantity = isFirstWinner
+    ? Math.max(1, Math.floor(worldBoss.rewardMaterials * rules.firstWinMaterialRate))
+    : rules.participationMaterials;
+  const battleExp = isFirstWinner
+    ? rules.firstWinBattleExp
+    : result.won
+      ? rules.repeatWinBattleExp
+      : rules.lossBattleExp;
 
   character.gold = clamp(character.gold + personalGold, 0, GAME_LIMITS.goldBalance);
   if (materialQuantity > 0) mergeInventoryStack(character, createMaterialItem(rules.materialType, materialQuantity));
@@ -4330,11 +5166,20 @@ export async function challengeWorldBoss(userId: string): Promise<WorldBossChall
     battleRecordId: record.id
   });
   worldBoss.attempts = worldBoss.attempts.slice(0, 30);
-  appendNotification(character, "battle", "世界 Boss", `個人獲得 ${personalGold} 金幣、${materialName(rules.materialType)} x${materialQuantity}、戰鬥經驗 ${battleExp}。`);
+  appendNotification(
+    character,
+    "battle",
+    "世界 Boss",
+    `個人獲得 ${personalGold} 金幣、${materialName(rules.materialType)} x${materialQuantity}、戰鬥經驗 ${battleExp}。`
+  );
   await recordBattle(record);
   await persist();
   return {
-    message: isFirstWinner ? `${faction.name} 率先擊敗世界 Boss` : result.won ? `${worldBoss.bossName} 挑戰成功` : `${worldBoss.bossName} 挑戰失敗`,
+    message: isFirstWinner
+      ? `${faction.name} 率先擊敗世界 Boss`
+      : result.won
+        ? `${worldBoss.bossName} 挑戰成功`
+        : `${worldBoss.bossName} 挑戰失敗`,
     character: toPublicCharacter(character),
     factionState: buildFactionState(data, userId),
     worldBoss,
@@ -4382,14 +5227,24 @@ function facilitySiegeBonus(castle: CastleState) {
 function ensureSiegeDefenders(data: StoreData, siege: SiegeBattleState) {
   const castle = data.castles.find((entry) => entry.id === siege.castleId);
   if (!castle) return;
-  for (const defender of data.characters.filter((entry) => entry.garrisonAssignment?.castleId === castle.id && entry.factionId === siege.defenderFactionId)) {
-    if (!siege.participants.some((participant) => participant.userId === defender.userId && participant.side === "defense")) {
+  for (const defender of data.characters.filter(
+    (entry) => entry.garrisonAssignment?.castleId === castle.id && entry.factionId === siege.defenderFactionId
+  )) {
+    if (
+      !siege.participants.some(
+        (participant) => participant.userId === defender.userId && participant.side === "defense"
+      )
+    ) {
       siege.participants.push(siegeParticipantFromCharacter(defender, "defense"));
     }
   }
 }
 
-function applySiegeParticipantCost(character: CharacterProfile, participant: SiegeParticipant, input: { hpLoss: number; mpLoss: number; energyLoss: number }) {
+function applySiegeParticipantCost(
+  character: CharacterProfile,
+  participant: SiegeParticipant,
+  input: { hpLoss: number; mpLoss: number; energyLoss: number }
+) {
   character.hp = clamp(character.hp - input.hpLoss, 1, character.maxHp);
   character.mp = clamp(character.mp - input.mpLoss, 0, character.maxMp);
   character.energy = clamp(character.energy - input.energyLoss, 0, character.maxEnergy);
@@ -4426,7 +5281,8 @@ function finishSiege(data: StoreData, siege: SiegeBattleState, winnerFactionId: 
     targetFactionId: siege.defenderFactionId,
     participants: siege.participants.map((participant) => ({
       userId: participant.userId,
-      displayName: data.users.find((entry) => entry.id === participant.userId)?.displayName || participant.characterName,
+      displayName:
+        data.users.find((entry) => entry.id === participant.userId)?.displayName || participant.characterName,
       className: data.characters.find((entry) => entry.userId === participant.userId)?.className || "warrior",
       damageDealt: participant.damageDealt,
       healingDone: 0,
@@ -4459,12 +5315,16 @@ function processSiegeTicks(data: StoreData, siege: SiegeBattleState) {
     Math.ceil((endsAt - startedAt) / Math.max(1, rules.tickIntervalSeconds * 1000))
   );
   for (let tick = siege.lastResolvedTick + 1; tick <= dueTicks && siege.status === "active"; tick += 1) {
-    const activeAttackers = siege.participants.filter((participant) => participant.side === "attack" && participant.status === "active");
+    const activeAttackers = siege.participants.filter(
+      (participant) => participant.side === "attack" && participant.status === "active"
+    );
     if (activeAttackers.length === 0) {
       finishSiege(data, siege, siege.defenderFactionId, "攻方無可戰鬥成員，守方守住城池。");
       break;
     }
-    const activeDefenders = siege.participants.filter((participant) => participant.side === "defense" && participant.status === "active");
+    const activeDefenders = siege.participants.filter(
+      (participant) => participant.side === "defense" && participant.status === "active"
+    );
     const facilityBonus = facilitySiegeBonus(castle);
     const attackingCharacters = activeAttackers
       .map((participant) => data.characters.find((entry) => entry.userId === participant.userId))
@@ -4472,35 +5332,61 @@ function processSiegeTicks(data: StoreData, siege: SiegeBattleState) {
     const defendingCharacters = activeDefenders
       .map((participant) => data.characters.find((entry) => entry.userId === participant.userId))
       .filter((entry): entry is CharacterProfile => Boolean(entry));
-    const attackerPower = attackingCharacters.reduce((total, character) => total + siegeStatPower(character, "attack", data.gameConfig), 0);
-    const defenderPlayerPower = defendingCharacters.reduce((total, character) => total + siegeStatPower(character, "defense", data.gameConfig) + facilityBonus.garrison, 0);
+    const attackerPower = attackingCharacters.reduce(
+      (total, character) => total + siegeStatPower(character, "attack", data.gameConfig),
+      0
+    );
+    const defenderPlayerPower = defendingCharacters.reduce(
+      (total, character) => total + siegeStatPower(character, "defense", data.gameConfig) + facilityBonus.garrison,
+      0
+    );
     const defenseTechLevel = factionTechLevel(getFactionById(data, siege.defenderFactionId), "defense");
     const autoDefensePower = Math.round(
-      (castle.autoDefensePower + facilityBonus.autoDefense + castle.fortification * 0.55 + castle.terrainAdvantage + defenseTechLevel * 10) * rules.autoDefenseScaling
+      (castle.autoDefensePower +
+        facilityBonus.autoDefense +
+        castle.fortification * 0.55 +
+        castle.terrainAdvantage +
+        defenseTechLevel * 10) *
+        rules.autoDefenseScaling
     );
     const defenderPower = Math.round(defenderPlayerPower * rules.defenderTerrainMultiplier + autoDefensePower);
     const brokeDefense = attackerPower * rules.breakthroughMultiplier > defenderPower;
     const resistance = castle.siegeResistance + facilityBonus.resistance;
     const fortificationDamage = brokeDefense
-      ? Math.max(rules.minorFortificationDamage, Math.floor((attackerPower * rules.breakthroughMultiplier - defenderPower) / 18) + rules.minorFortificationDamage - Math.floor(resistance / 10))
+      ? Math.max(
+          rules.minorFortificationDamage,
+          Math.floor((attackerPower * rules.breakthroughMultiplier - defenderPower) / 18) +
+            rules.minorFortificationDamage -
+            Math.floor(resistance / 10)
+        )
       : Math.max(0, rules.minorFortificationDamage - Math.floor(resistance / 18));
     let attackerEnergySpent = 0;
     let turretDamageTotal = 0;
     // 自動砲臺：城防工事獨立輸出，無人駐守時城池靠它磨死攻方；城牆越殘破火力越弱
     const turretPower = Math.round(
-      (castle.autoDefensePower + facilityBonus.autoDefense + castle.fortification * 0.4 + defenseTechLevel * 8) * rules.autoDefenseScaling
+      (castle.autoDefensePower + facilityBonus.autoDefense + castle.fortification * 0.4 + defenseTechLevel * 8) *
+        rules.autoDefenseScaling
     );
     const retreatedUserIds: string[] = [];
     for (const participant of activeAttackers) {
       const character = data.characters.find((entry) => entry.userId === participant.userId);
       if (!character) continue;
-      const energyLoss = Math.max(1, rules.baseEnergyCost - Math.floor((character.stats.vitality + character.stats.tenacity) / 12));
+      const energyLoss = Math.max(
+        1,
+        rules.baseEnergyCost - Math.floor((character.stats.vitality + character.stats.tenacity) / 12)
+      );
       const turretDamage = Math.max(
         activeDefenders.length === 0 ? 2 : 0,
-        Math.floor(turretPower / (6 + activeAttackers.length * 3)) - Math.floor((character.stats.defense + character.stats.tenacity) / 6)
+        Math.floor(turretPower / (6 + activeAttackers.length * 3)) -
+          Math.floor((character.stats.defense + character.stats.tenacity) / 6)
       );
-      const meleePressure = Math.floor((defenderPlayerPower * rules.defenderTerrainMultiplier) / Math.max(20, activeAttackers.length * 32));
-      const hpLoss = Math.max(1, meleePressure - Math.floor((character.stats.defense + character.stats.tenacity) / 9) + turretDamage);
+      const meleePressure = Math.floor(
+        (defenderPlayerPower * rules.defenderTerrainMultiplier) / Math.max(20, activeAttackers.length * 32)
+      );
+      const hpLoss = Math.max(
+        1,
+        meleePressure - Math.floor((character.stats.defense + character.stats.tenacity) / 9) + turretDamage
+      );
       const mpLoss = Math.max(0, Math.floor(autoDefensePower / 45) - Math.floor(character.stats.spirit / 12));
       applySiegeParticipantCost(character, participant, { hpLoss, mpLoss, energyLoss });
       attackerEnergySpent += energyLoss;
@@ -4512,9 +5398,17 @@ function processSiegeTicks(data: StoreData, siege: SiegeBattleState) {
     for (const participant of activeDefenders) {
       const character = data.characters.find((entry) => entry.userId === participant.userId);
       if (!character) continue;
-      const hpLoss = Math.max(1, Math.floor(attackerPower / Math.max(24, activeDefenders.length * 42)) - Math.floor((character.stats.defense + character.stats.tenacity) / 8));
+      const hpLoss = Math.max(
+        1,
+        Math.floor(attackerPower / Math.max(24, activeDefenders.length * 42)) -
+          Math.floor((character.stats.defense + character.stats.tenacity) / 8)
+      );
       const mpLoss = Math.max(0, Math.floor(attackerPower / 120) - Math.floor(character.stats.spirit / 14));
-      applySiegeParticipantCost(character, participant, { hpLoss, mpLoss, energyLoss: Math.max(1, Math.floor(rules.baseEnergyCost / 2)) });
+      applySiegeParticipantCost(character, participant, {
+        hpLoss,
+        mpLoss,
+        energyLoss: Math.max(1, Math.floor(rules.baseEnergyCost / 2))
+      });
       participant.damageDealt += Math.max(1, Math.floor(defenderPlayerPower / Math.max(1, activeDefenders.length * 5)));
     }
     castle.fortification = clamp(castle.fortification - fortificationDamage, 0, castle.maxFortification);
@@ -4559,7 +5453,11 @@ export async function garrisonCastle(userId: string, castleId: string): Promise<
   if (garrisonCount >= castle.garrisonSlots) throw new Error("此城池駐防名額已滿。");
   character.garrisonAssignment = { castleId: castle.id, startedAt: nowIso() };
   await persist();
-  return { message: `${character.name} 已駐防 ${castle.name}`, character: toPublicCharacter(character), factionState: buildFactionState(data, userId) };
+  return {
+    message: `${character.name} 已駐防 ${castle.name}`,
+    character: toPublicCharacter(character),
+    factionState: buildFactionState(data, userId)
+  };
 }
 
 export async function leaveGarrison(userId: string, castleId: string): Promise<FactionActionResult> {
@@ -4570,7 +5468,11 @@ export async function leaveGarrison(userId: string, castleId: string): Promise<F
   if (activeSiege) throw new Error("攻城戰進行中，不能退出駐防。");
   character.garrisonAssignment = null;
   await persist();
-  return { message: `${character.name} 已退出駐防`, character: toPublicCharacter(character), factionState: buildFactionState(data, userId) };
+  return {
+    message: `${character.name} 已退出駐防`,
+    character: toPublicCharacter(character),
+    factionState: buildFactionState(data, userId)
+  };
 }
 
 export async function startCastleSiege(userId: string, castleId: string): Promise<FactionState> {
@@ -4616,12 +5518,21 @@ export async function joinCastleSiege(userId: string, siegeId: string): Promise<
   if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法加入攻城戰。");
   const siege = data.sieges.find((entry) => entry.id === siegeId);
   if (!siege || siege.status !== "active") throw new Error("找不到進行中的攻城戰。");
-  const side = character.factionId === siege.attackerFactionId ? "attack" : character.factionId === siege.defenderFactionId ? "defense" : null;
+  const side =
+    character.factionId === siege.attackerFactionId
+      ? "attack"
+      : character.factionId === siege.defenderFactionId
+        ? "defense"
+        : null;
   if (!side) throw new Error("只有攻守雙方陣營可加入此戰場。");
   if (siege.participants.some((participant) => participant.userId === userId)) throw new Error("已在此攻城戰中。");
   siege.participants.push(siegeParticipantFromCharacter(character, side));
   await persist();
-  return { message: `${character.name} 已加入攻城戰`, character: toPublicCharacter(character), factionState: buildFactionState(data, userId) };
+  return {
+    message: `${character.name} 已加入攻城戰`,
+    character: toPublicCharacter(character),
+    factionState: buildFactionState(data, userId)
+  };
 }
 
 export async function resolveCastleSiege(userId: string, siegeId: string): Promise<FactionState> {
@@ -4630,13 +5541,18 @@ export async function resolveCastleSiege(userId: string, siegeId: string): Promi
   if (!character?.factionId) throw new Error("請先加入陣營。");
   const siege = data.sieges.find((entry) => entry.id === siegeId);
   if (!siege) throw new Error("找不到攻城戰。");
-  if (character.factionId !== siege.attackerFactionId && character.factionId !== siege.defenderFactionId) throw new Error("只有攻守雙方可結算此戰場。");
+  if (character.factionId !== siege.attackerFactionId && character.factionId !== siege.defenderFactionId)
+    throw new Error("只有攻守雙方可結算此戰場。");
   processSiegeTicks(data, siege);
   await persist();
   return buildFactionState(data, userId);
 }
 
-export async function attackCastle(userId: string, castleId: string, participantUserIds: string[] = [userId]): Promise<AttackCastleResult> {
+export async function attackCastle(
+  userId: string,
+  castleId: string,
+  participantUserIds: string[] = [userId]
+): Promise<AttackCastleResult> {
   const { data, character } = await findCharacterForUpdate(userId);
   if (!character.factionId) throw new Error("請先加入陣營。");
   if (isCharacterBusy(character)) throw new Error("角色正在忙碌中，無法攻城。");
@@ -4647,19 +5563,22 @@ export async function attackCastle(userId: string, castleId: string, participant
   const myFaction = getFactionById(data, character.factionId);
   if (myFaction.allyIds.includes(targetFactionId)) throw new Error("不能攻擊盟友城池。");
 
-  const participants = Array.from(new Set(participantUserIds.length > 0 ? participantUserIds : [userId]))
-    .map((participantUserId) => {
+  const participants = Array.from(new Set(participantUserIds.length > 0 ? participantUserIds : [userId])).map(
+    (participantUserId) => {
       const participant = data.characters.find((entry) => entry.userId === participantUserId);
       if (!participant) throw new Error("找不到參戰角色。");
       if (participant.factionId !== character.factionId) throw new Error("只能帶同陣營成員攻城。");
       if (isCharacterBusy(participant)) throw new Error(`${participant.name} 正在忙碌中，無法攻城。`);
       return participant;
-    });
+    }
+  );
 
   const warBonus = myFaction.warTargetIds.includes(targetFactionId) ? 1.15 : 1;
   const bossSkill = randomFrom(castle.bossSkills.length > 0 ? castle.bossSkills : ["重擊"]);
-  const bossHpModifier = bossSkill.includes("防禦姿態") || bossSkill.includes("士氣重整") || bossSkill.includes("壁壘反擊") ? 1.15 : 1;
-  const bossAttackModifier = bossSkill.includes("重擊") || bossSkill.includes("統領號令") || bossSkill.includes("破甲") ? 1.2 : 1;
+  const bossHpModifier =
+    bossSkill.includes("防禦姿態") || bossSkill.includes("士氣重整") || bossSkill.includes("壁壘反擊") ? 1.15 : 1;
+  const bossAttackModifier =
+    bossSkill.includes("重擊") || bossSkill.includes("統領號令") || bossSkill.includes("破甲") ? 1.2 : 1;
   const bossHp = Math.round((castle.isCapital ? castle.bossHp * 1.25 : castle.bossHp) * bossHpModifier);
   const bossAttack = Math.round((castle.isCapital ? castle.bossAttack * 1.25 : castle.bossAttack) * bossAttackModifier);
   const rawPower = participants.reduce(
@@ -4683,7 +5602,10 @@ export async function attackCastle(userId: string, castleId: string, participant
   const defenseTechLevel = defendingFaction ? factionTechLevel(defendingFaction, "defense") : 0;
   const siegeDamage = Math.max(10, 25 - defenseTechLevel * 2);
   const participantResults = participants.map((participant) => {
-    const hpLoss = Math.min(participant.hp - 1, Math.max(4, Math.floor(bossAttack / 2) - Math.floor(participant.stats.tenacity / 3)));
+    const hpLoss = Math.min(
+      participant.hp - 1,
+      Math.max(4, Math.floor(bossAttack / 2) - Math.floor(participant.stats.tenacity / 3))
+    );
     const mpLoss = Math.min(participant.mp, Math.max(6, Math.floor(bossAttack / 3)));
     const energyLoss = Math.min(participant.energy, 12);
     participant.hp = clamp(participant.hp - Math.max(0, hpLoss), 1, participant.maxHp);
@@ -4712,10 +5634,16 @@ export async function attackCastle(userId: string, castleId: string, participant
     myFaction.treasury.gold = clamp(myFaction.treasury.gold + castle.rewardGold, 0, GAME_LIMITS.goldBalance);
     for (const participant of participants) {
       const personalGold = 16 + castle.layer * 8 + (castle.specialty === "boss" ? 16 : 0);
-      const materialType: MaterialType = castle.specialty === "mining" ? "silver_ore" : castle.specialty === "boss" ? "stardust" : "iron_ore";
+      const materialType: MaterialType =
+        castle.specialty === "mining" ? "silver_ore" : castle.specialty === "boss" ? "stardust" : "iron_ore";
       participant.gold = clamp(participant.gold + personalGold, 0, GAME_LIMITS.goldBalance);
       mergeInventoryStack(participant, createMaterialItem(materialType, castle.specialty === "boss" ? 2 : 1));
-      appendNotification(participant, "battle", "攻城獎勵", `獲得 ${personalGold} 金幣、${materialName(materialType)} x${castle.specialty === "boss" ? 2 : 1}。`);
+      appendNotification(
+        participant,
+        "battle",
+        "攻城獎勵",
+        `獲得 ${personalGold} 金幣、${materialName(materialType)} x${castle.specialty === "boss" ? 2 : 1}。`
+      );
     }
   }
   if (won && castle.fortification <= 0) {
@@ -4741,7 +5669,9 @@ export async function attackCastle(userId: string, castleId: string, participant
       displayName: data.users.find((entry) => entry.id === participant.userId)?.displayName || participant.name,
       className: participant.className,
       damageDealt:
-        (won ? Math.floor(bossHp / participantResults.length) : Math.floor(power / Math.max(6, participantResults.length * 6)) + index) +
+        (won
+          ? Math.floor(bossHp / participantResults.length)
+          : Math.floor(power / Math.max(6, participantResults.length * 6)) + index) +
         (specialDamageByUser.get(participant.userId) || 0),
       healingDone: 0,
       damageTaken: hpLoss
@@ -4800,7 +5730,8 @@ function assertCastleOwners(castles: CastleState[], factions: StoredFaction[]) {
   const factionIds = new Set(factions.map((faction) => faction.id));
   for (const castle of castles) {
     if (!castle.id) throw new Error("城池 id 不可空白。");
-    if (!factionIds.has(castle.ownerFactionId)) throw new Error(`${castle.name || castle.id} 的 ownerFactionId 不存在。`);
+    if (!factionIds.has(castle.ownerFactionId))
+      throw new Error(`${castle.name || castle.id} 的 ownerFactionId 不存在。`);
   }
 }
 
@@ -4809,19 +5740,31 @@ export async function getAdminGameConfig(): Promise<AdminGameConfigResponse> {
   return buildAdminGameConfigResponse(data);
 }
 
-export async function adminUpdateGameConfigSection(section: AdminConfigSection, payload: any): Promise<AdminGameConfigResponse> {
+export async function adminUpdateGameConfigSection(
+  section: AdminConfigSection,
+  payload: any
+): Promise<AdminGameConfigResponse> {
   const data = await ensureLoaded();
   if (section === "classes") {
-    data.classConfigs = Array.isArray(payload) ? payload.filter((entry) => entry.className && entry.label).map((entry) => ({ className: entry.className, label: String(entry.label), active: Boolean(entry.active) })) : data.classConfigs;
+    data.classConfigs = Array.isArray(payload)
+      ? payload
+          .filter((entry) => entry.className && entry.label)
+          .map((entry) => ({ className: entry.className, label: String(entry.label), active: Boolean(entry.active) }))
+      : data.classConfigs;
   } else if (section === "specialSkills") {
     data.gameConfig = normalizeGameConfig({ ...data.gameConfig, specialSkills: payload });
   } else if (section === "secondaryCharacters") {
     data.gameConfig = normalizeGameConfig({ ...data.gameConfig, secondaryCharacters: payload });
   } else if (section === "battle") {
-    data.gameConfig = normalizeGameConfig({ ...data.gameConfig, soloDifficulties: payload?.soloDifficulties || payload });
+    data.gameConfig = normalizeGameConfig({
+      ...data.gameConfig,
+      soloDifficulties: payload?.soloDifficulties || payload
+    });
   } else if (section === "rewards") {
-    if (payload?.dailyRewardConfig) data.dailyRewardConfig = normalizeRewardSchedule(payload.dailyRewardConfig, initialData.dailyRewardConfig);
-    if (payload?.flashEventConfig) data.flashEventConfig = normalizeRewardSchedule(payload.flashEventConfig, initialData.flashEventConfig);
+    if (payload?.dailyRewardConfig)
+      data.dailyRewardConfig = normalizeRewardSchedule(payload.dailyRewardConfig, initialData.dailyRewardConfig);
+    if (payload?.flashEventConfig)
+      data.flashEventConfig = normalizeRewardSchedule(payload.flashEventConfig, initialData.flashEventConfig);
   } else if (section === "castles") {
     const castles = Array.isArray(payload) ? payload : data.castles;
     assertCastleOwners(castles, data.factions);
@@ -4838,7 +5781,7 @@ export async function adminUpdateGameConfigSection(section: AdminConfigSection, 
       warTargetIds: Array.isArray(faction.warTargetIds) ? faction.warTargetIds : [],
       treasury: faction.treasury || { gold: 0, materials: 0 },
       tech: faction.tech || defaultFactionTech(),
-      tower: normalizeFactionTower(faction.tower || {}, String(faction.name || faction.id || "")),
+      tower: normalizeFactionTower(faction.tower || {}, String(faction.name || faction.id || ""))
     }));
     assertCastleOwners(data.castles, data.factions);
   } else if (section === "shop") {
@@ -4943,9 +5886,82 @@ export async function adminFillResources(payload: AdminFillResourcesPayload) {
   const target = await resolveCharacterByName(payload.targetCharacterName);
   if (!target) throw new Error("找不到目標角色。");
   const { character } = await findCharacterForUpdate(target.userId);
-  character.hp = character.maxHp;
-  character.mp = character.maxMp;
-  character.energy = character.maxEnergy;
+  const shouldFillHp = payload.hp ?? true;
+  const shouldFillMp = payload.mp ?? true;
+  const shouldFillEnergy = payload.energy ?? true;
+  if (shouldFillHp) character.hp = character.maxHp;
+  if (shouldFillMp) character.mp = character.maxMp;
+  if (shouldFillEnergy) character.energy = character.maxEnergy;
+  if (payload.clearStatusEffects) character.statusEffects = starterStatusEffects();
+  if (payload.clearQueue) character.actionQueue = createEmptyQueue();
+  if (payload.clearMovement && character.movement) {
+    character.currentCastleId = character.movement.toCastleId;
+    character.movement = null;
+  }
+  if (payload.clearGarrison) character.garrisonAssignment = null;
+  syncQueueStatuses(character);
+  appendNotification(character, "admin", "管理員回復狀態", "HP / MP / 精力或行動狀態已由後台回復。");
+  await persist();
+  return toPublicCharacter(character);
+}
+
+export async function adminAdjustCharacter(payload: AdminAdjustCharacterPayload) {
+  const target = await resolveCharacterByName(payload.targetCharacterName);
+  if (!target) throw new Error("找不到目標角色。");
+  const { character } = await findCharacterForUpdate(target.userId);
+  const currentResources = {
+    hp: payload.hp ?? character.hp,
+    mp: payload.mp ?? character.mp,
+    energy: payload.energy ?? character.energy
+  };
+
+  character.level = clampedInt(payload.level ?? character.level, 1, 999, character.level);
+  character.experience = clampedInt(payload.experience ?? character.experience, 0, 9999999, character.experience);
+  character.instinctLevel = clampedInt(
+    payload.instinctLevel ?? character.instinctLevel,
+    1,
+    999,
+    character.instinctLevel
+  );
+  character.instinctExp = clampedInt(payload.instinctExp ?? character.instinctExp, 0, 9999999, character.instinctExp);
+  character.battleLevel = clampedInt(payload.battleLevel ?? character.battleLevel, 1, 999, character.battleLevel);
+  character.battleExp = clampedInt(payload.battleExp ?? character.battleExp, 0, 9999999, character.battleExp);
+  character.forgeLevel = clampedInt(payload.forgeLevel ?? character.forgeLevel, 1, 999, character.forgeLevel);
+  character.forgeExp = clampedInt(payload.forgeExp ?? character.forgeExp, 0, 9999999, character.forgeExp);
+  character.gold = clampedInt(payload.gold ?? character.gold, 0, GAME_LIMITS.goldBalance, character.gold);
+  character.materials = clampedInt(
+    payload.materials ?? character.materials,
+    0,
+    GAME_LIMITS.resourceQuantity,
+    character.materials
+  );
+
+  const statKeys: CharacterStatKey[] = [
+    "attack",
+    "defense",
+    "luck",
+    "intelligence",
+    "vitality",
+    "spirit",
+    "technique",
+    "tenacity"
+  ];
+  for (const key of statKeys) {
+    if (payload.stats?.[key] != null) {
+      character.stats[key] = clampedInt(payload.stats[key], 1, 999, character.stats[key]);
+    }
+  }
+
+  recalcResources(character);
+  if (payload.maxHp != null) character.maxHp = clampedInt(payload.maxHp, 1, 999999, character.maxHp);
+  if (payload.maxMp != null) character.maxMp = clampedInt(payload.maxMp, 1, 999999, character.maxMp);
+  if (payload.maxEnergy != null) character.maxEnergy = clampedInt(payload.maxEnergy, 1, 999999, character.maxEnergy);
+  character.hp = clamp(clampedInt(currentResources.hp, 0, 999999, character.hp), 0, character.maxHp);
+  character.mp = clamp(clampedInt(currentResources.mp, 0, 999999, character.mp), 0, character.maxMp);
+  character.energy = clamp(clampedInt(currentResources.energy, 0, 999999, character.energy), 0, character.maxEnergy);
+  syncCharacterAchievements(character);
+  refreshCharacterLoadout(character);
+  appendNotification(character, "admin", "管理員調整角色", "角色等級、資源或屬性已由後台調整。");
   await persist();
   return toPublicCharacter(character);
 }
@@ -4966,7 +5982,12 @@ export async function adminAdjustResources(payload: AdminAdjustResourcesPayload)
   if (!target) throw new Error("找不到目標角色。");
   const { character } = await findCharacterForUpdate(target.userId);
   character.gold = clampedInt(payload.gold ?? character.gold, 0, GAME_LIMITS.goldBalance, character.gold);
-  character.materials = clampedInt(payload.materials ?? character.materials, 0, GAME_LIMITS.resourceQuantity, character.materials);
+  character.materials = clampedInt(
+    payload.materials ?? character.materials,
+    0,
+    GAME_LIMITS.resourceQuantity,
+    character.materials
+  );
   await persist();
   return toPublicCharacter(character);
 }
@@ -4984,7 +6005,12 @@ export async function adminGrantResources(payload: AdminGrantResourcesPayload) {
     .filter((resource) => resource.quantity > 0);
   character.gold = clamp(character.gold + gold, 0, GAME_LIMITS.goldBalance);
   addMaterialResourceRewards(character, resources);
-  appendNotification(character, "admin", "管理員發放資源", `獲得 ${gold} 金幣與 ${summarizeRewardTemplate({ materials: resources })}`);
+  appendNotification(
+    character,
+    "admin",
+    "管理員發放資源",
+    `獲得 ${gold} 金幣與 ${summarizeRewardTemplate({ materials: resources })}`
+  );
   await persist();
   return toPublicCharacter(character);
 }
@@ -5004,7 +6030,9 @@ export async function adminBattleTest(payload: AdminBattleTestPayload) {
     character.stats.tenacity;
   const monsterPower = monsterHp + monsterAttack * 8;
   const won = power + Math.floor(Math.random() * 40) >= monsterPower;
-  const damageTaken = won ? Math.max(1, Math.floor(monsterAttack / 2) - Math.floor(character.stats.tenacity / 4)) : monsterAttack;
+  const damageTaken = won
+    ? Math.max(1, Math.floor(monsterAttack / 2) - Math.floor(character.stats.tenacity / 4))
+    : monsterAttack;
   character.hp = clamp(character.hp - damageTaken, 1, character.maxHp);
   damageEquippedForBattle(character, damageTaken > 0);
   const record: BattleRecordSummary = {
@@ -5058,7 +6086,10 @@ export async function adminTriggerFlashEvent(minutes = 15) {
 
 export async function adminUpdateRewardConfig(payload: AdminRewardConfigPayload) {
   const data = await ensureLoaded();
-  const nextConfig = normalizeRewardSchedule(payload, payload.kind === "daily" ? initialData.dailyRewardConfig : initialData.flashEventConfig);
+  const nextConfig = normalizeRewardSchedule(
+    payload,
+    payload.kind === "daily" ? initialData.dailyRewardConfig : initialData.flashEventConfig
+  );
   if (payload.kind === "daily") {
     data.dailyRewardConfig = nextConfig;
   } else {
@@ -5113,7 +6144,12 @@ export async function adminSetCastleOwner(payload: AdminSetCastleOwnerPayload) {
 export async function adminAdjustTreasury(payload: AdminAdjustTreasuryPayload) {
   const data = await ensureLoaded();
   const faction = getFactionById(data, payload.factionId);
-  faction.treasury.gold = clampedInt(payload.gold ?? faction.treasury.gold, 0, GAME_LIMITS.goldBalance, faction.treasury.gold);
+  faction.treasury.gold = clampedInt(
+    payload.gold ?? faction.treasury.gold,
+    0,
+    GAME_LIMITS.goldBalance,
+    faction.treasury.gold
+  );
   await persist();
   return toFactionSummary(data, faction);
 }
@@ -5132,6 +6168,10 @@ export async function adminResetDiplomacy() {
 
 export function isCharacterBusy(character: CharacterProfile) {
   return character.actionQueue.items.length > 0 || Boolean(character.movement) || Boolean(character.garrisonAssignment);
+}
+
+export function isCharacterQueueLocked(character: CharacterProfile) {
+  return Boolean(character.movement) || Boolean(character.garrisonAssignment);
 }
 
 export function toAuthUser(user: StoredUser): AuthUser {

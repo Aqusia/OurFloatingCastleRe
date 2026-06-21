@@ -6,13 +6,13 @@
 
 ### 後端 (`server/`)
 
-| 變數 | 必要? | 用途 | 預設 |
-| --- | --- | --- | --- |
-| `NODE_ENV` | 部署時 | `production` 時 Express 會回傳 `client/dist` 靜態檔 | 未設 (dev) |
-| `PORT` | 否 | 後端監聽 port | `3001` |
-| `GAME_DATA_DIR` | 部署時建議 | 本地 JSON 儲存目錄，部署請指到 persistent disk | `server/server/data/` (相對於 cwd) |
-| `SUPABASE_URL` | 啟用 Supabase 才需要 | Supabase 專案 URL | 未設 |
-| `SUPABASE_SERVICE_ROLE_KEY` | 啟用 Supabase 才需要 | Supabase service role key (server-only) | 未設 |
+| 變數                        | 必要?                | 用途                                                | 預設                               |
+| --------------------------- | -------------------- | --------------------------------------------------- | ---------------------------------- |
+| `NODE_ENV`                  | 部署時               | `production` 時 Express 會回傳 `client/dist` 靜態檔 | 未設 (dev)                         |
+| `PORT`                      | 否                   | 後端監聽 port                                       | `3001`                             |
+| `GAME_DATA_DIR`             | 部署時建議           | 本地 JSON 儲存目錄，部署請指到 persistent disk      | `server/server/data/` (相對於 cwd) |
+| `SUPABASE_URL`              | 啟用 Supabase 才需要 | Supabase 專案 URL                                   | 未設                               |
+| `SUPABASE_SERVICE_ROLE_KEY` | 啟用 Supabase 才需要 | Supabase service role key (server-only)             | 未設                               |
 
 > 沒設 Supabase 變數時，`server/src/persistence/supabase.ts` 內的 `isSupabaseEnabled()` 會回傳 `false`，全站走本地 JSON 持久化。
 
@@ -20,22 +20,22 @@
 
 Vite 透過 `import.meta.env.VITE_*` 注入 (build time)。
 
-| 變數 | 必要? | 用途 | 預設 (fallback) |
-| --- | --- | --- | --- |
-| `VITE_API_URL` | 否 | REST API base URL | dev 時 `http://localhost:3001`；prod 時 `window.location.origin` |
-| `VITE_SOCKET_URL` | 否 | Socket.IO base URL | 同上 |
-| `VITE_SUPABASE_URL` | 預留 | Supabase 專案 URL (給未來客戶端 SDK 用) | 未設 |
-| `VITE_SUPABASE_ANON_KEY` | 預留 | Supabase anon key | 未設 |
+| 變數                     | 必要? | 用途                                    | 預設 (fallback)                                                  |
+| ------------------------ | ----- | --------------------------------------- | ---------------------------------------------------------------- |
+| `VITE_API_URL`           | 否    | REST API base URL                       | dev 時 `http://localhost:3001`；prod 時 `window.location.origin` |
+| `VITE_SOCKET_URL`        | 否    | Socket.IO base URL                      | 同上                                                             |
+| `VITE_SUPABASE_URL`      | 預留  | Supabase 專案 URL (給未來客戶端 SDK 用) | 未設                                                             |
+| `VITE_SUPABASE_ANON_KEY` | 預留  | Supabase anon key                       | 未設                                                             |
 
 > 同源部署 (production 單一 Node 服務) 時，前端不用設 `VITE_API_URL` / `VITE_SOCKET_URL`，會自動沿用 `window.location.origin`。
 
 ## 本地資料位置
 
-| 路徑 | 內容 |
-| --- | --- |
+| 路徑                            | 內容                                                                                        |
+| ------------------------------- | ------------------------------------------------------------------------------------------- |
 | `server/server/data/store.json` | 角色、背包、公告、陣營、城池、市場、簽到、管理參數的本地持久化檔；server dev 啟動時自動生成 |
-| `client/src/assets/` | 前端視覺素材；第三方素材需在 `client/src/assets/asset-sources.md` 紀錄來源與授權 |
-| `supabase/migrations/` | Supabase schema / migration 草稿；目前尚未進入正式 pipeline |
+| `client/src/assets/`            | 前端視覺素材；第三方素材需在 `client/src/assets/asset-sources.md` 紀錄來源與授權            |
+| `supabase/migrations/`          | Supabase schema / migration 草稿；目前尚未進入正式 pipeline                                 |
 
 ## 切換到 production 模式
 

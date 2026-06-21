@@ -36,10 +36,7 @@ export async function authenticateToken(token: string) {
     return null;
   }
 
-  const [user, character] = await Promise.all([
-    getUserById(session.userId),
-    getCharacterByUserId(session.userId)
-  ]);
+  const [user, character] = await Promise.all([getUserById(session.userId), getCharacterByUserId(session.userId)]);
 
   if (!user || !character) {
     return null;

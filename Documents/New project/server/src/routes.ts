@@ -3,6 +3,7 @@ import type {
   ActionType,
   AdminAnnouncementPayload,
   AdminAnnouncementTogglePayload,
+  AdminAdjustCharacterPayload,
   AdminAdjustResourcesPayload,
   AdminGrantResourcesPayload,
   AdminRewardConfigPayload,
@@ -45,6 +46,7 @@ import {
   advanceFactionTower,
   attackNearbyPlayer,
   adminAdjustResources,
+  adminAdjustCharacter,
   adminAdjustTreasury,
   adminAssignLeader,
   adminBattleTest,
@@ -218,8 +220,17 @@ export function createApiRouter() {
   router.post("/queue/actions", requireAuth(), async (request: AuthedRequest, response) => {
     try {
       const queuePayload = request.body as QueueActionPayload;
+      const room = getRoomForUser(request.auth!.user.id);
+      if (room?.phase === "battle") {
+        response.status(400).json({ error: "隊伍戰鬥中不能加入行動佇列。" });
+        return;
+      }
       await processCharacterQueue(request.auth!.user.id, true);
-      const result = await enqueueAction(request.auth!.user.id, queuePayload.actionType as ActionType, queuePayload.durationHours);
+      const result = await enqueueAction(
+        request.auth!.user.id,
+        queuePayload.actionType as ActionType,
+        queuePayload.durationHours
+      );
       response.json(result);
     } catch (error) {
       response.status(400).json({ error: error instanceof Error ? error.message : "加入隊列失敗。" });
@@ -360,7 +371,9 @@ export function createApiRouter() {
   router.post("/factions/castles/:castleId/build", requireAuth(), async (request: AuthedRequest, response) => {
     try {
       const castleId = Array.isArray(request.params.castleId) ? request.params.castleId[0] : request.params.castleId;
-      response.json(await enqueueCastleBuild(request.auth!.user.id, { ...(request.body as BuildFacilityPayload), castleId }));
+      response.json(
+        await enqueueCastleBuild(request.auth!.user.id, { ...(request.body as BuildFacilityPayload), castleId })
+      );
     } catch (error) {
       response.status(400).json({ error: error instanceof Error ? error.message : "建設失敗。" });
     }
@@ -369,7 +382,9 @@ export function createApiRouter() {
   router.post("/factions/castles/:castleId/repair", requireAuth(), async (request: AuthedRequest, response) => {
     try {
       const castleId = Array.isArray(request.params.castleId) ? request.params.castleId[0] : request.params.castleId;
-      response.json(await enqueueCastleRepair(request.auth!.user.id, { ...(request.body as RepairCastlePayload), castleId }));
+      response.json(
+        await enqueueCastleRepair(request.auth!.user.id, { ...(request.body as RepairCastlePayload), castleId })
+      );
     } catch (error) {
       response.status(400).json({ error: error instanceof Error ? error.message : "修建失敗。" });
     }
@@ -377,7 +392,9 @@ export function createApiRouter() {
 
   router.post("/factions/projects/:projectId/join", requireAuth(), async (request: AuthedRequest, response) => {
     try {
-      const projectId = Array.isArray(request.params.projectId) ? request.params.projectId[0] : request.params.projectId;
+      const projectId = Array.isArray(request.params.projectId)
+        ? request.params.projectId[0]
+        : request.params.projectId;
       response.json(await joinFactionProject(request.auth!.user.id, projectId));
     } catch (error) {
       response.status(400).json({ error: error instanceof Error ? error.message : "加入工程失敗。" });
@@ -386,36 +403,50 @@ export function createApiRouter() {
 
   router.post("/factions/projects/:projectId/leave", requireAuth(), async (request: AuthedRequest, response) => {
     try {
-      const projectId = Array.isArray(request.params.projectId) ? request.params.projectId[0] : request.params.projectId;
+      const projectId = Array.isArray(request.params.projectId)
+        ? request.params.projectId[0]
+        : request.params.projectId;
       response.json(await leaveFactionProject(request.auth!.user.id, projectId));
     } catch (error) {
       response.status(400).json({ error: error instanceof Error ? error.message : "退出工程失敗。" });
     }
   });
 
-  router.post("/factions/diplomacy/cooperate", requireFactionLeaderOrAdmin(), async (request: AuthedRequest, response) => {
-    try {
-      response.json(await requestCooperation(request.auth!.user.id, request.body));
-    } catch (error) {
-      response.status(400).json({ error: error instanceof Error ? error.message : "提出合作失敗。" });
+  router.post(
+    "/factions/diplomacy/cooperate",
+    requireFactionLeaderOrAdmin(),
+    async (request: AuthedRequest, response) => {
+      try {
+        response.json(await requestCooperation(request.auth!.user.id, request.body));
+      } catch (error) {
+        response.status(400).json({ error: error instanceof Error ? error.message : "提出合作失敗。" });
+      }
     }
-  });
+  );
 
-  router.post("/factions/diplomacy/cooperate/respond", requireFactionLeaderOrAdmin(), async (request: AuthedRequest, response) => {
-    try {
-      response.json(await respondCooperation(request.auth!.user.id, request.body as CooperateRespondPayload));
-    } catch (error) {
-      response.status(400).json({ error: error instanceof Error ? error.message : "處理合作邀請失敗。" });
+  router.post(
+    "/factions/diplomacy/cooperate/respond",
+    requireFactionLeaderOrAdmin(),
+    async (request: AuthedRequest, response) => {
+      try {
+        response.json(await respondCooperation(request.auth!.user.id, request.body as CooperateRespondPayload));
+      } catch (error) {
+        response.status(400).json({ error: error instanceof Error ? error.message : "處理合作邀請失敗。" });
+      }
     }
-  });
+  );
 
-  router.post("/factions/diplomacy/declare-war", requireFactionLeaderOrAdmin(), async (request: AuthedRequest, response) => {
-    try {
-      response.json(await declareWar(request.auth!.user.id, request.body));
-    } catch (error) {
-      response.status(400).json({ error: error instanceof Error ? error.message : "宣戰失敗。" });
+  router.post(
+    "/factions/diplomacy/declare-war",
+    requireFactionLeaderOrAdmin(),
+    async (request: AuthedRequest, response) => {
+      try {
+        response.json(await declareWar(request.auth!.user.id, request.body));
+      } catch (error) {
+        response.status(400).json({ error: error instanceof Error ? error.message : "宣戰失敗。" });
+      }
     }
-  });
+  );
 
   router.post("/factions/tech/upgrade", requireFactionLeaderOrAdmin(), async (request: AuthedRequest, response) => {
     try {
@@ -681,7 +712,9 @@ export function createApiRouter() {
 
   router.put("/admin/config/:section", requireRole("admin"), async (request: AuthedRequest, response) => {
     try {
-      const section = (Array.isArray(request.params.section) ? request.params.section[0] : request.params.section) as AdminConfigSection;
+      const section = (
+        Array.isArray(request.params.section) ? request.params.section[0] : request.params.section
+      ) as AdminConfigSection;
       response.json(await adminUpdateGameConfigSection(section, request.body));
     } catch (error) {
       response.status(400).json({ error: error instanceof Error ? error.message : "更新參數失敗。" });
@@ -690,7 +723,9 @@ export function createApiRouter() {
 
   router.post("/admin/config/:section/reset", requireRole("admin"), async (request: AuthedRequest, response) => {
     try {
-      const section = (Array.isArray(request.params.section) ? request.params.section[0] : request.params.section) as AdminConfigSection;
+      const section = (
+        Array.isArray(request.params.section) ? request.params.section[0] : request.params.section
+      ) as AdminConfigSection;
       response.json(await adminResetGameConfigSection(section));
     } catch (error) {
       response.status(400).json({ error: error instanceof Error ? error.message : "還原參數失敗。" });
@@ -730,6 +765,14 @@ export function createApiRouter() {
       response.json(await adminAdjustResources(request.body as AdminAdjustResourcesPayload));
     } catch (error) {
       response.status(400).json({ error: error instanceof Error ? error.message : "修改資源失敗。" });
+    }
+  });
+
+  router.post("/admin/characters/adjust", requireRole("admin"), async (request: AuthedRequest, response) => {
+    try {
+      response.json(await adminAdjustCharacter(request.body as AdminAdjustCharacterPayload));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "修改角色參數失敗。" });
     }
   });
 

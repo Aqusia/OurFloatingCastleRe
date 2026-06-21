@@ -33,7 +33,10 @@ export type BattleSpecialEventKind =
   | "armor_break"
   | "ally_support"
   | "danger_dodge"
-  | "boss_counter";
+  | "boss_counter"
+  | "block"
+  | "counter_strike"
+  | "lucky_twist";
 
 export type ComboHitDetail = {
   index: number;
@@ -97,6 +100,10 @@ export type TowerRulesConfig = {
   bossHpMultiplier: number;
   bossAttackMultiplier: number;
   rewardMultiplier: number;
+  checkpointInterval: number;
+  checkpointGold: number;
+  checkpointBattleExp: number;
+  checkpointMaterialQuantity: number;
 };
 
 export type PlayerAttackRulesConfig = {
@@ -466,6 +473,7 @@ export type CharacterProfile = {
   secondaryCharacters: SecondaryCharacterSlot[];
   classMastery: ClassMasteryMap;
   specialSkillSlot: string | null;
+  specialSkillSlots: Array<string | null>;
   learnedManuals: LearnedManual[];
   equippedManuals: string[];
   achievements: AchievementProgress[];
@@ -673,7 +681,9 @@ export type SelectSecondaryCharacterPayload = {
 };
 
 export type EquipSpecialSkillPayload = {
-  skillId: string | null;
+  skillId?: string | null;
+  skillIds?: Array<string | null>;
+  slot?: number;
 };
 
 export type LearnManualPayload = {
@@ -765,7 +775,7 @@ export type MapNodePurpose = "capital" | "gathering" | "solo_combat" | "guild_bo
 
 export type TowerAdvanceMode = "rush" | "hunt";
 
-export type TowerEncounterKind = "travel" | "minor_boss" | "boss_unlocked";
+export type TowerEncounterKind = "travel" | "patrol" | "minor_boss" | "boss_unlocked";
 
 export type FactionTowerProgress = {
   currentLayer: number;
@@ -1013,6 +1023,7 @@ export type FactionTowerAdvanceResult = {
     mode: TowerAdvanceMode;
     layer: number;
     stepsGained: number;
+    checkpointsPassed: number;
     rewardGold: number;
     battleExp: number;
     materialType: MaterialType;
@@ -1215,6 +1226,13 @@ export type AdminCompleteQueuePayload = {
 
 export type AdminFillResourcesPayload = {
   targetCharacterName: string;
+  hp?: boolean;
+  mp?: boolean;
+  energy?: boolean;
+  clearStatusEffects?: boolean;
+  clearQueue?: boolean;
+  clearMovement?: boolean;
+  clearGarrison?: boolean;
 };
 
 export type AdminGrantItemPayload = {
@@ -1228,6 +1246,27 @@ export type AdminAdjustResourcesPayload = {
   targetCharacterName: string;
   gold?: number;
   materials?: number;
+};
+
+export type AdminAdjustCharacterPayload = {
+  targetCharacterName: string;
+  level?: number;
+  experience?: number;
+  instinctLevel?: number;
+  instinctExp?: number;
+  battleLevel?: number;
+  battleExp?: number;
+  forgeLevel?: number;
+  forgeExp?: number;
+  gold?: number;
+  materials?: number;
+  hp?: number;
+  maxHp?: number;
+  mp?: number;
+  maxMp?: number;
+  energy?: number;
+  maxEnergy?: number;
+  stats?: Partial<CharacterStats>;
 };
 
 export type AdminGrantResourcesPayload = {

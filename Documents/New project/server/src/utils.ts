@@ -40,7 +40,10 @@ export function randomRoomId() {
 }
 
 export function sanitizePartyCode(value?: string | null) {
-  const code = (value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const code = (value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
   if (code.length !== 6) {
     return null;
   }
@@ -209,24 +212,189 @@ export function starterSubRoleSlots(): SubRoleSlot[] {
 
 export function starterSecondaryCharacters() {
   return [
-    { slot: 1, characterId: null, level: 1, exp: 0, unlockedSkillIds: [], lastTriggeredSkillId: null, cooldownUntilTick: null },
-    { slot: 2, characterId: null, level: 1, exp: 0, unlockedSkillIds: [], lastTriggeredSkillId: null, cooldownUntilTick: null },
-    { slot: 3, characterId: null, level: 1, exp: 0, unlockedSkillIds: [], lastTriggeredSkillId: null, cooldownUntilTick: null }
+    {
+      slot: 1,
+      characterId: null,
+      level: 1,
+      exp: 0,
+      unlockedSkillIds: [],
+      lastTriggeredSkillId: null,
+      cooldownUntilTick: null
+    },
+    {
+      slot: 2,
+      characterId: null,
+      level: 1,
+      exp: 0,
+      unlockedSkillIds: [],
+      lastTriggeredSkillId: null,
+      cooldownUntilTick: null
+    },
+    {
+      slot: 3,
+      characterId: null,
+      level: 1,
+      exp: 0,
+      unlockedSkillIds: [],
+      lastTriggeredSkillId: null,
+      cooldownUntilTick: null
+    }
   ];
 }
 
 export function specialSkillCatalog(): SpecialSkillDefinition[] {
   return [
-    { id: "class_blade_guard", name: "王者防壁", source: "class", requiredClass: "warrior", detail: "戰士專屬，攻防並重。", statBonus: { defense: 2, tenacity: 1 } },
-    { id: "class_shadow_step", name: "影步處決", source: "class", requiredClass: "assassin", detail: "刺客專屬，提升技巧與爆發。", statBonus: { attack: 1, technique: 2 } },
-    { id: "class_arcane_burst", name: "奧術爆裂", source: "class", requiredClass: "mage", detail: "法師專屬，提升智慧與法術輸出。", statBonus: { intelligence: 2, technique: 1 } },
-    { id: "class_holy_grace", name: "聖光恩典", source: "class", requiredClass: "priest", detail: "補師專屬，提升精神與續戰。", statBonus: { spirit: 2, vitality: 1 } },
-    { id: "kirito_starburst", name: "星爆氣流斬", source: "secondary", detail: "桐人風格雙劍連擊，強化攻擊與技巧。", statBonus: { attack: 2, technique: 2 } },
-    { id: "asuna_mothers_rosario", name: "聖母聖詠", source: "secondary", detail: "亞絲娜高速突刺連段，強化技巧與精神。", statBonus: { technique: 2, spirit: 1 } },
-    { id: "naruto_rasengan", name: "螺旋丸", source: "secondary", detail: "鳴人式近身爆發，強化體力與攻擊。", statBonus: { attack: 2, vitality: 1 } },
-    { id: "gojo_infinity", name: "無下限術式", source: "secondary", detail: "五條悟風格防禦術式，強化智慧與防禦。", statBonus: { intelligence: 2, defense: 1 } },
-    { id: "zelda_master_sword", name: "大師劍光", source: "secondary", detail: "林克風格劍技，強化攻擊與韌性。", statBonus: { attack: 1, tenacity: 2 } },
-    { id: "manual_secret_breath", name: "秘傳呼吸法", source: "manual", detail: "秘籍解鎖的特殊呼吸法，提升全局續戰。", statBonus: { vitality: 1, spirit: 1, technique: 1 } }
+    {
+      id: "class_blade_guard",
+      name: "王者防壁",
+      source: "class",
+      requiredClass: "warrior",
+      detail: "戰士專屬，攻防並重。",
+      statBonus: { defense: 2, tenacity: 1 }
+    },
+    {
+      id: "class_shadow_step",
+      name: "影步處決",
+      source: "class",
+      requiredClass: "assassin",
+      detail: "刺客專屬，提升技巧與爆發。",
+      statBonus: { attack: 1, technique: 2 }
+    },
+    {
+      id: "class_arcane_burst",
+      name: "奧術爆裂",
+      source: "class",
+      requiredClass: "mage",
+      detail: "法師專屬，提升智慧與法術輸出。",
+      statBonus: { intelligence: 2, technique: 1 }
+    },
+    {
+      id: "class_holy_grace",
+      name: "聖光恩典",
+      source: "class",
+      requiredClass: "priest",
+      detail: "補師專屬，提升速度與續戰。",
+      statBonus: { spirit: 2, vitality: 1 }
+    },
+    {
+      id: "kirito_starburst",
+      name: "星爆氣流斬",
+      source: "secondary",
+      detail: "桐人風格雙劍連擊，強化攻擊與技巧。",
+      statBonus: { attack: 2, technique: 2 }
+    },
+    {
+      id: "asuna_mothers_rosario",
+      name: "聖母聖詠",
+      source: "secondary",
+      detail: "亞絲娜高速突刺連段，強化技巧與速度。",
+      statBonus: { technique: 2, spirit: 1 }
+    },
+    {
+      id: "naruto_rasengan",
+      name: "螺旋丸",
+      source: "secondary",
+      detail: "鳴人式近身爆發，強化體力與攻擊。",
+      statBonus: { attack: 2, vitality: 1 }
+    },
+    {
+      id: "gojo_infinity",
+      name: "無下限術式",
+      source: "secondary",
+      detail: "五條悟風格防禦術式，強化智慧與防禦。",
+      statBonus: { intelligence: 2, defense: 1 }
+    },
+    {
+      id: "zelda_master_sword",
+      name: "大師劍光",
+      source: "secondary",
+      detail: "林克風格劍技，強化攻擊與韌性。",
+      statBonus: { attack: 1, tenacity: 2 }
+    },
+    {
+      id: "jotaro_ora_ora",
+      name: "歐拉歐拉",
+      source: "secondary",
+      detail: "承太郎風格高速拳連打，強化攻擊、速度與技巧。",
+      statBonus: { attack: 2, spirit: 2, technique: 1 }
+    },
+    {
+      id: "jotaro_time_stop",
+      name: "時間暫停",
+      source: "secondary",
+      detail: "時間系爆發，開出追加行動窗口並壓低敵方攻勢。",
+      statBonus: { spirit: 3, technique: 2 }
+    },
+    {
+      id: "luffy_gatling",
+      name: "橡膠機關槍",
+      source: "secondary",
+      detail: "魯夫高速連拳，適合高體力近戰壓制。",
+      statBonus: { attack: 2, vitality: 2 }
+    },
+    {
+      id: "luffy_gear_second",
+      name: "二檔加速",
+      source: "secondary",
+      detail: "短時間提升速度與連打節奏。",
+      statBonus: { attack: 2, spirit: 2, vitality: 1 }
+    },
+    {
+      id: "tanjiro_water_breathing",
+      name: "水之呼吸",
+      source: "secondary",
+      detail: "炭治郎穩定連斬，兼具技巧與韌性。",
+      statBonus: { technique: 2, tenacity: 1 }
+    },
+    {
+      id: "tanjiro_hinokami",
+      name: "火之神神樂",
+      source: "secondary",
+      detail: "高爆發劍舞，強化攻擊與智慧判斷。",
+      statBonus: { attack: 2, intelligence: 1, technique: 2 }
+    },
+    {
+      id: "rem_morningstar",
+      name: "流星錘亂舞",
+      source: "secondary",
+      detail: "雷姆近身壓制，強化攻擊與防禦。",
+      statBonus: { attack: 2, defense: 1, vitality: 1 }
+    },
+    {
+      id: "rem_healing_maid",
+      name: "女僕急救",
+      source: "secondary",
+      detail: "雷姆支援節奏，能在戰鬥中補血。",
+      statBonus: { spirit: 2, vitality: 1 }
+    },
+    {
+      id: "edward_alchemy_spear",
+      name: "鍊成長槍",
+      source: "secondary",
+      detail: "愛德華以鍊金術突刺破防。",
+      statBonus: { intelligence: 2, technique: 2 }
+    },
+    {
+      id: "edward_alchemy_parry",
+      name: "鍊成壁反制",
+      source: "secondary",
+      detail: "鍊成防壁反制 Boss 攻勢。",
+      statBonus: { defense: 2, intelligence: 1, technique: 1 }
+    },
+    {
+      id: "manual_secret_breath",
+      name: "秘傳呼吸法",
+      source: "manual",
+      detail: "秘籍解鎖的特殊呼吸法，提升全局續戰。",
+      statBonus: { vitality: 1, spirit: 1, technique: 1 }
+    },
+    {
+      id: "manual_time_pulse",
+      name: "時脈密技",
+      source: "manual",
+      detail: "秘籍解鎖的時間系基礎，提升速度與反擊窗口。",
+      statBonus: { spirit: 2, technique: 1 }
+    }
   ];
 }
 
@@ -248,7 +416,7 @@ export function secondaryCharacterCatalog(): SecondaryCharacterDefinition[] {
       origin: "Sword Art Online",
       role: "閃光劍士",
       weapon: "細劍 Lambent Light",
-      detail: "高速突刺與支援節奏，兼顧輸出與精神。",
+      detail: "高速突刺與支援節奏，兼顧輸出與速度。",
       statBonus: { technique: 2, spirit: 1 },
       unlockedSkillIds: ["asuna_mothers_rosario"]
     },
@@ -281,32 +449,454 @@ export function secondaryCharacterCatalog(): SecondaryCharacterDefinition[] {
       detail: "穩定攻防與韌性，適合任何主定位補強。",
       statBonus: { attack: 1, defense: 1, tenacity: 2 },
       unlockedSkillIds: ["zelda_master_sword"]
+    },
+    {
+      id: "jotaro",
+      name: "承太郎",
+      origin: "Stardust Crusaders",
+      role: "時間拳手",
+      weapon: "白金之星",
+      detail: "高速拳連打與時間暫停，適合想測爆發與反擊節奏。",
+      statBonus: { attack: 2, spirit: 3, technique: 2, tenacity: 1 },
+      unlockedSkillIds: ["jotaro_ora_ora"]
+    },
+    {
+      id: "luffy",
+      name: "魯夫",
+      origin: "One Piece",
+      role: "橡膠船長",
+      weapon: "橡膠拳與二檔",
+      detail: "高體力連拳角色，適合前排或輸出位測試連打。",
+      statBonus: { attack: 2, vitality: 3, spirit: 1 },
+      unlockedSkillIds: ["luffy_gatling"]
+    },
+    {
+      id: "tanjiro",
+      name: "炭治郎",
+      origin: "Demon Slayer",
+      role: "呼吸劍士",
+      weapon: "日輪刀",
+      detail: "穩定劍技與爆發劍舞，適合技巧型角色。",
+      statBonus: { attack: 1, technique: 3, tenacity: 1 },
+      unlockedSkillIds: ["tanjiro_water_breathing"]
+    },
+    {
+      id: "rem",
+      name: "雷姆",
+      origin: "Re:Zero",
+      role: "鬼族支援",
+      weapon: "流星錘",
+      detail: "能打能補，適合隊伍需要續戰時裝備。",
+      statBonus: { attack: 2, defense: 1, spirit: 2, vitality: 1 },
+      unlockedSkillIds: ["rem_morningstar"]
+    },
+    {
+      id: "edward",
+      name: "愛德華",
+      origin: "Fullmetal Alchemist",
+      role: "鍊金術師",
+      weapon: "鍊成長槍與防壁",
+      detail: "智慧與技巧型角色，能破防也能降低 Boss 攻勢。",
+      statBonus: { intelligence: 3, technique: 2, defense: 1 },
+      unlockedSkillIds: ["edward_alchemy_spear"]
     }
   ];
 }
 
 export function defaultGameplaySpecialSkillCatalog(): SpecialSkillDefinition[] {
   return [
-    { id: "class_blade_guard", name: "王者防壁", source: "class", requiredClass: "warrior", detail: "戰士熟練技，提升防禦與韌性。", statBonus: { defense: 2, tenacity: 1 }, unlockLevel: 1 },
-    { id: "class_shadow_step", name: "影步處決", source: "class", requiredClass: "assassin", detail: "刺客熟練技，提升攻擊與技巧。", statBonus: { attack: 1, technique: 2 }, unlockLevel: 1 },
-    { id: "class_arcane_burst", name: "奧術爆裂", source: "class", requiredClass: "mage", detail: "法師熟練技，提升智慧與技巧。", statBonus: { intelligence: 2, technique: 1 }, unlockLevel: 1 },
-    { id: "class_holy_grace", name: "聖光恩典", source: "class", requiredClass: "priest", detail: "補師熟練技，提升精神與體力。", statBonus: { spirit: 2, vitality: 1 }, unlockLevel: 1 },
-    { id: "kirito_starburst", name: "星爆氣流斬", source: "secondary", detail: "桐人雙劍高速連擊，造成大量物理傷害。", statBonus: { attack: 2, technique: 2 }, unlockLevel: 1, baseChance: 0.42, cooldownTurns: 2, hitCount: 16, hitLabel: "雙劍連斬", finisherText: "第 16 hit：終結斬", logStyle: "multi_hit" },
-    { id: "kirito_dual_blades", name: "雙劍解放", source: "secondary", detail: "桐人進入雙劍節奏，追加技巧傷害。", statBonus: { attack: 2, technique: 3 }, unlockLevel: 3, baseChance: 0.36, cooldownTurns: 2 },
-    { id: "kirito_eclipse", name: "日蝕連斬", source: "secondary", detail: "桐人高階連斬，造成爆發傷害。", statBonus: { attack: 3, technique: 3 }, unlockLevel: 5, baseChance: 0.3, cooldownTurns: 3 },
-    { id: "asuna_mothers_rosario", name: "聖母聖詠", source: "secondary", detail: "亞絲娜高速突刺，造成傷害並小幅治療隊友。", statBonus: { technique: 2, spirit: 1 }, unlockLevel: 1, baseChance: 0.42, cooldownTurns: 2 },
-    { id: "asuna_flash_thrust", name: "閃光突刺", source: "secondary", detail: "亞絲娜連續突刺，提升技巧輸出。", statBonus: { technique: 3 }, unlockLevel: 3, baseChance: 0.36, cooldownTurns: 2 },
-    { id: "asuna_healing_rhythm", name: "治癒節奏", source: "secondary", detail: "亞絲娜支援節奏，治療最低血量隊友。", statBonus: { spirit: 3 }, unlockLevel: 5, baseChance: 0.32, cooldownTurns: 3 },
-    { id: "naruto_rasengan", name: "螺旋丸", source: "secondary", detail: "鳴人近身爆發，造成體術傷害。", statBonus: { attack: 2, vitality: 1 }, unlockLevel: 1, baseChance: 0.42, cooldownTurns: 2 },
-    { id: "naruto_shadow_clone", name: "多重影分身", source: "secondary", detail: "鳴人分身追擊，追加多段傷害。", statBonus: { attack: 2, vitality: 2 }, unlockLevel: 3, baseChance: 0.36, cooldownTurns: 2 },
-    { id: "naruto_sage_mode", name: "仙人模式", source: "secondary", detail: "鳴人高階爆發，造成大量傷害。", statBonus: { attack: 3, vitality: 3 }, unlockLevel: 5, baseChance: 0.3, cooldownTurns: 3 },
-    { id: "gojo_infinity", name: "無下限術式", source: "secondary", detail: "五條悟術式壓制，造成法術傷害並降低 Boss 攻擊。", statBonus: { intelligence: 2, defense: 1 }, unlockLevel: 1, baseChance: 0.4, cooldownTurns: 2 },
-    { id: "gojo_blue", name: "術式順轉 蒼", source: "secondary", detail: "五條悟牽引術式，造成智慧傷害。", statBonus: { intelligence: 3 }, unlockLevel: 3, baseChance: 0.34, cooldownTurns: 2 },
-    { id: "gojo_purple", name: "虛式 茈", source: "secondary", detail: "五條悟高階術式，造成巨大法術傷害。", statBonus: { intelligence: 4 }, unlockLevel: 5, baseChance: 0.28, cooldownTurns: 3 },
-    { id: "zelda_master_sword", name: "大師劍光", source: "secondary", detail: "林克大師劍斬擊，造成穩定傷害。", statBonus: { attack: 1, tenacity: 2 }, unlockLevel: 1, baseChance: 0.4, cooldownTurns: 2 },
-    { id: "zelda_shield_parry", name: "盾反", source: "secondary", detail: "林克盾反，造成傷害並降低下次 Boss 攻擊。", statBonus: { defense: 2, tenacity: 2 }, unlockLevel: 3, baseChance: 0.34, cooldownTurns: 2 },
-    { id: "zelda_triforce_courage", name: "勇氣三角力", source: "secondary", detail: "林克高階勇氣爆發，強化攻防傷害。", statBonus: { attack: 2, defense: 2, tenacity: 2 }, unlockLevel: 5, baseChance: 0.28, cooldownTurns: 3 },
-    { id: "manual_secret_breath", name: "秘傳呼吸法", source: "manual", detail: "秘籍解鎖的呼吸法，提升續戰。", statBonus: { vitality: 1, spirit: 1, technique: 1 }, unlockLevel: 1 }
+    {
+      id: "class_blade_guard",
+      name: "王者防壁",
+      source: "class",
+      requiredClass: "warrior",
+      detail: "戰士熟練技，提升防禦與韌性。",
+      statBonus: { defense: 2, tenacity: 1 },
+      unlockLevel: 1
+    },
+    {
+      id: "class_shadow_step",
+      name: "影步處決",
+      source: "class",
+      requiredClass: "assassin",
+      detail: "刺客熟練技，提升攻擊與技巧。",
+      statBonus: { attack: 1, technique: 2 },
+      unlockLevel: 1
+    },
+    {
+      id: "class_arcane_burst",
+      name: "奧術爆裂",
+      source: "class",
+      requiredClass: "mage",
+      detail: "法師熟練技，提升智慧與技巧。",
+      statBonus: { intelligence: 2, technique: 1 },
+      unlockLevel: 1
+    },
+    {
+      id: "class_holy_grace",
+      name: "聖光恩典",
+      source: "class",
+      requiredClass: "priest",
+      detail: "補師熟練技，提升速度與體力。",
+      statBonus: { spirit: 2, vitality: 1 },
+      unlockLevel: 1
+    },
+    {
+      id: "kirito_starburst",
+      name: "星爆氣流斬",
+      source: "secondary",
+      detail: "桐人雙劍高速連擊，造成大量物理傷害。",
+      statBonus: { attack: 2, technique: 2 },
+      unlockLevel: 1,
+      baseChance: 0.42,
+      cooldownTurns: 2,
+      hitCount: 16,
+      hitLabel: "雙劍連斬",
+      finisherText: "第 16 hit：終結斬",
+      logStyle: "multi_hit"
+    },
+    {
+      id: "kirito_dual_blades",
+      name: "雙劍解放",
+      source: "secondary",
+      detail: "桐人進入雙劍節奏，追加技巧傷害。",
+      statBonus: { attack: 2, technique: 3 },
+      unlockLevel: 3,
+      baseChance: 0.36,
+      cooldownTurns: 2
+    },
+    {
+      id: "kirito_eclipse",
+      name: "日蝕連斬",
+      source: "secondary",
+      detail: "桐人高階連斬，造成爆發傷害。",
+      statBonus: { attack: 3, technique: 3 },
+      unlockLevel: 5,
+      baseChance: 0.3,
+      cooldownTurns: 3
+    },
+    {
+      id: "asuna_mothers_rosario",
+      name: "聖母聖詠",
+      source: "secondary",
+      detail: "亞絲娜高速突刺，造成傷害並小幅治療隊友。",
+      statBonus: { technique: 2, spirit: 1 },
+      unlockLevel: 1,
+      baseChance: 0.42,
+      cooldownTurns: 2
+    },
+    {
+      id: "asuna_flash_thrust",
+      name: "閃光突刺",
+      source: "secondary",
+      detail: "亞絲娜連續突刺，提升技巧輸出。",
+      statBonus: { technique: 3 },
+      unlockLevel: 3,
+      baseChance: 0.36,
+      cooldownTurns: 2
+    },
+    {
+      id: "asuna_healing_rhythm",
+      name: "治癒節奏",
+      source: "secondary",
+      detail: "亞絲娜支援節奏，治療最低血量隊友。",
+      statBonus: { spirit: 3 },
+      unlockLevel: 5,
+      baseChance: 0.32,
+      cooldownTurns: 3
+    },
+    {
+      id: "naruto_rasengan",
+      name: "螺旋丸",
+      source: "secondary",
+      detail: "鳴人近身爆發，造成體術傷害。",
+      statBonus: { attack: 2, vitality: 1 },
+      unlockLevel: 1,
+      baseChance: 0.42,
+      cooldownTurns: 2
+    },
+    {
+      id: "naruto_shadow_clone",
+      name: "多重影分身",
+      source: "secondary",
+      detail: "鳴人分身追擊，追加多段傷害。",
+      statBonus: { attack: 2, vitality: 2 },
+      unlockLevel: 3,
+      baseChance: 0.36,
+      cooldownTurns: 2
+    },
+    {
+      id: "naruto_sage_mode",
+      name: "仙人模式",
+      source: "secondary",
+      detail: "鳴人高階爆發，造成大量傷害。",
+      statBonus: { attack: 3, vitality: 3 },
+      unlockLevel: 5,
+      baseChance: 0.3,
+      cooldownTurns: 3
+    },
+    {
+      id: "gojo_infinity",
+      name: "無下限術式",
+      source: "secondary",
+      detail: "五條悟術式壓制，造成法術傷害並降低 Boss 攻擊。",
+      statBonus: { intelligence: 2, defense: 1 },
+      unlockLevel: 1,
+      baseChance: 0.4,
+      cooldownTurns: 2
+    },
+    {
+      id: "gojo_blue",
+      name: "術式順轉 蒼",
+      source: "secondary",
+      detail: "五條悟牽引術式，造成智慧傷害。",
+      statBonus: { intelligence: 3 },
+      unlockLevel: 3,
+      baseChance: 0.34,
+      cooldownTurns: 2
+    },
+    {
+      id: "gojo_purple",
+      name: "虛式 茈",
+      source: "secondary",
+      detail: "五條悟高階術式，造成巨大法術傷害。",
+      statBonus: { intelligence: 4 },
+      unlockLevel: 5,
+      baseChance: 0.28,
+      cooldownTurns: 3
+    },
+    {
+      id: "zelda_master_sword",
+      name: "大師劍光",
+      source: "secondary",
+      detail: "林克大師劍斬擊，造成穩定傷害。",
+      statBonus: { attack: 1, tenacity: 2 },
+      unlockLevel: 1,
+      baseChance: 0.4,
+      cooldownTurns: 2
+    },
+    {
+      id: "zelda_shield_parry",
+      name: "盾反",
+      source: "secondary",
+      detail: "林克盾反，造成傷害並降低下次 Boss 攻擊。",
+      statBonus: { defense: 2, tenacity: 2 },
+      unlockLevel: 3,
+      baseChance: 0.34,
+      cooldownTurns: 2
+    },
+    {
+      id: "zelda_triforce_courage",
+      name: "勇氣三角力",
+      source: "secondary",
+      detail: "林克高階勇氣爆發，強化攻防傷害。",
+      statBonus: { attack: 2, defense: 2, tenacity: 2 },
+      unlockLevel: 5,
+      baseChance: 0.28,
+      cooldownTurns: 3
+    },
+    {
+      id: "jotaro_ora_ora",
+      name: "歐拉歐拉",
+      source: "secondary",
+      detail: "承太郎高速拳連打，逐 hit 造成物理傷害。",
+      statBonus: { attack: 2, spirit: 2, technique: 1 },
+      unlockLevel: 1,
+      baseChance: 0.46,
+      cooldownTurns: 2,
+      hitCount: 12,
+      hitLabel: "歐拉連打",
+      finisherText: "第 12 hit：白金收拳",
+      logStyle: "multi_hit"
+    },
+    {
+      id: "jotaro_time_stop",
+      name: "時間暫停",
+      source: "secondary",
+      detail: "時間停止期間追加行動窗口，傷害較高並大幅降低 Boss 下一次攻擊。",
+      statBonus: { spirit: 3, technique: 2 },
+      unlockLevel: 3,
+      baseChance: 0.3,
+      cooldownTurns: 3,
+      hitCount: 6,
+      hitLabel: "停時追擊",
+      finisherText: "時間恢復：最後一擊",
+      logStyle: "multi_hit"
+    },
+    {
+      id: "jotaro_star_platinum",
+      name: "白金精密打擊",
+      source: "secondary",
+      detail: "精密近身打擊，提高技巧暴擊與反擊節奏。",
+      statBonus: { attack: 2, technique: 3 },
+      unlockLevel: 5,
+      baseChance: 0.32,
+      cooldownTurns: 2
+    },
+    {
+      id: "luffy_gatling",
+      name: "橡膠機關槍",
+      source: "secondary",
+      detail: "魯夫高速連拳，逐 hit 造成物理傷害。",
+      statBonus: { attack: 2, vitality: 2 },
+      unlockLevel: 1,
+      baseChance: 0.44,
+      cooldownTurns: 2,
+      hitCount: 10,
+      hitLabel: "橡膠連拳",
+      finisherText: "第 10 hit：重拳收尾",
+      logStyle: "multi_hit"
+    },
+    {
+      id: "luffy_gear_second",
+      name: "二檔加速",
+      source: "secondary",
+      detail: "二檔加速後追加高速打擊。",
+      statBonus: { attack: 2, spirit: 2, vitality: 1 },
+      unlockLevel: 3,
+      baseChance: 0.36,
+      cooldownTurns: 2,
+      hitCount: 7,
+      hitLabel: "二檔追擊",
+      finisherText: "蒸汽爆發：終段重擊",
+      logStyle: "multi_hit"
+    },
+    {
+      id: "luffy_nika_dawn",
+      name: "解放之鼓",
+      source: "secondary",
+      detail: "高階爆發，兼具傷害與壓制。",
+      statBonus: { attack: 3, vitality: 3, spirit: 2 },
+      unlockLevel: 5,
+      baseChance: 0.28,
+      cooldownTurns: 3,
+      hitCount: 8,
+      hitLabel: "自由連打",
+      finisherText: "黎明重擊",
+      logStyle: "multi_hit"
+    },
+    {
+      id: "tanjiro_water_breathing",
+      name: "水之呼吸",
+      source: "secondary",
+      detail: "炭治郎水流連斬，穩定造成技巧傷害。",
+      statBonus: { technique: 2, tenacity: 1 },
+      unlockLevel: 1,
+      baseChance: 0.42,
+      cooldownTurns: 2,
+      hitCount: 6,
+      hitLabel: "水流斬",
+      finisherText: "水面斬：收刀",
+      logStyle: "multi_hit"
+    },
+    {
+      id: "tanjiro_hinokami",
+      name: "火之神神樂",
+      source: "secondary",
+      detail: "高爆發劍舞，造成大量傷害。",
+      statBonus: { attack: 2, intelligence: 1, technique: 2 },
+      unlockLevel: 3,
+      baseChance: 0.34,
+      cooldownTurns: 2,
+      hitCount: 8,
+      hitLabel: "火舞連斬",
+      finisherText: "日暈之龍：終舞",
+      logStyle: "multi_hit"
+    },
+    {
+      id: "tanjiro_opening_thread",
+      name: "破綻之線",
+      source: "secondary",
+      detail: "讀取敵方破綻，降低 Boss 下一次攻擊。",
+      statBonus: { luck: 1, technique: 3 },
+      unlockLevel: 5,
+      baseChance: 0.3,
+      cooldownTurns: 3
+    },
+    {
+      id: "rem_morningstar",
+      name: "流星錘亂舞",
+      source: "secondary",
+      detail: "雷姆流星錘連擊，造成穩定傷害。",
+      statBonus: { attack: 2, defense: 1, vitality: 1 },
+      unlockLevel: 1,
+      baseChance: 0.42,
+      cooldownTurns: 2,
+      hitCount: 6,
+      hitLabel: "錘擊",
+      finisherText: "終段重砸",
+      logStyle: "multi_hit"
+    },
+    {
+      id: "rem_healing_maid",
+      name: "女僕急救",
+      source: "secondary",
+      detail: "雷姆支援最低血量隊友。",
+      statBonus: { spirit: 2, vitality: 1 },
+      unlockLevel: 3,
+      baseChance: 0.34,
+      cooldownTurns: 2
+    },
+    {
+      id: "rem_oni_guard_parry",
+      name: "鬼化護衛",
+      source: "secondary",
+      detail: "鬼化後反制攻勢，降低 Boss 下一次攻擊。",
+      statBonus: { attack: 2, defense: 2, tenacity: 1 },
+      unlockLevel: 5,
+      baseChance: 0.3,
+      cooldownTurns: 3
+    },
+    {
+      id: "edward_alchemy_spear",
+      name: "鍊成長槍",
+      source: "secondary",
+      detail: "愛德華以鍊金術突刺破防。",
+      statBonus: { intelligence: 2, technique: 2 },
+      unlockLevel: 1,
+      baseChance: 0.42,
+      cooldownTurns: 2
+    },
+    {
+      id: "edward_alchemy_parry",
+      name: "鍊成壁反制",
+      source: "secondary",
+      detail: "鍊成防壁反制 Boss 攻勢。",
+      statBonus: { defense: 2, intelligence: 1, technique: 1 },
+      unlockLevel: 3,
+      baseChance: 0.34,
+      cooldownTurns: 2
+    },
+    {
+      id: "edward_fullmetal_burst",
+      name: "鋼之鍊成爆發",
+      source: "secondary",
+      detail: "高階鍊成爆發，造成智慧與技巧傷害。",
+      statBonus: { intelligence: 3, technique: 3 },
+      unlockLevel: 5,
+      baseChance: 0.28,
+      cooldownTurns: 3,
+      hitCount: 5,
+      hitLabel: "鍊成連擊",
+      finisherText: "等價交換：終段爆破",
+      logStyle: "multi_hit"
+    },
+    {
+      id: "manual_secret_breath",
+      name: "秘傳呼吸法",
+      source: "manual",
+      detail: "秘籍解鎖的呼吸法，提升續戰。",
+      statBonus: { vitality: 1, spirit: 1, technique: 1 },
+      unlockLevel: 1
+    },
+    {
+      id: "manual_time_pulse",
+      name: "時脈密技",
+      source: "manual",
+      detail: "秘籍解鎖的時間系基礎，提升速度與反擊窗口。",
+      statBonus: { spirit: 2, technique: 1 },
+      unlockLevel: 1
+    }
   ];
 }
 
@@ -334,7 +924,7 @@ export function defaultGameplaySecondaryCharacterCatalog(): SecondaryCharacterDe
       origin: "Sword Art Online",
       role: "閃光劍士",
       weapon: "細劍 Lambent Light",
-      detail: "高速突刺與支援節奏，兼顧輸出與精神。",
+      detail: "高速突刺與支援節奏，兼顧輸出與速度。",
       statBonus: { technique: 2, spirit: 1 },
       unlockedSkillIds: ["asuna_mothers_rosario", "asuna_flash_thrust", "asuna_healing_rhythm"],
       classAffinity: { warrior: 1, assassin: 1.2, mage: 0.9, priest: 1.15 },
@@ -375,6 +965,66 @@ export function defaultGameplaySecondaryCharacterCatalog(): SecondaryCharacterDe
       unlockedSkillIds: ["zelda_master_sword", "zelda_shield_parry", "zelda_triforce_courage"],
       classAffinity: { warrior: 1.25, assassin: 1, mage: 0.85, priest: 0.95 },
       preferredEquipmentSlots: ["weapon", "offhand"]
+    },
+    {
+      id: "jotaro",
+      name: "承太郎",
+      origin: "Stardust Crusaders",
+      role: "時間拳手",
+      weapon: "白金之星",
+      detail: "歐拉歐拉與時間暫停，適合測試高速連段、反擊與 Boss 壓制。",
+      statBonus: { attack: 2, spirit: 3, technique: 2, tenacity: 1 },
+      unlockedSkillIds: ["jotaro_ora_ora", "jotaro_time_stop", "jotaro_star_platinum"],
+      classAffinity: { warrior: 1.2, assassin: 1.25, mage: 0.95, priest: 0.9 },
+      preferredEquipmentSlots: ["weapon", "offhand", "kneepad"]
+    },
+    {
+      id: "luffy",
+      name: "魯夫",
+      origin: "One Piece",
+      role: "橡膠船長",
+      weapon: "橡膠拳與二檔",
+      detail: "高體力連拳角色，適合前排或輸出位測試連打。",
+      statBonus: { attack: 2, vitality: 3, spirit: 1 },
+      unlockedSkillIds: ["luffy_gatling", "luffy_gear_second", "luffy_nika_dawn"],
+      classAffinity: { warrior: 1.2, assassin: 1.15, mage: 0.8, priest: 0.9 },
+      preferredEquipmentSlots: ["weapon", "kneepad"]
+    },
+    {
+      id: "tanjiro",
+      name: "炭治郎",
+      origin: "Demon Slayer",
+      role: "呼吸劍士",
+      weapon: "日輪刀",
+      detail: "穩定劍技與爆發劍舞，適合技巧型角色。",
+      statBonus: { attack: 1, technique: 3, tenacity: 1 },
+      unlockedSkillIds: ["tanjiro_water_breathing", "tanjiro_hinokami", "tanjiro_opening_thread"],
+      classAffinity: { warrior: 1.1, assassin: 1.25, mage: 0.85, priest: 1 },
+      preferredEquipmentSlots: ["weapon"]
+    },
+    {
+      id: "rem",
+      name: "雷姆",
+      origin: "Re:Zero",
+      role: "鬼族支援",
+      weapon: "流星錘",
+      detail: "能打能補，適合隊伍需要續戰時裝備。",
+      statBonus: { attack: 2, defense: 1, spirit: 2, vitality: 1 },
+      unlockedSkillIds: ["rem_morningstar", "rem_healing_maid", "rem_oni_guard_parry"],
+      classAffinity: { warrior: 1.05, assassin: 0.95, mage: 0.85, priest: 1.25 },
+      preferredEquipmentSlots: ["weapon", "armor"]
+    },
+    {
+      id: "edward",
+      name: "愛德華",
+      origin: "Fullmetal Alchemist",
+      role: "鍊金術師",
+      weapon: "鍊成長槍與防壁",
+      detail: "智慧與技巧型角色，能破防也能降低 Boss 攻勢。",
+      statBonus: { intelligence: 3, technique: 2, defense: 1 },
+      unlockedSkillIds: ["edward_alchemy_spear", "edward_alchemy_parry", "edward_fullmetal_burst"],
+      classAffinity: { warrior: 0.9, assassin: 1.05, mage: 1.25, priest: 1.05 },
+      preferredEquipmentSlots: ["offhand", "helmet"]
     }
   ];
 }
@@ -400,15 +1050,21 @@ export function cloneCharacter(character: CharacterProfile): CharacterProfile {
 }
 
 export function maxHpForCharacter(character: Pick<CharacterProfile, "level" | "stats">) {
-  return 80 + character.level * 8 + character.stats.vitality * 4 + character.stats.defense * 2 + character.stats.spirit;
+  return (
+    80 + character.level * 8 + character.stats.vitality * 4 + character.stats.defense * 3 + character.stats.tenacity
+  );
 }
 
 export function maxMpForCharacter(character: Pick<CharacterProfile, "level" | "stats">) {
-  return 30 + character.level * 5 + character.stats.intelligence * 4 + character.stats.spirit * 3 + character.stats.technique;
+  return (
+    30 + character.level * 5 + character.stats.intelligence * 4 + character.stats.spirit * 3 + character.stats.technique
+  );
 }
 
 export function maxEnergyForCharacter(character: Pick<CharacterProfile, "level" | "stats">) {
-  return 60 + character.level * 6 + character.stats.vitality * 2 + character.stats.spirit * 2 + character.stats.technique * 2;
+  return (
+    60 + character.level * 6 + character.stats.vitality * 2 + character.stats.spirit * 2 + character.stats.technique * 2
+  );
 }
 
 export function nextLevelRequirement(level: number) {
@@ -555,7 +1211,11 @@ export function seedCastles(): CastleState[] {
         : col === 2
           ? ["破甲重擊：降低前排防禦", "召喚小隊：延長戰鬥壓力", "狂暴：血量低時提高攻擊"]
           : ["重擊：造成高額傷害", "防禦姿態：降低受到傷害"],
-      rewardSummary: isCapital ? "大量公庫金幣與稀有戰利品機率" : col === 2 ? "Boss 個人素材、戰鬥經驗與公庫金幣" : "公庫金幣與一般戰利品",
+      rewardSummary: isCapital
+        ? "大量公庫金幣與稀有戰利品機率"
+        : col === 2
+          ? "Boss 個人素材、戰鬥經驗與公庫金幣"
+          : "公庫金幣與一般戰利品",
       mapNodePurpose: (["capital", "gathering", "guild_boss", "mining", "trade"] as const)[col],
       layerBenefit: [
         "公會管理、科技、倉庫與城防",
@@ -616,6 +1276,17 @@ export function defaultShopItems(): ShopItem[] {
       stock: "infinite",
       rarity: "rare",
       statBonus: { technique: 1, intelligence: 1 }
+    },
+    {
+      id: "shop_time_manual",
+      name: "時脈密技",
+      category: "manual",
+      price: 360,
+      description: "記錄時間系行動節奏的秘籍。",
+      effectSummary: "速度 +2，技巧 +1，解鎖時間系技能",
+      stock: "infinite",
+      rarity: "epic",
+      statBonus: { spirit: 2, technique: 1 }
     }
   ];
 }
@@ -714,7 +1385,7 @@ export function defaultForgeRecipes(): ForgeRecipe[] {
       name: "隕星法杖",
       equipmentSlot: "weapon",
       ingredients: { stardust: 3, bone: 2 },
-      effectSummary: "智慧 +7，精神 +2",
+      effectSummary: "智慧 +7，速度 +2",
       statBonus: { intelligence: 7, spirit: 2 },
       durability: 120,
       rarity: "epic",
@@ -726,7 +1397,7 @@ export function defaultForgeRecipes(): ForgeRecipe[] {
       name: "白銀聖鎧",
       equipmentSlot: "armor",
       ingredients: { silver_ore: 4, cloth: 3 },
-      effectSummary: "防禦 +6，精神 +2，體力 +2",
+      effectSummary: "防禦 +6，速度 +2，體力 +2",
       statBonus: { defense: 6, spirit: 2, vitality: 2 },
       durability: 180,
       rarity: "epic",
@@ -800,11 +1471,18 @@ export function forgeRecipes(): ForgeRecipe[] {
   return runtimeGameConfig?.forgeRecipes?.length ? runtimeGameConfig.forgeRecipes : defaultForgeRecipes();
 }
 
-export function createRecipeEquipment(input: { recipe: ForgeRecipe; forgeLevel: number; craftedBy?: string }): InventoryItem {
+export function createRecipeEquipment(input: {
+  recipe: ForgeRecipe;
+  forgeLevel: number;
+  craftedBy?: string;
+}): InventoryItem {
   const { recipe } = input;
   const quality = qualityTierMeta(recipe.qualityTier);
   const maxDurability = Math.round(recipe.durability + input.forgeLevel * 3);
-  const itemLevel = Math.max(3, Math.round(input.forgeLevel + Object.values(recipe.ingredients).reduce((sum, qty) => sum + (qty || 0), 0)));
+  const itemLevel = Math.max(
+    3,
+    Math.round(input.forgeLevel + Object.values(recipe.ingredients).reduce((sum, qty) => sum + (qty || 0), 0))
+  );
   return {
     id: randomId("item"),
     name: `${recipe.name}（${quality.label}）`,
@@ -812,7 +1490,9 @@ export function createRecipeEquipment(input: { recipe: ForgeRecipe; forgeLevel: 
     effectSummary: `特殊配方產物：${recipe.effectSummary}${recipe.lore ? `。${recipe.lore}` : ""}`,
     equipmentSlot: recipe.equipmentSlot,
     rarity: recipe.rarity,
-    craftSource: Object.entries(recipe.ingredients).map(([type, qty]) => `${type}x${qty}`).join(","),
+    craftSource: Object.entries(recipe.ingredients)
+      .map(([type, qty]) => `${type}x${qty}`)
+      .join(","),
     statBonus: { ...recipe.statBonus },
     attackBonus: recipe.statBonus.attack || 0,
     defenseBonus: recipe.statBonus.defense || 0,
@@ -842,9 +1522,7 @@ export function matchForgeRecipe(materialTypes: MaterialType[], recipes = forgeR
   for (const recipe of recipes) {
     const entries = Object.entries(recipe.ingredients) as Array<[MaterialType, number]>;
     if (!entries.length) continue;
-    const exact =
-      entries.length === counts.size &&
-      entries.every(([type, qty]) => counts.get(type) === qty);
+    const exact = entries.length === counts.size && entries.every(([type, qty]) => counts.get(type) === qty);
     if (exact) return recipe;
   }
   return null;
@@ -886,13 +1564,17 @@ export function defaultTowerRules(): GameConfig["towerRules"] {
     rushDoubleStepChance: 0.72,
     rushSingleStepChance: 0.22,
     huntStepChance: 0.38,
-    bossFindChanceRush: 0.68,
-    bossFindChanceHunt: 0.42,
-    minorBossChanceRush: 0.14,
-    minorBossChanceHunt: 0.42,
+    bossFindChanceRush: 0.32,
+    bossFindChanceHunt: 0.22,
+    minorBossChanceRush: 0.22,
+    minorBossChanceHunt: 0.36,
     bossHpMultiplier: 1,
     bossAttackMultiplier: 1,
-    rewardMultiplier: 1
+    rewardMultiplier: 1,
+    checkpointInterval: 2,
+    checkpointGold: 18,
+    checkpointBattleExp: 12,
+    checkpointMaterialQuantity: 1
   };
 }
 
@@ -967,14 +1649,70 @@ export function gameplayRoomBossRules(): GameConfig["roomBossRules"] {
 
 export function defaultStatRules(): GameConfig["statRules"] {
   return {
-    attack: { attackPower: 3, defensePower: 0.4, sustain: 0, siege: 1.8, growth: 1, summary: "提高攻方破防與對守軍傷害。" },
-    defense: { attackPower: 0.6, defensePower: 2.6, sustain: 0.6, siege: 0.8, growth: 1, summary: "降低承受傷害，提高守方對戰存活。" },
-    luck: { attackPower: 0.9, defensePower: 0.8, sustain: 0.4, siege: 0.8, growth: 1, summary: "提高暴擊、繳獲、低損耗機率。" },
-    intelligence: { attackPower: 1.6, defensePower: 1.2, sustain: 0.4, siege: 1.4, growth: 1, summary: "提高戰術判定、攻城器械效率與法術型傷害。" },
-    vitality: { attackPower: 0.8, defensePower: 1.4, sustain: 2, siege: 0.6, growth: 1, summary: "提高 HP、駐防持久與攻城精力消耗抗性。" },
-    spirit: { attackPower: 0.8, defensePower: 1.5, sustain: 1.6, siege: 0.5, growth: 1, summary: "提高 MP、支援治療與守城士氣。" },
-    technique: { attackPower: 2, defensePower: 1.1, sustain: 0.5, siege: 1.7, growth: 1, summary: "提高命中、連擊、破防與攻城器械操作。" },
-    tenacity: { attackPower: 0.5, defensePower: 2, sustain: 2.2, siege: 0.7, growth: 1, summary: "降低 HP / 精力 / 裝備耐久損耗，守城時提高抗壓。" }
+    attack: {
+      attackPower: 3,
+      defensePower: 0.4,
+      sustain: 0,
+      siege: 1.8,
+      growth: 1,
+      summary: "提高攻方破防與對守軍傷害。"
+    },
+    defense: {
+      attackPower: 0.6,
+      defensePower: 2.6,
+      sustain: 0.6,
+      siege: 0.8,
+      growth: 1,
+      summary: "降低承受傷害，提高守方對戰存活。"
+    },
+    luck: {
+      attackPower: 0.9,
+      defensePower: 0.8,
+      sustain: 0.4,
+      siege: 0.8,
+      growth: 1,
+      summary: "提高暴擊、繳獲、低損耗機率。"
+    },
+    intelligence: {
+      attackPower: 1.6,
+      defensePower: 1.2,
+      sustain: 0.4,
+      siege: 1.4,
+      growth: 1,
+      summary: "提高戰術判定、攻城器械效率與法術型傷害。"
+    },
+    vitality: {
+      attackPower: 0.8,
+      defensePower: 1.4,
+      sustain: 2,
+      siege: 0.6,
+      growth: 1,
+      summary: "提高 HP、駐防持久與攻城精力消耗抗性。"
+    },
+    spirit: {
+      attackPower: 0.9,
+      defensePower: 1.3,
+      sustain: 1.7,
+      siege: 0.7,
+      growth: 1,
+      summary: "顯示為速度；提高連擊接續、閃避、反擊與時間系技能窗口。"
+    },
+    technique: {
+      attackPower: 2,
+      defensePower: 1.1,
+      sustain: 0.5,
+      siege: 1.7,
+      growth: 1,
+      summary: "提高命中、連擊、破防與攻城器械操作。"
+    },
+    tenacity: {
+      attackPower: 0.5,
+      defensePower: 2,
+      sustain: 2.2,
+      siege: 0.7,
+      growth: 1,
+      summary: "降低 HP / 精力 / 裝備耐久損耗，守城時提高抗壓。"
+    }
   };
 }
 
@@ -1005,7 +1743,11 @@ export function buildSkillLogLines(input: {
   healingTargetName?: string | null;
 }) {
   const shouldUseMultiHit = input.skill.logStyle === "multi_hit" || input.skill.source === "secondary";
-  const hitCount = Math.max(shouldUseMultiHit ? 4 : 1, Math.round(input.skill.hitCount || (shouldUseMultiHit ? 4 : 1)));
+  const requestedHitCount = Math.max(
+    shouldUseMultiHit ? 4 : 1,
+    Math.round(input.skill.hitCount || (shouldUseMultiHit ? 4 : 1))
+  );
+  const hitCount = Math.min(requestedHitCount, Math.max(1, input.damage));
   if (!shouldUseMultiHit || hitCount <= 1) {
     return [
       `【角色技能】${input.actorName} 的 ${input.characterName} 自動施放「${input.skill.name}」，對 ${input.targetName} 造成 ${input.damage} 點傷害${
@@ -1014,24 +1756,90 @@ export function buildSkillLogLines(input: {
     ];
   }
 
-  const first = Math.max(1, Math.round(input.damage * 0.24));
-  const second = Math.max(1, Math.round(input.damage * 0.28));
-  const third = Math.max(1, Math.round(input.damage * 0.3));
-  const finisher = Math.max(1, input.damage - first - second - third);
   const hitLabel = input.skill.hitLabel || "連擊";
-  const firstEnd = Math.max(1, Math.min(hitCount - 1, Math.floor(hitCount * 0.25)));
-  const secondStart = firstEnd + 1;
-  const secondEnd = Math.max(secondStart, Math.min(hitCount - 1, Math.floor(hitCount * 0.5)));
-  const thirdStart = secondEnd + 1;
-  const thirdEnd = Math.max(thirdStart, hitCount - 1);
-  const formatRange = (start: number, end: number) => (start === end ? `${start}` : `${start}-${end}`);
-  return [
-    `【角色技能】${input.actorName} 的 ${input.characterName} 發動「${input.skill.name}」。`,
-    `${hitLabel} ${formatRange(1, firstEnd)} / ${hitCount}：高速起手，造成 ${first} 點傷害。`,
-    `${hitLabel} ${formatRange(secondStart, secondEnd)} / ${hitCount}：節奏加速，追加 ${second} 點傷害。`,
-    `${hitLabel} ${formatRange(thirdStart, thirdEnd)} / ${hitCount}：連續壓制，追加 ${third} 點傷害。`,
-    `${input.skill.finisherText || `第 ${hitCount} hit：終結斬`}，總傷害 ${input.damage}。${input.healing ? ` 並回復 ${input.healingTargetName || input.actorName} ${input.healing} HP。` : ""}`
+  const lines = [`【角色技能】${input.actorName} 的 ${input.characterName} 發動「${input.skill.name}」。`];
+  let remaining = input.damage;
+  for (let index = 1; index <= hitCount; index += 1) {
+    const slotsLeft = hitCount - index;
+    const budget = Math.max(1, remaining - slotsLeft);
+    const scaled = Math.round((input.damage / hitCount) * (0.78 + (index / hitCount) * 0.44));
+    const hitDamage = index === hitCount ? remaining : Math.max(1, Math.min(budget, scaled));
+    remaining -= hitDamage;
+    if (index === hitCount) {
+      lines.push(
+        `${hitCount === requestedHitCount && input.skill.finisherText ? input.skill.finisherText : `第 ${hitCount} hit：終結斬`}，造成 ${hitDamage} 點傷害；總傷害 ${input.damage}。${
+          input.healing ? ` 並回復 ${input.healingTargetName || input.actorName} ${input.healing} HP。` : ""
+        }`
+      );
+    } else {
+      lines.push(`${hitLabel} ${index} / ${hitCount}：造成 ${hitDamage} 點傷害。`);
+    }
+  }
+  return lines;
+}
+
+export function resolveTimeStopWindow(input: {
+  actorName: string;
+  targetName: string;
+  stats: CharacterStats;
+  battleLevel: number;
+  slotLevel: number;
+  manualActive: boolean;
+  followUpSkillNames?: string[];
+}) {
+  const speed = input.stats.spirit;
+  const technique = input.stats.technique;
+  const battleLevel = Math.max(1, input.battleLevel || 1);
+  const slotLevel = Math.max(1, input.slotLevel || 1);
+  const windowMultiplier = input.manualActive ? 1.18 : 1;
+  const normalAttack = Math.max(
+    4,
+    Math.round((input.stats.attack * 0.72 + technique * 0.42 + battleLevel * 2.2) * windowMultiplier)
+  );
+  const knifeThrow = Math.max(
+    3,
+    Math.round((technique * 0.58 + speed * 0.48 + input.stats.luck * 0.24 + slotLevel) * windowMultiplier)
+  );
+  const followUpNames = input.followUpSkillNames?.filter(Boolean) || [];
+  const followUpName = followUpNames.length ? randomFrom(followUpNames) : "破綻精密打擊";
+  const followUpDamage = Math.max(
+    5,
+    Math.round(
+      (input.stats.attack * 0.35 + input.stats.intelligence * 0.42 + technique * 0.46 + battleLevel) * windowMultiplier
+    )
+  );
+  const manualDamage = input.manualActive ? Math.max(4, Math.round((speed + technique + slotLevel * 2) * 0.32)) : 0;
+  const recoveredEnergy = Math.max(1, Math.round(speed / (input.manualActive ? 4 : 6)));
+  const recoveredMp = input.manualActive ? 2 : 0;
+  const logs = [
+    `時間暫停：${input.actorName} 停住 ${input.targetName}，展開${input.manualActive ? "延長" : "短暫"}行動窗口。`,
+    `追加行動：${input.actorName} 普通攻擊造成 ${normalAttack} 點傷害。`,
+    `追加行動：${input.actorName} 丟出飛刀造成 ${knifeThrow} 點傷害。`,
+    `追加行動：${input.actorName} 接續「${followUpName}」造成 ${followUpDamage} 點傷害。`
   ];
+  if (input.manualActive) {
+    logs.push(`時脈密技：窗口延長，再造成 ${manualDamage} 點傷害並回復 ${recoveredMp} MP。`);
+  }
+  logs.push(`時間恢復流動：${input.actorName} 回復 ${recoveredEnergy} 精力，${input.targetName} 下一次攻勢被壓低。`);
+
+  return {
+    damage: normalAttack + knifeThrow + followUpDamage + manualDamage,
+    recoveredEnergy,
+    recoveredMp,
+    bossAttackModifier: input.manualActive ? 0.56 : 0.68,
+    logs
+  };
+}
+
+export function hasEquippedTimeManual(character: Pick<CharacterProfile, "learnedManuals" | "equippedManuals">) {
+  const equipped = new Set(character.equippedManuals);
+  return character.learnedManuals.some(
+    (manual) =>
+      equipped.has(manual.manualId) &&
+      (manual.unlockedSkillId === "manual_time_pulse" ||
+        manual.manualId.includes("time") ||
+        manual.name.includes("時脈"))
+  );
 }
 
 export function materialCatalog(): Array<{
@@ -1041,7 +1849,12 @@ export function materialCatalog(): Array<{
   affinity: Partial<Record<EquipmentSlotKey, number>>;
 }> {
   return [
-    { type: "iron_ore", name: "鐵礦", weight: 36, affinity: { weapon: 3, offhand: 2, helmet: 2, armor: 3, kneepad: 2 } },
+    {
+      type: "iron_ore",
+      name: "鐵礦",
+      weight: 36,
+      affinity: { weapon: 3, offhand: 2, helmet: 2, armor: 3, kneepad: 2 }
+    },
     { type: "copper_ore", name: "銅礦", weight: 22, affinity: { weapon: 2, offhand: 3, kneepad: 2 } },
     { type: "silver_ore", name: "銀礦", weight: 14, affinity: { weapon: 2, offhand: 2, helmet: 1 } },
     { type: "obsidian_ore", name: "黑曜礦", weight: 10, affinity: { weapon: 4, armor: 3 } },
@@ -1151,12 +1964,24 @@ export function createForgedEquipment(input: {
   const defenseBonus = ["offhand", "helmet", "armor", "kneepad"].includes(input.equipmentSlot)
     ? basePower + Math.floor(input.stats.defense / 10)
     : 0;
-  const luckBonus = Math.max(0, Math.floor((input.stats.luck + materialCount) / 10) + (qualityTier === "divine" ? 2 : qualityTier === "epic" ? 1 : 0));
-  const tenacityBonus = Math.max(0, Math.floor((input.stats.tenacity + materialCount) / 12) + (input.equipmentSlot === "armor" ? 1 : 0));
-  const techniqueBonus = Math.max(0, input.equipmentSlot === "offhand" || input.equipmentSlot === "kneepad" ? Math.floor(basePower / 2) : 0);
+  const luckBonus = Math.max(
+    0,
+    Math.floor((input.stats.luck + materialCount) / 10) +
+      (qualityTier === "divine" ? 2 : qualityTier === "epic" ? 1 : 0)
+  );
+  const tenacityBonus = Math.max(
+    0,
+    Math.floor((input.stats.tenacity + materialCount) / 12) + (input.equipmentSlot === "armor" ? 1 : 0)
+  );
+  const techniqueBonus = Math.max(
+    0,
+    input.equipmentSlot === "offhand" || input.equipmentSlot === "kneepad" ? Math.floor(basePower / 2) : 0
+  );
   const vitalityBonus = Math.max(0, input.equipmentSlot === "armor" ? Math.floor(basePower / 2) : 0);
   const durabilityBase = input.equipmentSlot === "armor" ? 130 : input.equipmentSlot === "helmet" ? 110 : 100;
-  const maxDurability = Math.round(durabilityBase + materialCount * 4 + input.forgeLevel * 2 + input.stats.tenacity * 1.5);
+  const maxDurability = Math.round(
+    durabilityBase + materialCount * 4 + input.forgeLevel * 2 + input.stats.tenacity * 1.5
+  );
   const itemLevel = Math.max(1, Math.round((input.instinctLevel + input.forgeLevel + materialCount) / 2));
   const statBonus: Partial<CharacterStats> = {
     ...(attackBonus ? { attack: attackBonus } : {}),

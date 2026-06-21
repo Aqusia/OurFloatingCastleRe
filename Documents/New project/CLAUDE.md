@@ -15,19 +15,19 @@
 
 ## 常用指令 (在 `Documents/New project/` 內執行)
 
-| 用途 | 指令 |
-| --- | --- |
-| 安裝所有 workspace | `npm install` |
-| 啟動後端 (dev) | `npm --workspace server run dev` |
-| 啟動主前端 (dev) | `npm --workspace client run dev` |
-| 啟動管理後台 (dev) | `npm run dev:admin` |
-| Lint | `npm run lint` (warnings 不阻擋) / `npm run lint:fix` |
-| Format | `npm run format` / `npm run format:check` |
-| Typecheck | `npm run typecheck` |
-| Test | `npm run test` / `npm run test:watch` / `npm run test:coverage` |
-| 全套 CI 檢查 | `npm run ci` |
-| 建置 (全部) | `npm run build` |
-| 啟動 production | `npm start` (透過 `tsx` 跑 server source) |
+| 用途               | 指令                                                            |
+| ------------------ | --------------------------------------------------------------- |
+| 安裝所有 workspace | `npm install`                                                   |
+| 啟動後端 (dev)     | `npm --workspace server run dev`                                |
+| 啟動主前端 (dev)   | `npm --workspace client run dev`                                |
+| 啟動管理後台 (dev) | `npm run dev:admin`                                             |
+| Lint               | `npm run lint` (warnings 不阻擋) / `npm run lint:fix`           |
+| Format             | `npm run format` / `npm run format:check`                       |
+| Typecheck          | `npm run typecheck`                                             |
+| Test               | `npm run test` / `npm run test:watch` / `npm run test:coverage` |
+| 全套 CI 檢查       | `npm run ci`                                                    |
+| 建置 (全部)        | `npm run build`                                                 |
+| 啟動 production    | `npm start` (透過 `tsx` 跑 server source)                       |
 
 預設網址：
 
@@ -72,12 +72,12 @@ CI 設定在 repo root 的 `.github/workflows/ci.yml` (注意 git repo root 在 
 
 只要有以下變更，**同一次提交**就要補文件：
 
-| 變更類型 | 必須更新 |
-| --- | --- |
-| 功能、規則、頁面行為 | `docs/game-design.md` + `docs/changelog.md` |
-| API、socket 事件、資料模型 | `docs/repository-guide.md` + `docs/changelog.md` |
-| 結構、入口、模組職責 | `docs/repository-guide.md` |
-| 啟動方式、環境變數、必要檔案 | `README.md` + `docs/changelog.md` |
+| 變更類型                     | 必須更新                                         |
+| ---------------------------- | ------------------------------------------------ |
+| 功能、規則、頁面行為         | `docs/game-design.md` + `docs/changelog.md`      |
+| API、socket 事件、資料模型   | `docs/repository-guide.md` + `docs/changelog.md` |
+| 結構、入口、模組職責         | `docs/repository-guide.md`                       |
+| 啟動方式、環境變數、必要檔案 | `README.md` + `docs/changelog.md`                |
 
 詳細規則見 [docs/documentation-policy.md](docs/documentation-policy.md)。
 

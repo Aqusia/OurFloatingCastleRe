@@ -60,7 +60,8 @@ import type {
   UnequipManualPayload
 } from "../../../shared/events";
 
-const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:3001" : window.location.origin);
+const apiBase =
+  import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:3001" : window.location.origin);
 
 async function request<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
   const response = await fetch(`${apiBase}/api${path}`, {
@@ -95,7 +96,12 @@ export function login(payload: LoginPayload) {
 }
 
 export function getMe(token: string) {
-  return request<{ user: AuthPayload["user"]; character: CharacterProfile; token: string; completedActivities?: Array<{ message: string }> }>("/me", {}, token);
+  return request<{
+    user: AuthPayload["user"];
+    character: CharacterProfile;
+    token: string;
+    completedActivities?: Array<{ message: string }>;
+  }>("/me", {}, token);
 }
 
 export function getBattles(token: string) {
@@ -710,10 +716,14 @@ export function adminTriggerDaily(token: string, targetUserId: string) {
 }
 
 export function adminTriggerFlashEvent(token: string, minutes = 15) {
-  return request<{ endsAt: string }>("/admin/system/flash-event", {
-    method: "POST",
-    body: JSON.stringify({ minutes })
-  }, token);
+  return request<{ endsAt: string }>(
+    "/admin/system/flash-event",
+    {
+      method: "POST",
+      body: JSON.stringify({ minutes })
+    },
+    token
+  );
 }
 
 export function adminUpdateRewardConfig(token: string, payload: AdminRewardConfigPayload) {

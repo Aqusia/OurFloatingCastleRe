@@ -1,8 +1,25 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Plus, RefreshCw, RotateCcw, Save, Trash2 } from "lucide-react";
-import type { AdminConfigSection, AdminGameConfigResponse } from "../../shared/events";
-import { getAdminGameConfig, login, resetAdminGameConfigSection, updateAdminGameConfigSection } from "./api";
+import type {
+  AdminAdjustCharacterPayload,
+  AdminConfigSection,
+  AdminGameConfigResponse,
+  CharacterStatKey,
+  EquipmentSlotKey,
+  MaterialType,
+  QualityTier
+} from "../../shared/events";
+import {
+  adjustAdminCharacter,
+  fillAdminResources,
+  getAdminGameConfig,
+  grantAdminItem,
+  grantAdminResources,
+  login,
+  resetAdminGameConfigSection,
+  updateAdminGameConfigSection
+} from "./api";
 import "./style.css";
 
 type Option = { value: string; label: string };
@@ -17,7 +34,14 @@ type FieldDef = {
   options?: Option[];
 };
 type ObjectGroup = { type: "object"; key: string; label: string; fields: FieldDef[] };
-type ArrayGroup = { type: "array"; key: string; label: string; itemLabel: string; fields: FieldDef[]; createItem: () => AnyRecord };
+type ArrayGroup = {
+  type: "array";
+  key: string;
+  label: string;
+  itemLabel: string;
+  fields: FieldDef[];
+  createItem: () => AnyRecord;
+};
 type GroupDef = ObjectGroup | ArrayGroup;
 type SectionDef = {
   key: AdminConfigSection;
@@ -86,10 +110,21 @@ const statFields: FieldDef[] = [
   { key: "defense", label: "防禦", type: "number", min: 0, step: 1 },
   { key: "luck", label: "運氣", type: "number", min: 0, step: 1 },
   { key: "intelligence", label: "智慧", type: "number", min: 0, step: 1 },
-  { key: "vitality", label: "生命", type: "number", min: 0, step: 1 },
-  { key: "spirit", label: "精神", type: "number", min: 0, step: 1 },
+  { key: "vitality", label: "體力", type: "number", min: 0, step: 1 },
+  { key: "spirit", label: "速度", type: "number", min: 0, step: 1 },
   { key: "technique", label: "技巧", type: "number", min: 0, step: 1 },
   { key: "tenacity", label: "韌性", type: "number", min: 0, step: 1 }
+];
+
+const characterStatKeys: Array<{ key: CharacterStatKey; label: string }> = [
+  { key: "attack", label: "攻擊" },
+  { key: "defense", label: "防禦" },
+  { key: "luck", label: "運氣" },
+  { key: "intelligence", label: "智慧" },
+  { key: "vitality", label: "體力" },
+  { key: "spirit", label: "速度" },
+  { key: "technique", label: "技巧" },
+  { key: "tenacity", label: "韌性" }
 ];
 
 const makeSkill = () => ({
@@ -137,7 +172,13 @@ const makeForgeOption = () => ({
 });
 const makeRewardMaterial = () => ({ materialType: "iron_ore", quantity: 1 });
 const makeRewardItem = () => ({ shopItemId: "" });
-const makeAnnouncement = () => ({ id: `ann_${Date.now()}`, title: "新公告", body: "", active: true, createdAt: new Date().toISOString() });
+const makeAnnouncement = () => ({
+  id: `ann_${Date.now()}`,
+  title: "新公告",
+  body: "",
+  active: true,
+  createdAt: new Date().toISOString()
+});
 
 const sections: SectionDef[] = [
   {
@@ -176,7 +217,12 @@ const sections: SectionDef[] = [
           { key: "id", label: "ID", type: "text" },
           { key: "name", label: "名稱", type: "text" },
           { key: "source", label: "來源", type: "select", options: sourceOptions },
-          { key: "requiredClass", label: "限定職業", type: "select", options: [{ value: "", label: "不限" }, ...classOptions] },
+          {
+            key: "requiredClass",
+            label: "限定職業",
+            type: "select",
+            options: [{ value: "", label: "不限" }, ...classOptions]
+          },
           { key: "detail", label: "說明", type: "textarea" },
           { key: "baseChance", label: "觸發率", type: "number", min: 0, max: 1, step: 0.01 },
           { key: "cooldownTurns", label: "冷卻回合", type: "number", min: 0, step: 1 },
@@ -271,7 +317,11 @@ const sections: SectionDef[] = [
           { key: "minorBossChanceHunt", label: "攻擊小王率", type: "number", min: 0, max: 1, step: 0.01 },
           { key: "bossHpMultiplier", label: "Boss HP 倍率", type: "number", min: 0.2, step: 0.05 },
           { key: "bossAttackMultiplier", label: "Boss 攻擊倍率", type: "number", min: 0.2, step: 0.05 },
-          { key: "rewardMultiplier", label: "獎勵倍率", type: "number", min: 0.1, step: 0.05 }
+          { key: "rewardMultiplier", label: "獎勵倍率", type: "number", min: 0.1, step: 0.05 },
+          { key: "checkpointInterval", label: "小關間隔步數", type: "number", min: 0, step: 1 },
+          { key: "checkpointGold", label: "小關金幣", type: "number", min: 0, step: 1 },
+          { key: "checkpointBattleExp", label: "小關戰鬥 EXP", type: "number", min: 0, step: 1 },
+          { key: "checkpointMaterialQuantity", label: "小關素材數", type: "number", min: 0, step: 1 }
         ]
       }
     ]
@@ -457,7 +507,7 @@ const sections: SectionDef[] = [
         ["luck", "運氣"],
         ["intelligence", "智慧"],
         ["vitality", "體力"],
-        ["spirit", "精神"],
+        ["spirit", "速度"],
         ["technique", "技巧"],
         ["tenacity", "韌性"]
       ].map(([key, label]) => ({
@@ -493,7 +543,15 @@ const sections: SectionDef[] = [
           allyIds: [],
           warTargetIds: [],
           treasury: { gold: 0, materials: 0 },
-          tower: { unlocked: false, currentLayer: 1, highestClearedLayer: 0, bossName: "", bossHp: 100, rewardSummary: "", progress: 0 }
+          tower: {
+            unlocked: false,
+            currentLayer: 1,
+            highestClearedLayer: 0,
+            bossName: "",
+            bossHp: 100,
+            rewardSummary: "",
+            progress: 0
+          }
         }),
         fields: [
           { key: "id", label: "ID", type: "text" },
@@ -535,8 +593,18 @@ const sections: SectionDef[] = [
           { key: "price", label: "價格", type: "number", min: 0, step: 1 },
           { key: "description", label: "描述", type: "textarea" },
           { key: "effectSummary", label: "效果摘要", type: "text" },
-          { key: "equipmentSlot", label: "裝備部位", type: "select", options: [{ value: "", label: "無" }, ...slotOptions] },
-          { key: "rarity", label: "稀有度", type: "select", options: [{ value: "", label: "未指定" }, ...rarityOptions] },
+          {
+            key: "equipmentSlot",
+            label: "裝備部位",
+            type: "select",
+            options: [{ value: "", label: "無" }, ...slotOptions]
+          },
+          {
+            key: "rarity",
+            label: "稀有度",
+            type: "select",
+            options: [{ value: "", label: "未指定" }, ...rarityOptions]
+          },
           { key: "attackBonus", label: "攻擊加成", type: "number", min: 0, step: 1 },
           { key: "defenseBonus", label: "防禦加成", type: "number", min: 0, step: 1 },
           { key: "luckBonus", label: "運氣加成", type: "number", min: 0, step: 1 },
@@ -647,7 +715,14 @@ function rewardGroups(context: EditorContext): GroupDef[] {
       label: "每日贈品",
       itemLabel: "贈品",
       createItem: makeRewardItem,
-      fields: [{ key: "shopItemId", label: "商店物品", type: "select", options: [{ value: "", label: "不使用" }, ...context.shopOptions] }]
+      fields: [
+        {
+          key: "shopItemId",
+          label: "商店物品",
+          type: "select",
+          options: [{ value: "", label: "不使用" }, ...context.shopOptions]
+        }
+      ]
     },
     schedule("flashEventConfig", "突發活動"),
     {
@@ -667,7 +742,14 @@ function rewardGroups(context: EditorContext): GroupDef[] {
       label: "突發贈品",
       itemLabel: "贈品",
       createItem: makeRewardItem,
-      fields: [{ key: "shopItemId", label: "商店物品", type: "select", options: [{ value: "", label: "不使用" }, ...context.shopOptions] }]
+      fields: [
+        {
+          key: "shopItemId",
+          label: "商店物品",
+          type: "select",
+          options: [{ value: "", label: "不使用" }, ...context.shopOptions]
+        }
+      ]
     }
   ];
 }
@@ -750,6 +832,14 @@ function evaluateTowerRules(source: AnyRecord) {
   const baseSteps = numericRule(source, "baseStepsRequired", 5);
   const bossPressure = numericRule(source, "bossHpMultiplier", 1) * numericRule(source, "bossAttackMultiplier", 1);
   const reward = numericRule(source, "rewardMultiplier", 1);
+  const checkpointInterval = numericRule(source, "checkpointInterval", 2);
+  const checkpointGold = numericRule(source, "checkpointGold", 18);
+  const checkpointBattleExp = numericRule(source, "checkpointBattleExp", 12);
+  const checkpointMaterialQuantity = numericRule(source, "checkpointMaterialQuantity", 1);
+  const checkpointValue =
+    checkpointInterval > 0
+      ? (checkpointGold + checkpointBattleExp * 0.65 + checkpointMaterialQuantity * 18) / checkpointInterval
+      : 0;
   const expectedRushSteps = rushDouble * 2 + rushSingle;
   const speedSeparation = expectedRushSteps - huntStep;
   const encounterSeparation = minorHunt - minorRush;
@@ -761,7 +851,8 @@ function evaluateTowerRules(source: AnyRecord) {
     bounded(encounterSeparation * 2.2, -0.9, 1.2) +
     bounded((bossRush + bossHunt) * 0.75, 0, 1.1) +
     bounded(1.2 - Math.abs(bossPressure - 1.15), -0.9, 1.2) +
-    bounded(reward - 0.75, -0.8, 1.1) -
+    bounded(reward - 0.75, -0.8, 1.1) +
+    bounded(0.8 - Math.abs(checkpointValue - 26) / 28, -0.6, 0.8) -
     bounded((baseSteps - 7) * 0.12, -0.3, 0.7) -
     bounded(Math.abs(costGap - 2) * 0.08, 0, 0.5);
   score = Number(bounded(score, 1, 10).toFixed(1));
@@ -773,6 +864,9 @@ function evaluateTowerRules(source: AnyRecord) {
   if (bossPressure > 1.75) advice.push("Boss 壓力偏高，低等玩家可能需要先刷裝或調高獎勵。");
   if (bossPressure < 0.75) advice.push("Boss 壓力偏低，打王可能缺少緊張感。");
   if (reward < 0.8) advice.push("獎勵倍率偏低，長線推進的回饋感會弱。");
+  if (checkpointInterval <= 0) advice.push("小關節點已關閉，刷怪推進會少一層穩定回饋。");
+  if (checkpointValue < 14) advice.push("小關節點獎勵偏低，玩家可能只感覺在等 Boss 抽中。");
+  if (checkpointValue > 48) advice.push("小關節點獎勵偏高，可能讓刷節點收益壓過打王。");
   if (baseSteps > 9) advice.push("前期步數偏長，第一層到第一隻王可能拖太久。");
   if (!advice.length) advice.push("目前節奏明確：趕路找王、攻擊刷小王，風險與獎勵平衡。");
 
@@ -785,6 +879,8 @@ function evaluateTowerRules(source: AnyRecord) {
     minorHunt,
     bossPressure,
     reward,
+    checkpointInterval,
+    checkpointValue,
     advice
   };
 }
@@ -905,16 +1001,38 @@ function WorldBossRulesScorePanel({ rules }: { rules: AnyRecord }) {
         <small>{result.score >= 8 ? "世界 Boss 有吸引力" : result.score >= 7 ? "可玩性穩定" : "需要調整壓力"}</small>
       </div>
       <div className="tuning-metrics">
-        <div><span>Boss 壓力</span><strong>{result.pressure.toFixed(2)}x</strong></div>
-        <div><span>最多回合</span><strong>{result.maxRounds}</strong></div>
-        <div><span>首殺公庫</span><strong>{result.rewardGold}</strong></div>
-        <div><span>首殺個人</span><strong>{Math.round(result.firstPersonalGold)}</strong></div>
-        <div><span>首殺材料</span><strong>{Math.round(result.firstMaterials)}</strong></div>
-        <div><span>勝 / 敗價值</span><strong>{Math.round(result.repeatValue)} / {Math.round(result.participationValue)}</strong></div>
+        <div>
+          <span>Boss 壓力</span>
+          <strong>{result.pressure.toFixed(2)}x</strong>
+        </div>
+        <div>
+          <span>最多回合</span>
+          <strong>{result.maxRounds}</strong>
+        </div>
+        <div>
+          <span>首殺公庫</span>
+          <strong>{result.rewardGold}</strong>
+        </div>
+        <div>
+          <span>首殺個人</span>
+          <strong>{Math.round(result.firstPersonalGold)}</strong>
+        </div>
+        <div>
+          <span>首殺材料</span>
+          <strong>{Math.round(result.firstMaterials)}</strong>
+        </div>
+        <div>
+          <span>勝 / 敗價值</span>
+          <strong>
+            {Math.round(result.repeatValue)} / {Math.round(result.participationValue)}
+          </strong>
+        </div>
       </div>
       <div className="tuning-advice">
         <strong>調參建議</strong>
-        {result.advice.map((entry) => <p key={entry}>{entry}</p>)}
+        {result.advice.map((entry) => (
+          <p key={entry}>{entry}</p>
+        ))}
       </div>
     </section>
   );
@@ -953,7 +1071,19 @@ function evaluateRoomBossRules(source: AnyRecord) {
   if (lossValue < 18) advice.push("失敗獎偏低，低等隊伍試打成本感會太高。");
   if (!advice.length) advice.push("目前節奏穩定：隊伍戰有壓力、回合速度可讀、勝敗獎勵差距明確。");
 
-  return { score, pressure, pace, tickIntervalMs, winValue, lossValue, winBattleExp, lossBattleExp, winGold, lossGold, advice };
+  return {
+    score,
+    pressure,
+    pace,
+    tickIntervalMs,
+    winValue,
+    lossValue,
+    winBattleExp,
+    lossBattleExp,
+    winGold,
+    lossGold,
+    advice
+  };
 }
 
 function RoomBossRulesScorePanel({ rules }: { rules: AnyRecord }) {
@@ -966,16 +1096,42 @@ function RoomBossRulesScorePanel({ rules }: { rules: AnyRecord }) {
         <small>{result.score >= 8 ? "隊伍戰節奏好" : result.score >= 7 ? "可玩性穩定" : "需要調整壓力"}</small>
       </div>
       <div className="tuning-metrics">
-        <div><span>Boss 壓力</span><strong>{result.pressure.toFixed(2)}x</strong></div>
-        <div><span>回合間隔</span><strong>{result.tickIntervalMs}ms</strong></div>
-        <div><span>節奏倍率</span><strong>{result.pace.toFixed(2)}x</strong></div>
-        <div><span>勝 / 敗價值</span><strong>{Math.round(result.winValue)} / {Math.round(result.lossValue)}</strong></div>
-        <div><span>勝敗 EXP</span><strong>{result.winBattleExp} / {result.lossBattleExp}</strong></div>
-        <div><span>勝敗金幣</span><strong>{result.winGold} / {result.lossGold}</strong></div>
+        <div>
+          <span>Boss 壓力</span>
+          <strong>{result.pressure.toFixed(2)}x</strong>
+        </div>
+        <div>
+          <span>回合間隔</span>
+          <strong>{result.tickIntervalMs}ms</strong>
+        </div>
+        <div>
+          <span>節奏倍率</span>
+          <strong>{result.pace.toFixed(2)}x</strong>
+        </div>
+        <div>
+          <span>勝 / 敗價值</span>
+          <strong>
+            {Math.round(result.winValue)} / {Math.round(result.lossValue)}
+          </strong>
+        </div>
+        <div>
+          <span>勝敗 EXP</span>
+          <strong>
+            {result.winBattleExp} / {result.lossBattleExp}
+          </strong>
+        </div>
+        <div>
+          <span>勝敗金幣</span>
+          <strong>
+            {result.winGold} / {result.lossGold}
+          </strong>
+        </div>
       </div>
       <div className="tuning-advice">
         <strong>調參建議</strong>
-        {result.advice.map((entry) => <p key={entry}>{entry}</p>)}
+        {result.advice.map((entry) => (
+          <p key={entry}>{entry}</p>
+        ))}
       </div>
     </section>
   );
@@ -991,16 +1147,40 @@ function PlayerAttackRulesScorePanel({ rules }: { rules: AnyRecord }) {
         <small>{result.score >= 8 ? "遭遇節奏好" : result.score >= 7 ? "可玩性穩定" : "需要調整風險"}</small>
       </div>
       <div className="tuning-metrics">
-        <div><span>發起精力</span><strong>{result.energyCost}</strong></div>
-        <div><span>最多回合</span><strong>{result.maxRounds}</strong></div>
-        <div><span>預估繳獲</span><strong>{Math.round(result.averageGold)}</strong></div>
-        <div><span>金幣 / 精力</span><strong>{result.rewardPressure.toFixed(1)}</strong></div>
-        <div><span>攻方勝敗 EXP</span><strong>{result.attackerWinExp} / {result.attackerLoseExp}</strong></div>
-        <div><span>守方勝敗 EXP</span><strong>{result.defenderWinExp} / {result.defenderLoseExp}</strong></div>
+        <div>
+          <span>發起精力</span>
+          <strong>{result.energyCost}</strong>
+        </div>
+        <div>
+          <span>最多回合</span>
+          <strong>{result.maxRounds}</strong>
+        </div>
+        <div>
+          <span>預估繳獲</span>
+          <strong>{Math.round(result.averageGold)}</strong>
+        </div>
+        <div>
+          <span>金幣 / 精力</span>
+          <strong>{result.rewardPressure.toFixed(1)}</strong>
+        </div>
+        <div>
+          <span>攻方勝敗 EXP</span>
+          <strong>
+            {result.attackerWinExp} / {result.attackerLoseExp}
+          </strong>
+        </div>
+        <div>
+          <span>守方勝敗 EXP</span>
+          <strong>
+            {result.defenderWinExp} / {result.defenderLoseExp}
+          </strong>
+        </div>
       </div>
       <div className="tuning-advice">
         <strong>調參建議</strong>
-        {result.advice.map((entry) => <p key={entry}>{entry}</p>)}
+        {result.advice.map((entry) => (
+          <p key={entry}>{entry}</p>
+        ))}
       </div>
     </section>
   );
@@ -1016,17 +1196,605 @@ function TowerRulesScorePanel({ rules }: { rules: AnyRecord }) {
         <small>{result.score >= 8 ? "節奏偏好玩" : result.score >= 7 ? "可玩性穩定" : "需要調整節奏"}</small>
       </div>
       <div className="tuning-metrics">
-        <div><span>趕路期望步數</span><strong>{result.expectedRushSteps.toFixed(2)}</strong></div>
-        <div><span>攻擊前進率</span><strong>{Math.round(result.huntStep * 100)}%</strong></div>
-        <div><span>趕路找王率</span><strong>{Math.round(result.bossRush * 100)}%</strong></div>
-        <div><span>攻擊找王率</span><strong>{Math.round(result.bossHunt * 100)}%</strong></div>
-        <div><span>攻擊小王率</span><strong>{Math.round(result.minorHunt * 100)}%</strong></div>
-        <div><span>Boss 壓力</span><strong>{result.bossPressure.toFixed(2)}x</strong></div>
+        <div>
+          <span>趕路期望步數</span>
+          <strong>{result.expectedRushSteps.toFixed(2)}</strong>
+        </div>
+        <div>
+          <span>攻擊前進率</span>
+          <strong>{Math.round(result.huntStep * 100)}%</strong>
+        </div>
+        <div>
+          <span>趕路找王率</span>
+          <strong>{Math.round(result.bossRush * 100)}%</strong>
+        </div>
+        <div>
+          <span>攻擊找王率</span>
+          <strong>{Math.round(result.bossHunt * 100)}%</strong>
+        </div>
+        <div>
+          <span>攻擊小王率</span>
+          <strong>{Math.round(result.minorHunt * 100)}%</strong>
+        </div>
+        <div>
+          <span>Boss 壓力</span>
+          <strong>{result.bossPressure.toFixed(2)}x</strong>
+        </div>
+        <div>
+          <span>小關價值 / 步</span>
+          <strong>{result.checkpointValue.toFixed(1)}</strong>
+        </div>
       </div>
       <div className="tuning-advice">
         <strong>調參建議</strong>
-        {result.advice.map((entry) => <p key={entry}>{entry}</p>)}
+        {result.advice.map((entry) => (
+          <p key={entry}>{entry}</p>
+        ))}
       </div>
+    </section>
+  );
+}
+
+function AttackTuningOverview({
+  config,
+  activeSection,
+  draft,
+  onSelect
+}: {
+  config: AdminGameConfigResponse;
+  activeSection: AdminConfigSection;
+  draft: AnyRecord;
+  onSelect: (section: AdminConfigSection) => void;
+}) {
+  const gameConfig = config.gameConfig;
+  const tower = evaluateTowerRules(activeSection === "towerRules" ? draft : gameConfig.towerRules);
+  const pvp = evaluatePlayerAttackRules(activeSection === "playerAttackRules" ? draft : gameConfig.playerAttackRules);
+  const world = evaluateWorldBossRules(activeSection === "worldBossRules" ? draft : gameConfig.worldBossRules);
+  const room = evaluateRoomBossRules(activeSection === "roomBossRules" ? draft : gameConfig.roomBossRules);
+  const items = [
+    {
+      key: "towerRules" as const,
+      label: "爬塔推王",
+      score: tower.score,
+      meta: `趕路 ${tower.expectedRushSteps.toFixed(2)} 步 / 小關 ${tower.checkpointInterval} 步`,
+      advice: tower.advice[0]
+    },
+    {
+      key: "playerAttackRules" as const,
+      label: "玩家遭遇",
+      score: pvp.score,
+      meta: `精力 ${pvp.energyCost} / 預估繳獲 ${Math.round(pvp.averageGold)}`,
+      advice: pvp.advice[0]
+    },
+    {
+      key: "worldBossRules" as const,
+      label: "世界 Boss",
+      score: world.score,
+      meta: `壓力 ${world.pressure.toFixed(2)}x / 首殺個人 ${Math.round(world.firstPersonalGold)}`,
+      advice: world.advice[0]
+    },
+    {
+      key: "roomBossRules" as const,
+      label: "隊伍 Boss",
+      score: room.score,
+      meta: `壓力 ${room.pressure.toFixed(2)}x / 回合 ${room.tickIntervalMs}ms`,
+      advice: room.advice[0]
+    }
+  ];
+  const average = Number((items.reduce((total, item) => total + item.score, 0) / items.length).toFixed(1));
+  const weakest = items.reduce((lowest, item) => (item.score < lowest.score ? item : lowest), items[0]);
+
+  return (
+    <section className="overview-panel">
+      <div className="overview-head">
+        <div>
+          <span className="eyebrow">Attack Tuning</span>
+          <h3>攻打調參總覽</h3>
+          <p>所有打王與遭遇規則會一起評估；目前編輯中的頁面會用尚未儲存的數值即時計算。</p>
+        </div>
+        <div className="overview-score">
+          <span>AVG FUN</span>
+          <strong>{average.toFixed(1)}</strong>
+          <small>{average >= 8 ? "整體節奏強" : average >= 7 ? "可玩性穩定" : "需要優先調整"}</small>
+        </div>
+        <div className="overview-focus">
+          <span>優先檢查</span>
+          <strong>{weakest.label}</strong>
+          <small>{weakest.advice}</small>
+        </div>
+      </div>
+      <div className="overview-grid">
+        {items.map((item) => (
+          <button
+            key={item.key}
+            className={`overview-card ${activeSection === item.key ? "is-active" : ""}`}
+            onClick={() => onSelect(item.key)}
+            type="button"
+          >
+            <span>{item.label}</span>
+            <strong>{item.score.toFixed(1)}</strong>
+            <small>{item.meta}</small>
+            <em>{item.advice}</em>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CharacterTuningPanel({
+  token,
+  resourceOptions,
+  shopOptions,
+  forgeOptions,
+  onFeedback
+}: {
+  token: string;
+  resourceOptions: Option[];
+  shopOptions: Option[];
+  forgeOptions: Option[];
+  onFeedback: (message: string) => void;
+}) {
+  const [targetCharacterName, setTargetCharacterName] = useState("qq");
+  const [core, setCore] = useState<Record<string, string>>({
+    level: "",
+    experience: "",
+    instinctLevel: "",
+    instinctExp: "",
+    battleLevel: "",
+    battleExp: "",
+    forgeLevel: "",
+    forgeExp: "",
+    gold: "",
+    materials: "",
+    hp: "",
+    maxHp: "",
+    mp: "",
+    maxMp: "",
+    energy: "",
+    maxEnergy: ""
+  });
+  const [stats, setStats] = useState<Record<CharacterStatKey, string>>({
+    attack: "",
+    defense: "",
+    luck: "",
+    intelligence: "",
+    vitality: "",
+    spirit: "",
+    technique: "",
+    tenacity: ""
+  });
+  const [restore, setRestore] = useState({
+    hp: true,
+    mp: true,
+    energy: true,
+    clearStatusEffects: true,
+    clearQueue: false,
+    clearMovement: false,
+    clearGarrison: false
+  });
+  const [grantGold, setGrantGold] = useState("0");
+  const [grantMaterialType, setGrantMaterialType] = useState<MaterialType>("iron_ore");
+  const [grantMaterialQuantity, setGrantMaterialQuantity] = useState("5");
+  const [grantShopItemId, setGrantShopItemId] = useState("");
+  const [grantRecipeId, setGrantRecipeId] = useState("");
+  const [customName, setCustomName] = useState("期末專題測試武器");
+  const [customSlot, setCustomSlot] = useState<EquipmentSlotKey>("weapon");
+  const [customAttack, setCustomAttack] = useState("5");
+  const [customDefense, setCustomDefense] = useState("0");
+  const [customLuck, setCustomLuck] = useState("0");
+  const [customIntelligence, setCustomIntelligence] = useState("0");
+  const [customTenacity, setCustomTenacity] = useState("0");
+  const [customDurability, setCustomDurability] = useState("120");
+  const [customQuality, setCustomQuality] = useState<QualityTier>("fine");
+  const [lastSummary, setLastSummary] = useState("尚未送出角色調整。");
+
+  const numberOrUndefined = (value: string) => {
+    if (value.trim() === "") return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+  const numberOrZero = (value: string) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
+  };
+  const targetName = targetCharacterName.trim();
+  const restoreOptions: Array<{ key: keyof typeof restore; label: string }> = [
+    { key: "hp", label: "HP 補滿" },
+    { key: "mp", label: "MP 補滿" },
+    { key: "energy", label: "精力補滿" },
+    { key: "clearStatusEffects", label: "清狀態效果" },
+    { key: "clearQueue", label: "清行動隊列" },
+    { key: "clearMovement", label: "完成/解除移動" },
+    { key: "clearGarrison", label: "解除駐防" }
+  ];
+
+  async function handleSubmit() {
+    if (!token) {
+      onFeedback("請先登入 admin。");
+      return;
+    }
+    if (!targetName) {
+      onFeedback("請輸入目標角色名稱。");
+      return;
+    }
+
+    const statPayload = characterStatKeys.reduce<NonNullable<AdminAdjustCharacterPayload["stats"]>>(
+      (payload, entry) => {
+        const value = numberOrUndefined(stats[entry.key]);
+        if (value != null) payload[entry.key] = value;
+        return payload;
+      },
+      {}
+    );
+    const payload: AdminAdjustCharacterPayload = {
+      targetCharacterName: targetName,
+      level: numberOrUndefined(core.level),
+      experience: numberOrUndefined(core.experience),
+      instinctLevel: numberOrUndefined(core.instinctLevel),
+      instinctExp: numberOrUndefined(core.instinctExp),
+      battleLevel: numberOrUndefined(core.battleLevel),
+      battleExp: numberOrUndefined(core.battleExp),
+      forgeLevel: numberOrUndefined(core.forgeLevel),
+      forgeExp: numberOrUndefined(core.forgeExp),
+      gold: numberOrUndefined(core.gold),
+      materials: numberOrUndefined(core.materials),
+      hp: numberOrUndefined(core.hp),
+      maxHp: numberOrUndefined(core.maxHp),
+      mp: numberOrUndefined(core.mp),
+      maxMp: numberOrUndefined(core.maxMp),
+      energy: numberOrUndefined(core.energy),
+      maxEnergy: numberOrUndefined(core.maxEnergy),
+      stats: statPayload
+    };
+
+    try {
+      const character = await adjustAdminCharacter(token, payload);
+      setLastSummary(
+        `${character.name} Lv.${character.level} / 戰鬥 Lv.${character.battleLevel} · HP ${character.hp}/${character.maxHp} · 金幣 ${character.gold} · 材料 ${character.materials} · 速度 ${character.stats.spirit} · 技巧 ${character.stats.technique}`
+      );
+      onFeedback("角色參數已更新。");
+    } catch (error) {
+      onFeedback(error instanceof Error ? error.message : "角色參數更新失敗。");
+    }
+  }
+
+  async function handleRestore() {
+    if (!token || !targetName) {
+      onFeedback("請先登入 admin 並輸入目標角色。");
+      return;
+    }
+    try {
+      const character = await fillAdminResources(token, { targetCharacterName: targetName, ...restore });
+      setLastSummary(
+        `${character.name} 狀態已回復 · HP ${character.hp}/${character.maxHp} · MP ${character.mp}/${character.maxMp} · 精力 ${character.energy}/${character.maxEnergy}`
+      );
+      onFeedback("目標角色狀態已回復。");
+    } catch (error) {
+      onFeedback(error instanceof Error ? error.message : "回復狀態失敗。");
+    }
+  }
+
+  async function handleGrantResources() {
+    if (!token || !targetName) {
+      onFeedback("請先登入 admin 並輸入目標角色。");
+      return;
+    }
+    try {
+      const character = await grantAdminResources(token, {
+        targetCharacterName: targetName,
+        gold: numberOrZero(grantGold),
+        resources: [{ materialType: grantMaterialType, quantity: numberOrZero(grantMaterialQuantity) }]
+      });
+      setLastSummary(
+        `${character.name} 已收到資源 · 金幣 ${character.gold} · 材料堆疊 ${character.inventory.filter((item) => item.category === "material").length}`
+      );
+      onFeedback("資源已發送。");
+    } catch (error) {
+      onFeedback(error instanceof Error ? error.message : "發送資源失敗。");
+    }
+  }
+
+  async function handleGrantCatalogItem() {
+    if (!token || !targetName) {
+      onFeedback("請先登入 admin 並輸入目標角色。");
+      return;
+    }
+    if (!grantRecipeId && !grantShopItemId) {
+      onFeedback("請選擇鍛造配方或商店物品。");
+      return;
+    }
+    try {
+      const result = await grantAdminItem(token, {
+        targetCharacterName: targetName,
+        recipeId: grantRecipeId || undefined,
+        shopItemId: grantShopItemId || undefined
+      });
+      setLastSummary(`${result.character.name} 已收到 ${result.item.name}。`);
+      onFeedback("物品已發送。");
+    } catch (error) {
+      onFeedback(error instanceof Error ? error.message : "發送物品失敗。");
+    }
+  }
+
+  async function handleGrantCustomEquipment() {
+    if (!token || !targetName || !customName.trim()) {
+      onFeedback("請輸入目標角色與自訂裝備名稱。");
+      return;
+    }
+    try {
+      const result = await grantAdminItem(token, {
+        targetCharacterName: targetName,
+        customWeapon: {
+          name: customName.trim(),
+          equipmentSlot: customSlot,
+          attackBonus: numberOrZero(customAttack),
+          defenseBonus: numberOrZero(customDefense),
+          luckBonus: numberOrZero(customLuck),
+          intelligenceBonus: numberOrZero(customIntelligence),
+          tenacityBonus: numberOrZero(customTenacity),
+          durability: Math.max(1, numberOrZero(customDurability)),
+          rarity:
+            customQuality === "epic" || customQuality === "divine"
+              ? "epic"
+              : customQuality === "masterwork"
+                ? "rare"
+                : "uncommon",
+          qualityTier: customQuality,
+          effectSummary: "管理員發放的測試裝備"
+        }
+      });
+      setLastSummary(`${result.character.name} 已收到 ${result.item.name}。`);
+      onFeedback("自訂裝備已發送。");
+    } catch (error) {
+      onFeedback(error instanceof Error ? error.message : "發送自訂裝備失敗。");
+    }
+  }
+
+  return (
+    <section className="character-tuning-panel">
+      <div className="panel-title">
+        <div>
+          <span className="eyebrow">Character Tuning</span>
+          <h3>使用者參數</h3>
+        </div>
+        <button className="primary" onClick={() => void handleSubmit()} type="button">
+          套用角色參數
+        </button>
+      </div>
+      <div className="character-tuning-grid">
+        <label>
+          <span>目標角色</span>
+          <input value={targetCharacterName} onChange={(event) => setTargetCharacterName(event.target.value)} />
+        </label>
+        {[
+          ["level", "角色等級"],
+          ["experience", "角色經驗"],
+          ["instinctLevel", "本能等級"],
+          ["instinctExp", "本能經驗"],
+          ["battleLevel", "戰鬥等級"],
+          ["battleExp", "戰鬥經驗"],
+          ["forgeLevel", "鍛造等級"],
+          ["forgeExp", "鍛造經驗"],
+          ["gold", "金幣"],
+          ["materials", "材料"],
+          ["hp", "HP"],
+          ["maxHp", "Max HP"],
+          ["mp", "MP"],
+          ["maxMp", "Max MP"],
+          ["energy", "精力"],
+          ["maxEnergy", "Max 精力"]
+        ].map(([key, label]) => (
+          <label key={key}>
+            <span>{label}</span>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={core[key]}
+              onChange={(event) => setCore((current) => ({ ...current, [key]: event.target.value }))}
+            />
+          </label>
+        ))}
+      </div>
+      <div className="admin-ops-grid">
+        <div className="admin-ops-card">
+          <h4>回復狀態 / 解除卡住</h4>
+          <div className="check-grid">
+            {restoreOptions.map((option) => (
+              <label key={option.key} className="check-field">
+                <input
+                  type="checkbox"
+                  checked={restore[option.key]}
+                  onChange={(event) => setRestore((current) => ({ ...current, [option.key]: event.target.checked }))}
+                />
+                <span>{option.label}</span>
+              </label>
+            ))}
+          </div>
+          <button className="primary" onClick={() => void handleRestore()} type="button">
+            套用回復
+          </button>
+        </div>
+        <div className="admin-ops-card">
+          <h4>發送金幣 / 材料</h4>
+          <div className="mini-form-grid">
+            <label>
+              <span>金幣</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={grantGold}
+                onChange={(event) => setGrantGold(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>材料</span>
+              <select
+                value={grantMaterialType}
+                onChange={(event) => setGrantMaterialType(event.target.value as MaterialType)}
+              >
+                {resourceOptions.map((entry) => (
+                  <option key={entry.value} value={entry.value}>
+                    {entry.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>數量</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={grantMaterialQuantity}
+                onChange={(event) => setGrantMaterialQuantity(event.target.value)}
+              />
+            </label>
+          </div>
+          <button className="primary" onClick={() => void handleGrantResources()} type="button">
+            發送資源
+          </button>
+        </div>
+        <div className="admin-ops-card">
+          <h4>發送現有物品</h4>
+          <div className="mini-form-grid">
+            <label>
+              <span>鍛造配方</span>
+              <select value={grantRecipeId} onChange={(event) => setGrantRecipeId(event.target.value)}>
+                <option value="">不使用</option>
+                {forgeOptions.map((entry) => (
+                  <option key={entry.value} value={entry.value}>
+                    {entry.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>商店物品</span>
+              <select value={grantShopItemId} onChange={(event) => setGrantShopItemId(event.target.value)}>
+                <option value="">不使用</option>
+                {shopOptions.map((entry) => (
+                  <option key={entry.value} value={entry.value}>
+                    {entry.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <button className="primary" onClick={() => void handleGrantCatalogItem()} type="button">
+            發送物品
+          </button>
+        </div>
+        <div className="admin-ops-card wide-op-card">
+          <h4>發送自訂裝備</h4>
+          <div className="mini-form-grid custom-equipment-grid">
+            <label>
+              <span>名稱</span>
+              <input value={customName} onChange={(event) => setCustomName(event.target.value)} />
+            </label>
+            <label>
+              <span>部位</span>
+              <select value={customSlot} onChange={(event) => setCustomSlot(event.target.value as EquipmentSlotKey)}>
+                {slotOptions.map((entry) => (
+                  <option key={entry.value} value={entry.value}>
+                    {entry.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>品質</span>
+              <select value={customQuality} onChange={(event) => setCustomQuality(event.target.value as QualityTier)}>
+                {["fine", "masterwork", "epic", "divine"].map((tier) => (
+                  <option key={tier} value={tier}>
+                    {tier}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>耐久</span>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={customDurability}
+                onChange={(event) => setCustomDurability(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>攻擊</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={customAttack}
+                onChange={(event) => setCustomAttack(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>防禦</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={customDefense}
+                onChange={(event) => setCustomDefense(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>運氣</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={customLuck}
+                onChange={(event) => setCustomLuck(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>智慧</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={customIntelligence}
+                onChange={(event) => setCustomIntelligence(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>韌性</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={customTenacity}
+                onChange={(event) => setCustomTenacity(event.target.value)}
+              />
+            </label>
+          </div>
+          <button className="primary" onClick={() => void handleGrantCustomEquipment()} type="button">
+            發送自訂裝備
+          </button>
+        </div>
+      </div>
+      <div className="character-stat-grid">
+        {characterStatKeys.map((entry) => (
+          <label key={entry.key}>
+            <span>{entry.label}</span>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={stats[entry.key]}
+              onChange={(event) => setStats((current) => ({ ...current, [entry.key]: event.target.value }))}
+            />
+          </label>
+        ))}
+      </div>
+      <p>{lastSummary}</p>
     </section>
   );
 }
@@ -1041,7 +1809,10 @@ function App() {
   const [draft, setDraft] = useState<any>(null);
   const [feedback, setFeedback] = useState("尚未載入設定。");
 
-  const activeDef = useMemo(() => sections.find((section) => section.key === activeSection) || sections[0], [activeSection]);
+  const activeDef = useMemo(
+    () => sections.find((section) => section.key === activeSection) || sections[0],
+    [activeSection]
+  );
   const editorContext = useMemo<EditorContext>(() => {
     const shopItems = config?.gameConfig.shopItems || [];
     const skills = config?.gameConfig.specialSkills || [];
@@ -1143,12 +1914,19 @@ function App() {
             <span>Password</span>
             <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" />
           </label>
-          <button onClick={() => void handleLogin()} type="button">登入後台</button>
+          <button onClick={() => void handleLogin()} type="button">
+            登入後台
+          </button>
           {userRole === "player" ? <strong className="danger">此帳號沒有 admin 權限。</strong> : null}
         </div>
         <nav>
           {sections.map((section) => (
-            <button key={section.key} className={activeSection === section.key ? "active" : ""} onClick={() => setActiveSection(section.key)} type="button">
+            <button
+              key={section.key}
+              className={activeSection === section.key ? "active" : ""}
+              onClick={() => setActiveSection(section.key)}
+              type="button"
+            >
               <strong>{section.label}</strong>
               <span>{section.description}</span>
             </button>
@@ -1163,23 +1941,58 @@ function App() {
             <p>{activeDef.description}</p>
           </div>
           <div className="actions">
-            <button onClick={() => void refresh()} type="button"><RefreshCw size={16} />重新載入</button>
-            <button onClick={() => void handleReset()} type="button"><RotateCcw size={16} />還原預設</button>
-            <button className="primary" onClick={() => void handleSave()} type="button"><Save size={16} />儲存</button>
+            <button onClick={() => void refresh()} type="button">
+              <RefreshCw size={16} />
+              重新載入
+            </button>
+            <button onClick={() => void handleReset()} type="button">
+              <RotateCcw size={16} />
+              還原預設
+            </button>
+            <button className="primary" onClick={() => void handleSave()} type="button">
+              <Save size={16} />
+              儲存
+            </button>
           </div>
         </header>
+
+        <CharacterTuningPanel
+          token={token}
+          resourceOptions={editorContext.resourceOptions}
+          shopOptions={editorContext.shopOptions}
+          forgeOptions={(config?.gameConfig.forgeOptions || []).map((option) => ({
+            value: option.id,
+            label: option.name
+          }))}
+          onFeedback={setFeedback}
+        />
 
         <div className="editor">
           {draft == null ? (
             <div className="empty-state">請先登入並載入參數。</div>
           ) : (
             <>
+              {config ? (
+                <AttackTuningOverview
+                  config={config}
+                  activeSection={activeSection}
+                  draft={draft as AnyRecord}
+                  onSelect={setActiveSection}
+                />
+              ) : null}
               {activeSection === "towerRules" ? <TowerRulesScorePanel rules={draft as AnyRecord} /> : null}
-              {activeSection === "playerAttackRules" ? <PlayerAttackRulesScorePanel rules={draft as AnyRecord} /> : null}
+              {activeSection === "playerAttackRules" ? (
+                <PlayerAttackRulesScorePanel rules={draft as AnyRecord} />
+              ) : null}
               {activeSection === "worldBossRules" ? <WorldBossRulesScorePanel rules={draft as AnyRecord} /> : null}
               {activeSection === "roomBossRules" ? <RoomBossRulesScorePanel rules={draft as AnyRecord} /> : null}
               {activeDef.groups(editorContext).map((group) => (
-                <EditorGroup key={`${group.type}:${group.key}:${group.label}`} group={group} value={draft} onChange={updateDraft} />
+                <EditorGroup
+                  key={`${group.type}:${group.key}:${group.label}`}
+                  group={group}
+                  value={draft}
+                  onChange={updateDraft}
+                />
               ))}
             </>
           )}
@@ -1190,7 +2003,15 @@ function App() {
   );
 }
 
-function EditorGroup({ group, value, onChange }: { group: GroupDef; value: unknown; onChange: (path: string, value: unknown) => void }) {
+function EditorGroup({
+  group,
+  value,
+  onChange
+}: {
+  group: GroupDef;
+  value: unknown;
+  onChange: (path: string, value: unknown) => void;
+}) {
   if (group.type === "object") {
     const objectValue = (getAt(value, group.key) || {}) as AnyRecord;
     return (
@@ -1198,7 +2019,11 @@ function EditorGroup({ group, value, onChange }: { group: GroupDef; value: unkno
         <div className="panel-title">
           <h3>{group.label}</h3>
         </div>
-        <FieldGrid fields={group.fields} value={objectValue} onChange={(field, next) => onChange(group.key ? `${group.key}.${field}` : field, next)} />
+        <FieldGrid
+          fields={group.fields}
+          value={objectValue}
+          onChange={(field, next) => onChange(group.key ? `${group.key}.${field}` : field, next)}
+        />
       </section>
     );
   }
@@ -1208,7 +2033,12 @@ function EditorGroup({ group, value, onChange }: { group: GroupDef; value: unkno
     <section className="panel">
       <div className="panel-title">
         <h3>{group.label}</h3>
-        <button className="icon-button" onClick={() => onChange(group.key, [...rows, group.createItem()])} type="button" title={`新增${group.itemLabel}`}>
+        <button
+          className="icon-button"
+          onClick={() => onChange(group.key, [...rows, group.createItem()])}
+          type="button"
+          title={`新增${group.itemLabel}`}
+        >
           <Plus size={16} />
         </button>
       </div>
@@ -1219,7 +2049,12 @@ function EditorGroup({ group, value, onChange }: { group: GroupDef; value: unkno
               <strong>{row.name || row.title || `${group.itemLabel} ${index + 1}`}</strong>
               <button
                 className="icon-button danger-button"
-                onClick={() => onChange(group.key, rows.filter((_, rowIndex) => rowIndex !== index))}
+                onClick={() =>
+                  onChange(
+                    group.key,
+                    rows.filter((_, rowIndex) => rowIndex !== index)
+                  )
+                }
                 type="button"
                 title="刪除"
               >
@@ -1242,7 +2077,15 @@ function EditorGroup({ group, value, onChange }: { group: GroupDef; value: unkno
   );
 }
 
-function FieldGrid({ fields, value, onChange }: { fields: FieldDef[]; value: AnyRecord; onChange: (field: string, value: unknown) => void }) {
+function FieldGrid({
+  fields,
+  value,
+  onChange
+}: {
+  fields: FieldDef[];
+  value: AnyRecord;
+  onChange: (field: string, value: unknown) => void;
+}) {
   return (
     <div className="field-grid">
       {fields.map((field) => (
@@ -1259,7 +2102,9 @@ function FieldEditor({ field, value, onChange }: { field: FieldDef; value: any; 
     return (
       <label className="field toggle-field">
         <span>{field.label}</span>
-        <button className={value ? "toggle on" : "toggle"} onClick={() => onChange(!value)} type="button">{value ? "啟用" : "停用"}</button>
+        <button className={value ? "toggle on" : "toggle"} onClick={() => onChange(!value)} type="button">
+          {value ? "啟用" : "停用"}
+        </button>
       </label>
     );
   }
@@ -1279,7 +2124,9 @@ function FieldEditor({ field, value, onChange }: { field: FieldDef; value: any; 
         <span>{field.label}</span>
         <select value={value || ""} onChange={(event) => onChange(event.target.value)}>
           {(field.options || []).map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
           ))}
         </select>
       </label>
@@ -1297,10 +2144,14 @@ function FieldEditor({ field, value, onChange }: { field: FieldDef; value: any; 
           onChange={(event) => onChange(Array.from(event.target.selectedOptions).map((option) => option.value))}
         >
           {(field.options || []).map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
           ))}
         </select>
-        <small>{selected.length ? selected.map((entry) => optionLabel(field.options, entry)).join("、") : "未選擇"}</small>
+        <small>
+          {selected.length ? selected.map((entry) => optionLabel(field.options, entry)).join("、") : "未選擇"}
+        </small>
       </label>
     );
   }
@@ -1309,7 +2160,11 @@ function FieldEditor({ field, value, onChange }: { field: FieldDef; value: any; 
     return (
       <label className="field">
         <span>{field.label}</span>
-        <input type="datetime-local" value={toDateTimeInput(value)} onChange={(event) => onChange(fromDateTimeInput(event.target.value))} />
+        <input
+          type="datetime-local"
+          value={toDateTimeInput(value)}
+          onChange={(event) => onChange(fromDateTimeInput(event.target.value))}
+        />
       </label>
     );
   }

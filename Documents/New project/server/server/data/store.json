@@ -8,7 +8,7 @@
       "password": "qq",
       "createdAt": "2026-06-11T14:23:13.073Z",
       "friendIds": [],
-      "lastDailySignInOn": "2026-06-12",
+      "lastDailySignInOn": "2026-06-21",
       "lastFlashSignInOn": null
     },
     {
@@ -21,18 +21,50 @@
       "friendIds": [],
       "lastDailySignInOn": null,
       "lastFlashSignInOn": null
+    },
+    {
+      "id": "user_eb4fda5b5dbf",
+      "email": "pvp-a-1585902@test.local",
+      "displayName": "PVP-A-1585902",
+      "role": "player",
+      "password": "test1234",
+      "createdAt": "2026-06-19T15:06:26.111Z",
+      "friendIds": [],
+      "lastDailySignInOn": null,
+      "lastFlashSignInOn": null
+    },
+    {
+      "id": "user_ddd7133e7dca",
+      "email": "pvp-b-1585902@test.local",
+      "displayName": "PVP-B-1585902",
+      "role": "player",
+      "password": "test1234",
+      "createdAt": "2026-06-19T15:06:26.158Z",
+      "friendIds": [],
+      "lastDailySignInOn": null,
+      "lastFlashSignInOn": null
     }
   ],
   "sessions": [
     {
-      "token": "session_f8641801f5e1",
-      "userId": "user_228354f2654a",
-      "createdAt": "2026-06-19T14:19:24.030Z"
+      "token": "session_c4540145cabe",
+      "userId": "user_eb4fda5b5dbf",
+      "createdAt": "2026-06-19T15:06:26.138Z"
     },
     {
-      "token": "session_b72713406468",
+      "token": "session_bba2625b7956",
+      "userId": "user_ddd7133e7dca",
+      "createdAt": "2026-06-19T15:06:26.161Z"
+    },
+    {
+      "token": "session_876453bae4df",
       "userId": "user_ef3da62d4b6f",
-      "createdAt": "2026-06-19T14:28:55.598Z"
+      "createdAt": "2026-06-20T22:59:00.000Z"
+    },
+    {
+      "token": "session_eb0394a6d855",
+      "userId": "user_228354f2654a",
+      "createdAt": "2026-06-20T23:19:14.709Z"
     }
   ],
   "characters": [
@@ -47,30 +79,30 @@
       "className": "warrior",
       "classChangedOn": "2026-06-11",
       "level": 1,
-      "experience": 12,
+      "experience": 74,
       "instinctLevel": 1,
-      "instinctExp": 12,
-      "battleLevel": 1,
-      "battleExp": 48,
+      "instinctExp": 74,
+      "battleLevel": 5,
+      "battleExp": 114,
       "forgeLevel": 1,
       "forgeExp": 0,
-      "gold": 258,
+      "gold": 1256,
       "materials": 0,
-      "hp": 0,
-      "maxHp": 137,
-      "mp": 37,
-      "maxMp": 76,
-      "energy": 68,
-      "maxEnergy": 104,
+      "hp": 12,
+      "maxHp": 149,
+      "mp": 65,
+      "maxMp": 122,
+      "energy": 1,
+      "maxEnergy": 140,
       "stats": {
-        "attack": 14,
-        "defense": 6,
+        "attack": 23,
+        "defense": 7,
         "luck": 3,
-        "intelligence": 5,
+        "intelligence": 8,
         "vitality": 8,
-        "spirit": 5,
-        "technique": 6,
-        "tenacity": 7
+        "spirit": 13,
+        "technique": 16,
+        "tenacity": 8
       },
       "equipmentSlots": {
         "weapon": null,
@@ -103,7 +135,7 @@
           "isBroken": false,
           "sortOrder": 0,
           "stackable": true,
-          "quantity": 8,
+          "quantity": 17,
           "materialType": "iron_ore",
           "prefixName": null,
           "suffixName": null,
@@ -135,7 +167,7 @@
           "isBroken": false,
           "sortOrder": 0,
           "stackable": true,
-          "quantity": 4,
+          "quantity": 8,
           "materialType": "cloth",
           "prefixName": null,
           "suffixName": null,
@@ -167,7 +199,7 @@
           "isBroken": false,
           "sortOrder": 2,
           "stackable": true,
-          "quantity": 2,
+          "quantity": 5,
           "materialType": "copper_ore",
           "prefixName": null,
           "suffixName": null,
@@ -231,8 +263,40 @@
           "isBroken": false,
           "sortOrder": 4,
           "stackable": true,
-          "quantity": 1,
+          "quantity": 17,
           "materialType": "stardust",
+          "prefixName": null,
+          "suffixName": null,
+          "qualityTier": null,
+          "tenacityBonus": 0,
+          "itemLevel": 1,
+          "sellPrice": 0,
+          "salvagePrice": 0,
+          "craftedBy": null,
+          "craftedAt": null
+        },
+        {
+          "id": "item_0b2f07b72cc2",
+          "name": "銀礦",
+          "category": "material",
+          "effectSummary": "鍛造與修復素材",
+          "equipmentSlot": null,
+          "rarity": "common",
+          "craftSource": null,
+          "statBonus": {},
+          "attackBonus": 0,
+          "defenseBonus": 0,
+          "luckBonus": 0,
+          "hpBonus": 0,
+          "mpBonus": 0,
+          "energyBonus": 0,
+          "durability": null,
+          "maxDurability": null,
+          "isBroken": false,
+          "sortOrder": 5,
+          "stackable": true,
+          "quantity": 8,
+          "materialType": "silver_ore",
           "prefixName": null,
           "suffixName": null,
           "qualityTier": null,
@@ -271,38 +335,44 @@
         {
           "slot": 1,
           "characterId": "kirito",
-          "level": 1,
-          "exp": 4,
+          "level": 2,
+          "exp": 3,
           "unlockedSkillIds": [
             "kirito_starburst"
           ],
-          "lastTriggeredSkillId": null,
+          "lastTriggeredSkillId": "kirito_starburst",
           "cooldownUntilTick": null
         },
         {
           "slot": 2,
-          "characterId": null,
+          "characterId": "edward",
           "level": 1,
-          "exp": 0,
-          "unlockedSkillIds": [],
-          "lastTriggeredSkillId": null,
+          "exp": 50,
+          "unlockedSkillIds": [
+            "edward_alchemy_spear"
+          ],
+          "lastTriggeredSkillId": "edward_alchemy_spear",
           "cooldownUntilTick": null
         },
         {
           "slot": 3,
-          "characterId": null,
-          "level": 1,
-          "exp": 0,
-          "unlockedSkillIds": [],
-          "lastTriggeredSkillId": null,
-          "cooldownUntilTick": null
+          "characterId": "jotaro",
+          "level": 5,
+          "exp": 50,
+          "unlockedSkillIds": [
+            "jotaro_ora_ora",
+            "jotaro_time_stop",
+            "jotaro_star_platinum"
+          ],
+          "lastTriggeredSkillId": "jotaro_time_stop",
+          "cooldownUntilTick": 4
         }
       ],
       "classMastery": {
         "warrior": {
           "className": "warrior",
           "level": 1,
-          "exp": 11,
+          "exp": 64,
           "unlocked": true
         },
         "assassin": {
@@ -324,19 +394,164 @@
           "unlocked": false
         }
       },
-      "specialSkillSlot": null,
+      "specialSkillSlot": "jotaro_time_stop",
+      "specialSkillSlots": [
+        "jotaro_time_stop",
+        "jotaro_ora_ora",
+        "jotaro_star_platinum"
+      ],
       "learnedManuals": [],
       "equippedManuals": [],
       "achievements": [
         {
           "id": "level_5",
-          "title": "達到 5 級",
-          "description": "角色等級達到 5 級。",
+          "title": "本能 5 級",
+          "description": "本能等級達到 5 級。",
           "progress": 1,
           "target": 5,
           "completed": false,
           "completedAt": null,
-          "rewardSummary": "待領取"
+          "rewardSummary": "基礎成長"
+        },
+        {
+          "id": "level_15",
+          "title": "本能 15 級",
+          "description": "本能等級達到 15 級。",
+          "progress": 1,
+          "target": 15,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "高階成長"
+        },
+        {
+          "id": "battle_level_5",
+          "title": "戰鬥 5 級",
+          "description": "戰鬥等級達到 5 級。",
+          "progress": 5,
+          "target": 5,
+          "completed": true,
+          "completedAt": "2026-06-20T23:33:08.478Z",
+          "rewardSummary": "打王入門"
+        },
+        {
+          "id": "battle_level_15",
+          "title": "戰鬥 15 級",
+          "description": "戰鬥等級達到 15 級。",
+          "progress": 5,
+          "target": 15,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "連擊上限"
+        },
+        {
+          "id": "forge_level_3",
+          "title": "鍛造 3 級",
+          "description": "鍛造等級達到 3 級。",
+          "progress": 1,
+          "target": 3,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "工坊熟練"
+        },
+        {
+          "id": "gold_1000",
+          "title": "小有資產",
+          "description": "持有 1000 金幣。",
+          "progress": 1000,
+          "target": 1000,
+          "completed": true,
+          "completedAt": "2026-06-20T23:26:33.315Z",
+          "rewardSummary": "經濟目標"
+        },
+        {
+          "id": "hp_200",
+          "title": "耐打體質",
+          "description": "最大 HP 達到 200。",
+          "progress": 149,
+          "target": 200,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "生存目標"
+        },
+        {
+          "id": "speed_10",
+          "title": "速度 10",
+          "description": "速度達到 10。",
+          "progress": 10,
+          "target": 10,
+          "completed": true,
+          "completedAt": "2026-06-20T22:57:36.829Z",
+          "rewardSummary": "時間系基礎"
+        },
+        {
+          "id": "technique_10",
+          "title": "技巧 10",
+          "description": "技巧達到 10。",
+          "progress": 10,
+          "target": 10,
+          "completed": true,
+          "completedAt": "2026-06-20T22:55:34.265Z",
+          "rewardSummary": "反擊基礎"
+        },
+        {
+          "id": "secondary_1",
+          "title": "夥伴上場",
+          "description": "裝備 1 名次要角色。",
+          "progress": 1,
+          "target": 1,
+          "completed": true,
+          "completedAt": "2026-06-20T17:37:51.860Z",
+          "rewardSummary": "角色槽"
+        },
+        {
+          "id": "secondary_3",
+          "title": "三槽成形",
+          "description": "裝備 3 名次要角色。",
+          "progress": 3,
+          "target": 3,
+          "completed": true,
+          "completedAt": "2026-06-20T22:55:48.432Z",
+          "rewardSummary": "完整隊列"
+        },
+        {
+          "id": "special_skill_equipped",
+          "title": "密技上身",
+          "description": "裝備 1 個特殊技能。",
+          "progress": 1,
+          "target": 1,
+          "completed": true,
+          "completedAt": "2026-06-20T17:37:51.860Z",
+          "rewardSummary": "技能槽"
+        },
+        {
+          "id": "manual_equipped",
+          "title": "秘籍入門",
+          "description": "裝備 1 本秘籍 Buff。",
+          "progress": 0,
+          "target": 1,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "秘籍槽"
+        },
+        {
+          "id": "class_mastery_5",
+          "title": "職業熟練",
+          "description": "任一職業熟練達到 5 級。",
+          "progress": 1,
+          "target": 5,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "定位成長"
+        },
+        {
+          "id": "joined_faction",
+          "title": "加入陣營",
+          "description": "加入任一陣營。",
+          "progress": 1,
+          "target": 1,
+          "completed": true,
+          "completedAt": "2026-06-20T17:37:51.860Z",
+          "rewardSummary": "公會玩法"
         }
       ],
       "jobImage": null,
@@ -347,20 +562,558 @@
         "equipment": [
           "厚刃長劍",
           "訓練護甲",
-          "闡釋者 / 逐暗者"
+          "闡釋者 / 逐暗者",
+          "白金之星",
+          "鍊成長槍與防壁"
         ],
         "skills": [
           "盾牆",
           "裂地",
           "怒吼",
-          "星爆氣流斬"
+          "星爆氣流斬",
+          "鍊成長槍",
+          "歐拉歐拉",
+          "時間暫停",
+          "白金精密打擊",
+          "特殊技能：時間暫停",
+          "特殊技能：歐拉歐拉",
+          "特殊技能：白金精密打擊"
         ]
       },
       "actionQueue": {
-        "items": [],
-        "updatedAt": "2026-06-11T15:46:23.557Z"
+        "items": [
+          {
+            "id": "queue_27ef38eb2854",
+            "actionType": "rest",
+            "label": "休息",
+            "durationMs": 3600000,
+            "queuedAt": "2026-06-20T23:32:40.981Z",
+            "startAt": "2026-06-20T23:32:40.980Z",
+            "endsAt": "2026-06-21T00:32:40.980Z",
+            "status": "active",
+            "onlineBonusEligible": true,
+            "metadata": {
+              "durationLabel": "1 小時",
+              "hiddenCost": 0
+            },
+            "hiddenCost": 0
+          },
+          {
+            "id": "queue_21bd862feaf5",
+            "actionType": "rest",
+            "label": "休息",
+            "durationMs": 3600000,
+            "queuedAt": "2026-06-20T23:33:14.538Z",
+            "startAt": "2026-06-21T00:32:40.980Z",
+            "endsAt": "2026-06-21T01:32:40.980Z",
+            "status": "queued",
+            "onlineBonusEligible": true,
+            "metadata": {
+              "durationLabel": "1 小時",
+              "hiddenCost": 1
+            },
+            "hiddenCost": 1
+          },
+          {
+            "id": "queue_c276e6385ae7",
+            "actionType": "rest",
+            "label": "休息",
+            "durationMs": 3600000,
+            "queuedAt": "2026-06-20T23:33:15.122Z",
+            "startAt": "2026-06-21T01:32:40.980Z",
+            "endsAt": "2026-06-21T02:32:40.980Z",
+            "status": "queued",
+            "onlineBonusEligible": true,
+            "metadata": {
+              "durationLabel": "1 小時",
+              "hiddenCost": 0
+            },
+            "hiddenCost": 0
+          }
+        ],
+        "updatedAt": "2026-06-20T23:33:15.122Z"
       },
       "notifications": [
+        {
+          "id": "notice_b22b833adf25",
+          "kind": "system",
+          "title": "行動佇列",
+          "body": "休息 已加入行動佇列。",
+          "createdAt": "2026-06-20T23:33:15.122Z",
+          "read": false
+        },
+        {
+          "id": "notice_17803d245aa0",
+          "kind": "system",
+          "title": "行動佇列",
+          "body": "休息 已加入行動佇列。",
+          "createdAt": "2026-06-20T23:33:14.538Z",
+          "read": false
+        },
+        {
+          "id": "notice_b14c7a010b54",
+          "kind": "system",
+          "title": "行動佇列",
+          "body": "已取消 2 個等待行動。",
+          "createdAt": "2026-06-20T23:33:05.218Z",
+          "read": false
+        },
+        {
+          "id": "notice_327a893259a2",
+          "kind": "system",
+          "title": "行動佇列",
+          "body": "休息 已從佇列取消。",
+          "createdAt": "2026-06-20T23:33:00.234Z",
+          "read": false
+        },
+        {
+          "id": "notice_5fa847ea6869",
+          "kind": "system",
+          "title": "行動佇列",
+          "body": "休息 已加入行動佇列。",
+          "createdAt": "2026-06-20T23:32:43.185Z",
+          "read": false
+        },
+        {
+          "id": "notice_859534bf11c1",
+          "kind": "system",
+          "title": "行動佇列",
+          "body": "休息 已加入行動佇列。",
+          "createdAt": "2026-06-20T23:32:41.840Z",
+          "read": false
+        },
+        {
+          "id": "notice_c7bdab553bf1",
+          "kind": "system",
+          "title": "行動佇列",
+          "body": "休息 已加入行動佇列。",
+          "createdAt": "2026-06-20T23:32:41.488Z",
+          "read": false
+        },
+        {
+          "id": "notice_98ad9b55332d",
+          "kind": "system",
+          "title": "行動佇列",
+          "body": "休息 已加入行動佇列。",
+          "createdAt": "2026-06-20T23:32:40.981Z",
+          "read": false
+        },
+        {
+          "id": "notice_d0e12c84b08f",
+          "kind": "battle",
+          "title": "戰鬥勝利",
+          "body": "裂界魔龍 的戰報已保存。",
+          "createdAt": "2026-06-20T23:31:59.695Z",
+          "read": false
+        },
+        {
+          "id": "notice_b9d7405dc999",
+          "kind": "battle",
+          "title": "世界 Boss",
+          "body": "個人獲得 147 金幣、星砂 x4、戰鬥經驗 120。",
+          "createdAt": "2026-06-20T23:31:59.695Z",
+          "read": false
+        },
+        {
+          "id": "notice_7442509415be",
+          "kind": "battle",
+          "title": "戰鬥升級",
+          "body": "qq 的戰鬥等級提升到 5",
+          "createdAt": "2026-06-20T23:31:59.695Z",
+          "read": false
+        },
+        {
+          "id": "notice_734b8381bc5e",
+          "kind": "battle",
+          "title": "公會爬塔",
+          "body": "攻擊推進第 3 層：目前遇到第 3 層 Boss：炎燼 第 3 層守將。",
+          "createdAt": "2026-06-20T23:22:53.444Z",
+          "read": false
+        },
+        {
+          "id": "notice_ae3cb09da267",
+          "kind": "battle",
+          "title": "公會爬塔",
+          "body": "攻擊推進第 3 層：攻擊推進中，尚未遇到大型目標。。",
+          "createdAt": "2026-06-20T23:22:52.960Z",
+          "read": false
+        },
+        {
+          "id": "notice_5442689ea124",
+          "kind": "battle",
+          "title": "公會爬塔",
+          "body": "攻擊推進第 3 層：通過 1 個小關節點，已取得節點獎勵。。",
+          "createdAt": "2026-06-20T23:22:52.418Z",
+          "read": false
+        },
+        {
+          "id": "notice_dd8ea90cf703",
+          "kind": "battle",
+          "title": "戰鬥勝利",
+          "body": "炎燼 第 3 層巡邏小王 的戰報已保存。",
+          "createdAt": "2026-06-20T23:22:39.154Z",
+          "read": false
+        },
+        {
+          "id": "notice_9d57d9b4fe9a",
+          "kind": "battle",
+          "title": "公會爬塔",
+          "body": "攻擊推進第 3 層：第 3 層巡邏小王已擊倒。。",
+          "createdAt": "2026-06-20T23:22:39.154Z",
+          "read": false
+        },
+        {
+          "id": "notice_ebe2271ae602",
+          "kind": "battle",
+          "title": "公會爬塔",
+          "body": "攻擊推進第 3 層：攻擊推進中，尚未遇到大型目標。。",
+          "createdAt": "2026-06-20T23:22:38.480Z",
+          "read": false
+        },
+        {
+          "id": "notice_712caa1f4e6f",
+          "kind": "battle",
+          "title": "戰鬥勝利",
+          "body": "炎燼 第 3 層巡邏小王 的戰報已保存。",
+          "createdAt": "2026-06-20T23:22:24.185Z",
+          "read": false
+        },
+        {
+          "id": "notice_f5d1b2d4009c",
+          "kind": "battle",
+          "title": "公會爬塔",
+          "body": "攻擊推進第 3 層：第 3 層巡邏小王已擊倒。。",
+          "createdAt": "2026-06-20T23:22:24.184Z",
+          "read": false
+        },
+        {
+          "id": "notice_5ed0c21f4e94",
+          "kind": "battle",
+          "title": "公會爬塔",
+          "body": "攻擊推進第 3 層：通過 1 個小關節點，已取得節點獎勵。。",
+          "createdAt": "2026-06-20T23:22:22.922Z",
+          "read": false
+        },
+        {
+          "id": "notice_f89b969a74fe",
+          "kind": "battle",
+          "title": "戰鬥升級",
+          "body": "qq 的戰鬥等級提升到 4",
+          "createdAt": "2026-06-20T23:22:22.922Z",
+          "read": false
+        },
+        {
+          "id": "notice_2037e22e23cf",
+          "kind": "battle",
+          "title": "公會爬塔",
+          "body": "攻擊推進第 3 層：攻擊推進中，尚未遇到大型目標。。",
+          "createdAt": "2026-06-20T23:22:19.399Z",
+          "read": false
+        },
+        {
+          "id": "notice_35439385120a",
+          "kind": "battle",
+          "title": "戰鬥勝利",
+          "body": "炎燼 第 2 層守將 的戰報已保存。",
+          "createdAt": "2026-06-20T23:21:25.287Z",
+          "read": false
+        },
+        {
+          "id": "notice_02aa0a1d2721",
+          "kind": "battle",
+          "title": "公會戰鬥",
+          "body": "公庫獲得 277 金幣，個人獲得 96 金幣與戰鬥經驗 153。",
+          "createdAt": "2026-06-20T23:21:25.287Z",
+          "read": false
+        },
+        {
+          "id": "notice_0c48932ebb1e",
+          "kind": "battle",
+          "title": "公會爬塔",
+          "body": "趕路推進第 2 層：目前遇到第 2 層 Boss：炎燼 第 2 層守將。",
+          "createdAt": "2026-06-20T23:20:33.028Z",
+          "read": false
+        },
+        {
+          "id": "notice_55ff58d528a8",
+          "kind": "battle",
+          "title": "公會爬塔",
+          "body": "趕路推進第 2 層：通過 1 個小關節點，已取得節點獎勵。。",
+          "createdAt": "2026-06-20T23:20:32.540Z",
+          "read": false
+        },
+        {
+          "id": "notice_a08bf846ecf0",
+          "kind": "battle",
+          "title": "公會爬塔",
+          "body": "趕路推進第 2 層：通過 1 個小關節點，已取得節點獎勵。。",
+          "createdAt": "2026-06-20T23:20:30.281Z",
+          "read": false
+        },
+        {
+          "id": "notice_15b427082275",
+          "kind": "battle",
+          "title": "戰鬥升級",
+          "body": "qq 的戰鬥等級提升到 3",
+          "createdAt": "2026-06-20T23:20:30.281Z",
+          "read": false
+        },
+        {
+          "id": "notice_c13fcb6a6fe0",
+          "kind": "battle",
+          "title": "戰鬥勝利",
+          "body": "炎燼 第 1 層守將 的戰報已保存。",
+          "createdAt": "2026-06-20T23:19:34.363Z",
+          "read": false
+        },
+        {
+          "id": "notice_591404e5f8f3",
+          "kind": "battle",
+          "title": "公會戰鬥",
+          "body": "公庫獲得 203 金幣，個人獲得 71 金幣與戰鬥經驗 114。",
+          "createdAt": "2026-06-20T23:19:34.363Z",
+          "read": false
+        },
+        {
+          "id": "notice_a73f2cab72b6",
+          "kind": "system",
+          "title": "特殊技能",
+          "body": "已裝備 時間暫停、歐拉歐拉、白金精密打擊",
+          "createdAt": "2026-06-20T23:16:57.810Z",
+          "read": false
+        },
+        {
+          "id": "notice_ff2266e9debc",
+          "kind": "system",
+          "title": "特殊技能",
+          "body": "已裝備 時間暫停",
+          "createdAt": "2026-06-20T23:07:09.986Z",
+          "read": false
+        },
+        {
+          "id": "notice_88b3eadfda5e",
+          "kind": "system",
+          "title": "特殊技能",
+          "body": "已裝備 歐拉歐拉",
+          "createdAt": "2026-06-20T23:00:33.188Z",
+          "read": false
+        },
+        {
+          "id": "notice_6745ac6f65fd",
+          "kind": "system",
+          "title": "特殊技能",
+          "body": "已裝備 王者防壁",
+          "createdAt": "2026-06-20T23:00:32.490Z",
+          "read": false
+        },
+        {
+          "id": "notice_cbdf1def743c",
+          "kind": "system",
+          "title": "特殊技能",
+          "body": "已裝備 星爆氣流斬",
+          "createdAt": "2026-06-20T23:00:31.956Z",
+          "read": false
+        },
+        {
+          "id": "notice_b9a75f8e5783",
+          "kind": "system",
+          "title": "特殊技能",
+          "body": "已裝備 歐拉歐拉",
+          "createdAt": "2026-06-20T22:56:23.792Z",
+          "read": false
+        },
+        {
+          "id": "notice_35da7b3c18fc",
+          "kind": "system",
+          "title": "次要角色",
+          "body": "已裝備 承太郎",
+          "createdAt": "2026-06-20T22:56:13.864Z",
+          "read": false
+        },
+        {
+          "id": "notice_2dd7f10a8230",
+          "kind": "system",
+          "title": "登入贈禮：承太郎",
+          "body": "承太郎已加入次要角色槽，可在戰鬥中觸發歐拉歐拉與時間系技能。",
+          "createdAt": "2026-06-20T22:55:48.432Z",
+          "read": false
+        },
+        {
+          "id": "notice_291b32f6ec89",
+          "kind": "system",
+          "title": "次要角色",
+          "body": "已裝備 愛德華",
+          "createdAt": "2026-06-20T22:55:46.321Z",
+          "read": false
+        },
+        {
+          "id": "notice_fde71a546111",
+          "kind": "system",
+          "title": "登入贈禮：承太郎",
+          "body": "承太郎已加入次要角色槽，可在戰鬥中觸發歐拉歐拉與時間系技能。",
+          "createdAt": "2026-06-20T22:55:34.265Z",
+          "read": false
+        },
+        {
+          "id": "notice_7808a17cabb1",
+          "kind": "activity",
+          "title": "行動完成",
+          "body": "qq 完成休息，狀態已恢復。\n恢復 HP 78、MP 0、精力 0，獲得 1 本能經驗。",
+          "createdAt": "2026-06-20T19:47:13.118Z",
+          "read": false
+        },
+        {
+          "id": "notice_310cf138f4ee",
+          "kind": "sign_in",
+          "title": "每日補給",
+          "body": "獲得 金幣 60, 鐵礦 x2, 銅礦 x1, 布料 x1。",
+          "createdAt": "2026-06-20T18:47:58.544Z",
+          "read": false
+        },
+        {
+          "id": "notice_1764379ee160",
+          "kind": "system",
+          "title": "行動佇列",
+          "body": "休息 已加入行動佇列。",
+          "createdAt": "2026-06-20T18:46:59.412Z",
+          "read": false
+        },
+        {
+          "id": "notice_5ebb06c7aff9",
+          "kind": "activity",
+          "title": "行動完成",
+          "body": "qq 完成休息，狀態已恢復。\n恢復 HP 65、MP 30、精力 28，獲得 1 本能經驗。",
+          "createdAt": "2026-06-20T17:15:23.393Z",
+          "read": false
+        },
+        {
+          "id": "notice_0b9ca0704d80",
+          "kind": "system",
+          "title": "行動佇列",
+          "body": "休息 已加入行動佇列。",
+          "createdAt": "2026-06-20T16:15:17.377Z",
+          "read": false
+        },
+        {
+          "id": "notice_7f0320ca2679",
+          "kind": "system",
+          "title": "特殊技能",
+          "body": "已裝備 星爆氣流斬",
+          "createdAt": "2026-06-20T13:33:10.383Z",
+          "read": false
+        },
+        {
+          "id": "notice_50160f3af327",
+          "kind": "system",
+          "title": "特殊技能",
+          "body": "已裝備 王者防壁",
+          "createdAt": "2026-06-20T13:33:08.279Z",
+          "read": false
+        },
+        {
+          "id": "notice_78e66a2a71a7",
+          "kind": "battle",
+          "title": "戰鬥失敗",
+          "body": "炎燼 第 1 層守將 的戰報已保存。",
+          "createdAt": "2026-06-20T08:01:19.466Z",
+          "read": false
+        },
+        {
+          "id": "notice_e179ab1d9525",
+          "kind": "battle",
+          "title": "公會戰鬥",
+          "body": "公庫獲得 43 金幣，個人獲得 17 金幣與戰鬥經驗 34。",
+          "createdAt": "2026-06-20T08:01:19.466Z",
+          "read": false
+        },
+        {
+          "id": "notice_5c8e2471035f",
+          "kind": "battle",
+          "title": "戰鬥升級",
+          "body": "qq 的戰鬥等級提升到 2",
+          "createdAt": "2026-06-20T08:01:19.466Z",
+          "read": false
+        },
+        {
+          "id": "notice_2d16e06987b2",
+          "kind": "battle",
+          "title": "公會爬塔",
+          "body": "趕路推進第 1 層：目前遇到第 1 層 Boss：炎燼 第 1 層守將。",
+          "createdAt": "2026-06-20T08:01:16.304Z",
+          "read": false
+        },
+        {
+          "id": "notice_1ca786f4acb8",
+          "kind": "battle",
+          "title": "公會爬塔",
+          "body": "趕路推進第 1 層：趕路推進中，尚未遇到大型目標。。",
+          "createdAt": "2026-06-20T08:01:16.154Z",
+          "read": false
+        },
+        {
+          "id": "notice_d897ae3e6699",
+          "kind": "battle",
+          "title": "公會爬塔",
+          "body": "趕路推進第 1 層：趕路推進中，尚未遇到大型目標。。",
+          "createdAt": "2026-06-20T08:01:12.847Z",
+          "read": false
+        },
+        {
+          "id": "notice_4bc1ab2853d5",
+          "kind": "activity",
+          "title": "行動完成",
+          "body": "qq 完成休息，狀態已恢復。\n恢復 HP 74、MP 36、精力 50，獲得 1 本能經驗。",
+          "createdAt": "2026-06-20T07:24:43.180Z",
+          "read": false
+        },
+        {
+          "id": "notice_fa0d1d83df61",
+          "kind": "sign_in",
+          "title": "每日補給",
+          "body": "獲得 金幣 60, 鐵礦 x2, 銅礦 x1, 布料 x1。",
+          "createdAt": "2026-06-20T06:24:38.918Z",
+          "read": false
+        },
+        {
+          "id": "notice_d5d55c63c6d7",
+          "kind": "system",
+          "title": "行動佇列",
+          "body": "休息 已加入行動佇列。",
+          "createdAt": "2026-06-20T06:24:33.166Z",
+          "read": false
+        },
+        {
+          "id": "notice_1defc7574337",
+          "kind": "activity",
+          "title": "行動完成",
+          "body": "qq 完成淺層挖礦，獲得 17 金幣與 2 份素材。\n掉落：布料 x1、星砂 x1\n獲得 12 經驗、5 本能經驗。\n狀態：HP 0/137、MP 35/76",
+          "createdAt": "2026-06-19T15:40:21.826Z",
+          "read": false
+        },
+        {
+          "id": "notice_4f4fe3114738",
+          "kind": "system",
+          "title": "行動佇列",
+          "body": "淺層挖礦 已加入行動佇列。",
+          "createdAt": "2026-06-19T14:40:16.710Z",
+          "read": false
+        },
+        {
+          "id": "notice_a252e94aba1f",
+          "kind": "sign_in",
+          "title": "每日補給",
+          "body": "獲得 金幣 60, 鐵礦 x2, 銅礦 x1, 布料 x1。",
+          "createdAt": "2026-06-19T14:39:59.520Z",
+          "read": false
+        },
+        {
+          "id": "notice_67234be03e3d",
+          "kind": "battle",
+          "title": "公會爬塔",
+          "body": "攻擊推進第 1 層：攻擊推進中，尚未遇到大型目標。。",
+          "createdAt": "2026-06-19T14:39:51.471Z",
+          "read": false
+        },
         {
           "id": "notice_c736707132f2",
           "kind": "faction",
@@ -472,7 +1225,391 @@
       "gold": 100,
       "materials": 0,
       "hp": 137,
-      "maxHp": 137,
+      "maxHp": 146,
+      "mp": 74,
+      "maxMp": 88,
+      "energy": 100,
+      "maxEnergy": 112,
+      "stats": {
+        "attack": 14,
+        "defense": 6,
+        "luck": 3,
+        "intelligence": 5,
+        "vitality": 8,
+        "spirit": 9,
+        "technique": 6,
+        "tenacity": 8
+      },
+      "equipmentSlots": {
+        "weapon": null,
+        "offhand": null,
+        "helmet": null,
+        "armor": null,
+        "kneepad": null,
+        "pet": null,
+        "avatar": null
+      },
+      "title": "前線破陣者",
+      "inventory": [
+        {
+          "id": "item_7559cb0a8d2f",
+          "name": "鐵礦",
+          "category": "material",
+          "effectSummary": "鍛造與修復素材",
+          "equipmentSlot": null,
+          "rarity": "common",
+          "craftSource": null,
+          "statBonus": {},
+          "attackBonus": 0,
+          "defenseBonus": 0,
+          "luckBonus": 0,
+          "hpBonus": 0,
+          "mpBonus": 0,
+          "energyBonus": 0,
+          "durability": null,
+          "maxDurability": null,
+          "isBroken": false,
+          "sortOrder": 0,
+          "stackable": true,
+          "quantity": 3,
+          "materialType": "iron_ore",
+          "prefixName": null,
+          "suffixName": null,
+          "qualityTier": null,
+          "tenacityBonus": 0,
+          "itemLevel": 1,
+          "sellPrice": 0,
+          "salvagePrice": 0,
+          "craftedBy": null,
+          "craftedAt": null
+        },
+        {
+          "id": "item_b01a5ab90d75",
+          "name": "布料",
+          "category": "material",
+          "effectSummary": "鍛造與修復素材",
+          "equipmentSlot": null,
+          "rarity": "common",
+          "craftSource": null,
+          "statBonus": {},
+          "attackBonus": 0,
+          "defenseBonus": 0,
+          "luckBonus": 0,
+          "hpBonus": 0,
+          "mpBonus": 0,
+          "energyBonus": 0,
+          "durability": null,
+          "maxDurability": null,
+          "isBroken": false,
+          "sortOrder": 0,
+          "stackable": true,
+          "quantity": 2,
+          "materialType": "cloth",
+          "prefixName": null,
+          "suffixName": null,
+          "qualityTier": null,
+          "tenacityBonus": 0,
+          "itemLevel": 1,
+          "sellPrice": 0,
+          "salvagePrice": 0,
+          "craftedBy": null,
+          "craftedAt": null
+        }
+      ],
+      "statusEffects": [
+        {
+          "id": "status_9742b1b35c26",
+          "name": "初心者祝福",
+          "description": "剛踏上旅途的角色會獲得一段短暫的新手保護。",
+          "kind": "buff",
+          "source": "title"
+        }
+      ],
+      "subRoleSlots": [
+        {
+          "slot": 1,
+          "item": null
+        },
+        {
+          "slot": 2,
+          "item": null
+        },
+        {
+          "slot": 3,
+          "item": null
+        }
+      ],
+      "secondaryCharacters": [
+        {
+          "slot": 1,
+          "characterId": "jotaro",
+          "level": 1,
+          "exp": 0,
+          "unlockedSkillIds": [
+            "jotaro_ora_ora"
+          ],
+          "lastTriggeredSkillId": null,
+          "cooldownUntilTick": null
+        },
+        {
+          "slot": 2,
+          "characterId": null,
+          "level": 1,
+          "exp": 0,
+          "unlockedSkillIds": [],
+          "lastTriggeredSkillId": null,
+          "cooldownUntilTick": null
+        },
+        {
+          "slot": 3,
+          "characterId": null,
+          "level": 1,
+          "exp": 0,
+          "unlockedSkillIds": [],
+          "lastTriggeredSkillId": null,
+          "cooldownUntilTick": null
+        }
+      ],
+      "classMastery": {
+        "warrior": {
+          "className": "warrior",
+          "level": 1,
+          "exp": 0,
+          "unlocked": true
+        },
+        "assassin": {
+          "className": "assassin",
+          "level": 1,
+          "exp": 0,
+          "unlocked": false
+        },
+        "mage": {
+          "className": "mage",
+          "level": 1,
+          "exp": 0,
+          "unlocked": false
+        },
+        "priest": {
+          "className": "priest",
+          "level": 1,
+          "exp": 0,
+          "unlocked": false
+        }
+      },
+      "specialSkillSlot": null,
+      "specialSkillSlots": [
+        null,
+        null,
+        null
+      ],
+      "learnedManuals": [],
+      "equippedManuals": [],
+      "achievements": [
+        {
+          "id": "level_5",
+          "title": "本能 5 級",
+          "description": "本能等級達到 5 級。",
+          "progress": 1,
+          "target": 5,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "基礎成長"
+        },
+        {
+          "id": "level_15",
+          "title": "本能 15 級",
+          "description": "本能等級達到 15 級。",
+          "progress": 1,
+          "target": 15,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "高階成長"
+        },
+        {
+          "id": "battle_level_5",
+          "title": "戰鬥 5 級",
+          "description": "戰鬥等級達到 5 級。",
+          "progress": 1,
+          "target": 5,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "打王入門"
+        },
+        {
+          "id": "battle_level_15",
+          "title": "戰鬥 15 級",
+          "description": "戰鬥等級達到 15 級。",
+          "progress": 1,
+          "target": 15,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "連擊上限"
+        },
+        {
+          "id": "forge_level_3",
+          "title": "鍛造 3 級",
+          "description": "鍛造等級達到 3 級。",
+          "progress": 1,
+          "target": 3,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "工坊熟練"
+        },
+        {
+          "id": "gold_1000",
+          "title": "小有資產",
+          "description": "持有 1000 金幣。",
+          "progress": 100,
+          "target": 1000,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "經濟目標"
+        },
+        {
+          "id": "hp_200",
+          "title": "耐打體質",
+          "description": "最大 HP 達到 200。",
+          "progress": 146,
+          "target": 200,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "生存目標"
+        },
+        {
+          "id": "speed_10",
+          "title": "速度 10",
+          "description": "速度達到 10。",
+          "progress": 9,
+          "target": 10,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "時間系基礎"
+        },
+        {
+          "id": "technique_10",
+          "title": "技巧 10",
+          "description": "技巧達到 10。",
+          "progress": 6,
+          "target": 10,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "反擊基礎"
+        },
+        {
+          "id": "secondary_1",
+          "title": "夥伴上場",
+          "description": "裝備 1 名次要角色。",
+          "progress": 1,
+          "target": 1,
+          "completed": true,
+          "completedAt": "2026-06-20T22:58:07.504Z",
+          "rewardSummary": "角色槽"
+        },
+        {
+          "id": "secondary_3",
+          "title": "三槽成形",
+          "description": "裝備 3 名次要角色。",
+          "progress": 1,
+          "target": 3,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "完整隊列"
+        },
+        {
+          "id": "special_skill_equipped",
+          "title": "密技上身",
+          "description": "裝備 1 個特殊技能。",
+          "progress": 0,
+          "target": 1,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "技能槽"
+        },
+        {
+          "id": "manual_equipped",
+          "title": "秘籍入門",
+          "description": "裝備 1 本秘籍 Buff。",
+          "progress": 0,
+          "target": 1,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "秘籍槽"
+        },
+        {
+          "id": "class_mastery_5",
+          "title": "職業熟練",
+          "description": "任一職業熟練達到 5 級。",
+          "progress": 1,
+          "target": 5,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "定位成長"
+        },
+        {
+          "id": "joined_faction",
+          "title": "加入陣營",
+          "description": "加入任一陣營。",
+          "progress": 0,
+          "target": 1,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "公會玩法"
+        }
+      ],
+      "jobImage": null,
+      "loadout": {
+        "preferredRole": "tank",
+        "blessing": "鋼鐵誓約",
+        "title": "前線破陣者",
+        "equipment": [
+          "厚刃長劍",
+          "訓練護甲",
+          "白金之星"
+        ],
+        "skills": [
+          "盾牆",
+          "裂地",
+          "怒吼",
+          "歐拉歐拉"
+        ]
+      },
+      "actionQueue": {
+        "items": [],
+        "updatedAt": "2026-06-19T14:22:29.981Z"
+      },
+      "notifications": [
+        {
+          "id": "notice_bab681220a88",
+          "kind": "system",
+          "title": "登入贈禮：承太郎",
+          "body": "承太郎已加入次要角色槽，可在戰鬥中觸發歐拉歐拉與時間系技能。",
+          "createdAt": "2026-06-20T22:58:07.504Z",
+          "read": false
+        }
+      ]
+    },
+    {
+      "id": "char_ec65712fba2b",
+      "userId": "user_eb4fda5b5dbf",
+      "factionId": "faction_ember",
+      "currentCastleId": "castle_1_1",
+      "movement": null,
+      "garrisonAssignment": null,
+      "name": "遭遇A902",
+      "className": "warrior",
+      "classChangedOn": "2026-06-19",
+      "level": 1,
+      "experience": 0,
+      "instinctLevel": 1,
+      "instinctExp": 0,
+      "battleLevel": 1,
+      "battleExp": 0,
+      "forgeLevel": 1,
+      "forgeExp": 0,
+      "gold": 100,
+      "materials": 0,
+      "hp": 137,
+      "maxHp": 145,
       "mp": 74,
       "maxMp": 74,
       "energy": 100,
@@ -499,12 +1636,22 @@
       "title": "前線破陣者",
       "inventory": [
         {
-          "id": "item_7559cb0a8d2f",
+          "id": "item_f49411095ddb",
           "name": "鐵礦",
           "category": "material",
           "effectSummary": "鍛造與修復素材",
+          "equipmentSlot": null,
           "rarity": "common",
           "craftSource": null,
+          "statBonus": {},
+          "attackBonus": 0,
+          "defenseBonus": 0,
+          "luckBonus": 0,
+          "hpBonus": 0,
+          "mpBonus": 0,
+          "energyBonus": 0,
+          "durability": null,
+          "maxDurability": null,
           "isBroken": false,
           "sortOrder": 0,
           "stackable": true,
@@ -515,18 +1662,28 @@
           "qualityTier": null,
           "tenacityBonus": 0,
           "itemLevel": 1,
-          "sellPrice": null,
-          "salvagePrice": null,
+          "sellPrice": 0,
+          "salvagePrice": 0,
           "craftedBy": null,
           "craftedAt": null
         },
         {
-          "id": "item_b01a5ab90d75",
+          "id": "item_c6c984647016",
           "name": "布料",
           "category": "material",
           "effectSummary": "鍛造與修復素材",
+          "equipmentSlot": null,
           "rarity": "common",
           "craftSource": null,
+          "statBonus": {},
+          "attackBonus": 0,
+          "defenseBonus": 0,
+          "luckBonus": 0,
+          "hpBonus": 0,
+          "mpBonus": 0,
+          "energyBonus": 0,
+          "durability": null,
+          "maxDurability": null,
           "isBroken": false,
           "sortOrder": 0,
           "stackable": true,
@@ -537,15 +1694,15 @@
           "qualityTier": null,
           "tenacityBonus": 0,
           "itemLevel": 1,
-          "sellPrice": null,
-          "salvagePrice": null,
+          "sellPrice": 0,
+          "salvagePrice": 0,
           "craftedBy": null,
           "craftedAt": null
         }
       ],
       "statusEffects": [
         {
-          "id": "status_9742b1b35c26",
+          "id": "status_859a7390f186",
           "name": "初心者祝福",
           "description": "剛踏上旅途的角色會獲得一段短暫的新手保護。",
           "kind": "buff",
@@ -622,18 +1779,163 @@
         }
       },
       "specialSkillSlot": null,
+      "specialSkillSlots": [
+        null,
+        null,
+        null
+      ],
       "learnedManuals": [],
       "equippedManuals": [],
       "achievements": [
         {
           "id": "level_5",
-          "title": "達到 5 級",
-          "description": "角色等級達到 5 級。",
+          "title": "本能 5 級",
+          "description": "本能等級達到 5 級。",
           "progress": 1,
           "target": 5,
           "completed": false,
           "completedAt": null,
-          "rewardSummary": "待領取"
+          "rewardSummary": "基礎成長"
+        },
+        {
+          "id": "level_15",
+          "title": "本能 15 級",
+          "description": "本能等級達到 15 級。",
+          "progress": 1,
+          "target": 15,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "高階成長"
+        },
+        {
+          "id": "battle_level_5",
+          "title": "戰鬥 5 級",
+          "description": "戰鬥等級達到 5 級。",
+          "progress": 1,
+          "target": 5,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "打王入門"
+        },
+        {
+          "id": "battle_level_15",
+          "title": "戰鬥 15 級",
+          "description": "戰鬥等級達到 15 級。",
+          "progress": 1,
+          "target": 15,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "連擊上限"
+        },
+        {
+          "id": "forge_level_3",
+          "title": "鍛造 3 級",
+          "description": "鍛造等級達到 3 級。",
+          "progress": 1,
+          "target": 3,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "工坊熟練"
+        },
+        {
+          "id": "gold_1000",
+          "title": "小有資產",
+          "description": "持有 1000 金幣。",
+          "progress": 0,
+          "target": 1000,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "經濟目標"
+        },
+        {
+          "id": "hp_200",
+          "title": "耐打體質",
+          "description": "最大 HP 達到 200。",
+          "progress": 0,
+          "target": 200,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "生存目標"
+        },
+        {
+          "id": "speed_10",
+          "title": "速度 10",
+          "description": "速度達到 10。",
+          "progress": 0,
+          "target": 10,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "時間系基礎"
+        },
+        {
+          "id": "technique_10",
+          "title": "技巧 10",
+          "description": "技巧達到 10。",
+          "progress": 0,
+          "target": 10,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "反擊基礎"
+        },
+        {
+          "id": "secondary_1",
+          "title": "夥伴上場",
+          "description": "裝備 1 名次要角色。",
+          "progress": 0,
+          "target": 1,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "角色槽"
+        },
+        {
+          "id": "secondary_3",
+          "title": "三槽成形",
+          "description": "裝備 3 名次要角色。",
+          "progress": 0,
+          "target": 3,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "完整隊列"
+        },
+        {
+          "id": "special_skill_equipped",
+          "title": "密技上身",
+          "description": "裝備 1 個特殊技能。",
+          "progress": 0,
+          "target": 1,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "技能槽"
+        },
+        {
+          "id": "manual_equipped",
+          "title": "秘籍入門",
+          "description": "裝備 1 本秘籍 Buff。",
+          "progress": 0,
+          "target": 1,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "秘籍槽"
+        },
+        {
+          "id": "class_mastery_5",
+          "title": "職業熟練",
+          "description": "任一職業熟練達到 5 級。",
+          "progress": 1,
+          "target": 5,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "定位成長"
+        },
+        {
+          "id": "joined_faction",
+          "title": "加入陣營",
+          "description": "加入任一陣營。",
+          "progress": 0,
+          "target": 1,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "公會玩法"
         }
       ],
       "jobImage": null,
@@ -653,12 +1955,800 @@
       },
       "actionQueue": {
         "items": [],
-        "updatedAt": "2026-06-19T14:22:29.981Z"
+        "updatedAt": "2026-06-19T15:06:26.135Z"
       },
-      "notifications": []
+      "notifications": [
+        {
+          "id": "notice_35c17b871ce2",
+          "kind": "faction",
+          "title": "加入陣營",
+          "body": "已加入陣營。",
+          "createdAt": "2026-06-19T15:06:26.187Z",
+          "read": false
+        }
+      ]
+    },
+    {
+      "id": "char_178f8b9f1339",
+      "userId": "user_ddd7133e7dca",
+      "factionId": "faction_ember",
+      "currentCastleId": "castle_1_1",
+      "movement": null,
+      "garrisonAssignment": null,
+      "name": "遭遇B902",
+      "className": "assassin",
+      "classChangedOn": "2026-06-19",
+      "level": 1,
+      "experience": 0,
+      "instinctLevel": 1,
+      "instinctExp": 0,
+      "battleLevel": 1,
+      "battleExp": 0,
+      "forgeLevel": 1,
+      "forgeExp": 0,
+      "gold": 100,
+      "materials": 0,
+      "hp": 121,
+      "maxHp": 124,
+      "mp": 82,
+      "maxMp": 82,
+      "energy": 110,
+      "maxEnergy": 110,
+      "stats": {
+        "attack": 11,
+        "defense": 4,
+        "luck": 8,
+        "intelligence": 5,
+        "vitality": 5,
+        "spirit": 5,
+        "technique": 12,
+        "tenacity": 4
+      },
+      "equipmentSlots": {
+        "weapon": null,
+        "offhand": null,
+        "helmet": null,
+        "armor": null,
+        "kneepad": null,
+        "pet": null,
+        "avatar": null
+      },
+      "title": "黑衣雙刃",
+      "inventory": [
+        {
+          "id": "item_dfe51d2a25f1",
+          "name": "鐵礦",
+          "category": "material",
+          "effectSummary": "鍛造與修復素材",
+          "equipmentSlot": null,
+          "rarity": "common",
+          "craftSource": null,
+          "statBonus": {},
+          "attackBonus": 0,
+          "defenseBonus": 0,
+          "luckBonus": 0,
+          "hpBonus": 0,
+          "mpBonus": 0,
+          "energyBonus": 0,
+          "durability": null,
+          "maxDurability": null,
+          "isBroken": false,
+          "sortOrder": 0,
+          "stackable": true,
+          "quantity": 3,
+          "materialType": "iron_ore",
+          "prefixName": null,
+          "suffixName": null,
+          "qualityTier": null,
+          "tenacityBonus": 0,
+          "itemLevel": 1,
+          "sellPrice": 0,
+          "salvagePrice": 0,
+          "craftedBy": null,
+          "craftedAt": null
+        },
+        {
+          "id": "item_525c626a6d90",
+          "name": "布料",
+          "category": "material",
+          "effectSummary": "鍛造與修復素材",
+          "equipmentSlot": null,
+          "rarity": "common",
+          "craftSource": null,
+          "statBonus": {},
+          "attackBonus": 0,
+          "defenseBonus": 0,
+          "luckBonus": 0,
+          "hpBonus": 0,
+          "mpBonus": 0,
+          "energyBonus": 0,
+          "durability": null,
+          "maxDurability": null,
+          "isBroken": false,
+          "sortOrder": 0,
+          "stackable": true,
+          "quantity": 2,
+          "materialType": "cloth",
+          "prefixName": null,
+          "suffixName": null,
+          "qualityTier": null,
+          "tenacityBonus": 0,
+          "itemLevel": 1,
+          "sellPrice": 0,
+          "salvagePrice": 0,
+          "craftedBy": null,
+          "craftedAt": null
+        }
+      ],
+      "statusEffects": [
+        {
+          "id": "status_e442c8fda003",
+          "name": "初心者祝福",
+          "description": "剛踏上旅途的角色會獲得一段短暫的新手保護。",
+          "kind": "buff",
+          "source": "title"
+        }
+      ],
+      "subRoleSlots": [
+        {
+          "slot": 1,
+          "item": null
+        },
+        {
+          "slot": 2,
+          "item": null
+        },
+        {
+          "slot": 3,
+          "item": null
+        }
+      ],
+      "secondaryCharacters": [
+        {
+          "slot": 1,
+          "characterId": null,
+          "level": 1,
+          "exp": 0,
+          "unlockedSkillIds": [],
+          "lastTriggeredSkillId": null,
+          "cooldownUntilTick": null
+        },
+        {
+          "slot": 2,
+          "characterId": null,
+          "level": 1,
+          "exp": 0,
+          "unlockedSkillIds": [],
+          "lastTriggeredSkillId": null,
+          "cooldownUntilTick": null
+        },
+        {
+          "slot": 3,
+          "characterId": null,
+          "level": 1,
+          "exp": 0,
+          "unlockedSkillIds": [],
+          "lastTriggeredSkillId": null,
+          "cooldownUntilTick": null
+        }
+      ],
+      "classMastery": {
+        "warrior": {
+          "className": "warrior",
+          "level": 1,
+          "exp": 0,
+          "unlocked": false
+        },
+        "assassin": {
+          "className": "assassin",
+          "level": 1,
+          "exp": 0,
+          "unlocked": true
+        },
+        "mage": {
+          "className": "mage",
+          "level": 1,
+          "exp": 0,
+          "unlocked": false
+        },
+        "priest": {
+          "className": "priest",
+          "level": 1,
+          "exp": 0,
+          "unlocked": false
+        }
+      },
+      "specialSkillSlot": null,
+      "specialSkillSlots": [
+        null,
+        null,
+        null
+      ],
+      "learnedManuals": [],
+      "equippedManuals": [],
+      "achievements": [
+        {
+          "id": "level_5",
+          "title": "本能 5 級",
+          "description": "本能等級達到 5 級。",
+          "progress": 1,
+          "target": 5,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "基礎成長"
+        },
+        {
+          "id": "level_15",
+          "title": "本能 15 級",
+          "description": "本能等級達到 15 級。",
+          "progress": 1,
+          "target": 15,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "高階成長"
+        },
+        {
+          "id": "battle_level_5",
+          "title": "戰鬥 5 級",
+          "description": "戰鬥等級達到 5 級。",
+          "progress": 1,
+          "target": 5,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "打王入門"
+        },
+        {
+          "id": "battle_level_15",
+          "title": "戰鬥 15 級",
+          "description": "戰鬥等級達到 15 級。",
+          "progress": 1,
+          "target": 15,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "連擊上限"
+        },
+        {
+          "id": "forge_level_3",
+          "title": "鍛造 3 級",
+          "description": "鍛造等級達到 3 級。",
+          "progress": 1,
+          "target": 3,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "工坊熟練"
+        },
+        {
+          "id": "gold_1000",
+          "title": "小有資產",
+          "description": "持有 1000 金幣。",
+          "progress": 0,
+          "target": 1000,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "經濟目標"
+        },
+        {
+          "id": "hp_200",
+          "title": "耐打體質",
+          "description": "最大 HP 達到 200。",
+          "progress": 0,
+          "target": 200,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "生存目標"
+        },
+        {
+          "id": "speed_10",
+          "title": "速度 10",
+          "description": "速度達到 10。",
+          "progress": 0,
+          "target": 10,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "時間系基礎"
+        },
+        {
+          "id": "technique_10",
+          "title": "技巧 10",
+          "description": "技巧達到 10。",
+          "progress": 0,
+          "target": 10,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "反擊基礎"
+        },
+        {
+          "id": "secondary_1",
+          "title": "夥伴上場",
+          "description": "裝備 1 名次要角色。",
+          "progress": 0,
+          "target": 1,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "角色槽"
+        },
+        {
+          "id": "secondary_3",
+          "title": "三槽成形",
+          "description": "裝備 3 名次要角色。",
+          "progress": 0,
+          "target": 3,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "完整隊列"
+        },
+        {
+          "id": "special_skill_equipped",
+          "title": "密技上身",
+          "description": "裝備 1 個特殊技能。",
+          "progress": 0,
+          "target": 1,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "技能槽"
+        },
+        {
+          "id": "manual_equipped",
+          "title": "秘籍入門",
+          "description": "裝備 1 本秘籍 Buff。",
+          "progress": 0,
+          "target": 1,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "秘籍槽"
+        },
+        {
+          "id": "class_mastery_5",
+          "title": "職業熟練",
+          "description": "任一職業熟練達到 5 級。",
+          "progress": 1,
+          "target": 5,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "定位成長"
+        },
+        {
+          "id": "joined_faction",
+          "title": "加入陣營",
+          "description": "加入任一陣營。",
+          "progress": 0,
+          "target": 1,
+          "completed": false,
+          "completedAt": null,
+          "rewardSummary": "公會玩法"
+        }
+      ],
+      "jobImage": null,
+      "loadout": {
+        "preferredRole": "dps",
+        "blessing": "影步直覺",
+        "title": "黑衣雙刃",
+        "equipment": [
+          "雙短劍",
+          "煙霧披風"
+        ],
+        "skills": [
+          "背刺",
+          "影步",
+          "弱點連斬"
+        ]
+      },
+      "actionQueue": {
+        "items": [],
+        "updatedAt": "2026-06-19T15:06:26.159Z"
+      },
+      "notifications": [
+        {
+          "id": "notice_bd76ab194d77",
+          "kind": "faction",
+          "title": "加入陣營",
+          "body": "已加入陣營。",
+          "createdAt": "2026-06-19T15:06:26.198Z",
+          "read": false
+        }
+      ]
     }
   ],
   "battleRecords": [
+    {
+      "id": "battle_afe29dc6f322",
+      "roomId": "world_9966834804ea",
+      "bossName": "裂界魔龍",
+      "winner": "players",
+      "durationMs": 2000,
+      "totalTicks": 2,
+      "createdAt": "2026-06-20T23:31:59.695Z",
+      "battleContext": "worldBoss",
+      "battleKind": "worldBoss",
+      "targetFactionId": "faction_ember",
+      "participants": [
+        {
+          "userId": "user_228354f2654a",
+          "displayName": "qq",
+          "className": "warrior",
+          "damageDealt": 545,
+          "healingDone": 0,
+          "damageTaken": 10
+        }
+      ],
+      "logs": [
+        "世界 Boss 競賽：炎燼 派出 qq 挑戰 裂界魔龍。",
+        "【世界 Boss】目標：裂界魔龍",
+        "開戰：qq 進入 世界 Boss。",
+        "第 1 回合。",
+        "qq 攻擊 裂界魔龍，造成 51 點傷害。",
+        "qq 攻擊 裂界魔龍，造成 50 點傷害。",
+        "qq 攻擊 裂界魔龍，造成 39 點傷害。",
+        "終結技「百鍛・斷鋼」爆發！qq 以 4 連擊收尾，造成 63 點傷害，並壓低 裂界魔龍 的攻勢。",
+        "連擊 x4 全段命中，總傷害 203。",
+        "【角色技能】qq 的 承太郎 發動「時間暫停」。",
+        "停時追擊 1 / 6：造成 17 點傷害。",
+        "停時追擊 2 / 6：造成 19 點傷害。",
+        "停時追擊 3 / 6：造成 20 點傷害。",
+        "停時追擊 4 / 6：造成 21 點傷害。",
+        "停時追擊 5 / 6：造成 23 點傷害。",
+        "時間恢復：最後一擊，造成 20 點傷害；總傷害 120。",
+        "時間暫停：qq 多出行動窗口，回復 2 精力並壓低 Boss 攻勢。",
+        "qq 在危急時閃避，減免 9 點傷害。",
+        "裂界魔龍 攻擊 qq，造成 10 點傷害。",
+        "第 2 回合。",
+        "qq 攻擊 裂界魔龍，暴擊，造成 72 點傷害。",
+        "qq 攻擊 裂界魔龍，造成 42 點傷害。",
+        "qq 攻擊 裂界魔龍，造成 45 點傷害。",
+        "終結技「裂地崩岳」爆發！qq 以 4 連擊收尾，造成 63 點傷害，並壓低 裂界魔龍 的攻勢。",
+        "連擊 x4 全段命中，總傷害 222。",
+        "特殊事件 4 次：4 連擊・終結 x2、時間暫停 x1、危急閃避 x1",
+        "裂界魔龍 已被擊敗，取得勝利。",
+        "炎燼 首次擊敗世界 Boss，取得主要資源獎勵。",
+        "獎勵：個人金幣 147、星砂 x4、戰鬥經驗 120；公庫金幣 420。"
+      ]
+    },
+    {
+      "id": "battle_a01644fb66d6",
+      "roomId": "guild_a5753af253e4",
+      "bossName": "炎燼 第 3 層巡邏小王",
+      "winner": "players",
+      "durationMs": 1000,
+      "totalTicks": 1,
+      "createdAt": "2026-06-20T23:22:39.153Z",
+      "battleContext": "guildBoss",
+      "battleKind": "guildBoss",
+      "castleId": "castle_1_3",
+      "targetFactionId": "faction_ember",
+      "participants": [
+        {
+          "userId": "user_228354f2654a",
+          "displayName": "qq",
+          "className": "warrior",
+          "damageDealt": 371,
+          "healingDone": 0,
+          "damageTaken": 0
+        }
+      ],
+      "logs": [
+        "【公會爬塔】qq 以攻擊模式推進第 3 層。",
+        "場景：炎燼城池 2 · 1-5 層共用場景。",
+        "前進 1 步，進度 3/5。",
+        "【公會 Boss】目標：炎燼 第 3 層巡邏小王",
+        "開戰：qq 進入 公會 Boss。",
+        "第 1 回合。",
+        "qq 攻擊 炎燼 第 3 層巡邏小王，造成 51 點傷害。",
+        "qq 攻擊 炎燼 第 3 層巡邏小王，造成 47 點傷害。",
+        "qq 攻擊 炎燼 第 3 層巡邏小王，造成 44 點傷害。",
+        "終結技「裂地崩岳」爆發！qq 以 4 連擊收尾，造成 63 點傷害，並壓低 炎燼 第 3 層巡邏小王 的攻勢。",
+        "連擊 x4 全段命中，總傷害 205。",
+        "【角色技能】qq 的 桐人 發動「星爆氣流斬」。",
+        "雙劍連斬 1 / 16：造成 3 點傷害。",
+        "雙劍連斬 2 / 16：造成 3 點傷害。",
+        "雙劍連斬 3 / 16：造成 3 點傷害。",
+        "雙劍連斬 4 / 16：造成 3 點傷害。",
+        "雙劍連斬 5 / 16：造成 3 點傷害。",
+        "雙劍連斬 6 / 16：造成 4 點傷害。",
+        "雙劍連斬 7 / 16：造成 4 點傷害。",
+        "雙劍連斬 8 / 16：造成 4 點傷害。",
+        "雙劍連斬 9 / 16：造成 4 點傷害。",
+        "雙劍連斬 10 / 16：造成 4 點傷害。",
+        "雙劍連斬 11 / 16：造成 4 點傷害。",
+        "雙劍連斬 12 / 16：造成 4 點傷害。",
+        "雙劍連斬 13 / 16：造成 4 點傷害。",
+        "雙劍連斬 14 / 16：造成 4 點傷害。",
+        "雙劍連斬 15 / 16：造成 5 點傷害。",
+        "第 16 hit：終結斬，造成 5 點傷害；總傷害 61。",
+        "【角色技能】qq 的 承太郎 發動「歐拉歐拉」。",
+        "歐拉連打 1 / 12：造成 7 點傷害。",
+        "歐拉連打 2 / 12：造成 7 點傷害。",
+        "歐拉連打 3 / 12：造成 8 點傷害。",
+        "歐拉連打 4 / 12：造成 8 點傷害。",
+        "歐拉連打 5 / 12：造成 8 點傷害。",
+        "歐拉連打 6 / 12：造成 9 點傷害。",
+        "歐拉連打 7 / 12：造成 9 點傷害。",
+        "歐拉連打 8 / 12：造成 9 點傷害。",
+        "歐拉連打 9 / 12：造成 10 點傷害。",
+        "歐拉連打 10 / 12：造成 10 點傷害。",
+        "歐拉連打 11 / 12：造成 10 點傷害。",
+        "第 12 hit：白金收拳，造成 10 點傷害；總傷害 105。",
+        "特殊事件 3 次：4 連擊・終結 x1、星爆氣流斬 x1、歐拉歐拉 x1",
+        "炎燼 第 3 層巡邏小王 已被擊敗，取得勝利。"
+      ]
+    },
+    {
+      "id": "battle_1a4942dda200",
+      "roomId": "guild_caff99cccc26",
+      "bossName": "炎燼 第 3 層巡邏小王",
+      "winner": "players",
+      "durationMs": 2000,
+      "totalTicks": 2,
+      "createdAt": "2026-06-20T23:22:24.184Z",
+      "battleContext": "guildBoss",
+      "battleKind": "guildBoss",
+      "castleId": "castle_1_3",
+      "targetFactionId": "faction_ember",
+      "participants": [
+        {
+          "userId": "user_228354f2654a",
+          "displayName": "qq",
+          "className": "warrior",
+          "damageDealt": 489,
+          "healingDone": 0,
+          "damageTaken": 17
+        }
+      ],
+      "logs": [
+        "【公會爬塔】qq 以攻擊模式推進第 3 層。",
+        "場景：炎燼城池 2 · 1-5 層共用場景。",
+        "前進 0 步，進度 2/5。",
+        "【公會 Boss】目標：炎燼 第 3 層巡邏小王",
+        "開戰：qq 進入 公會 Boss。",
+        "第 1 回合。",
+        "qq 攻擊 炎燼 第 3 層巡邏小王，造成 55 點傷害。",
+        "qq 攻擊 炎燼 第 3 層巡邏小王，造成 49 點傷害。",
+        "qq 攻擊 炎燼 第 3 層巡邏小王，造成 40 點傷害。",
+        "終結技「百鍛・斷鋼」爆發！qq 以 4 連擊收尾，造成 63 點傷害，並壓低 炎燼 第 3 層巡邏小王 的攻勢。",
+        "連擊 x4 全段命中，總傷害 207。",
+        "qq 精準破防，壓低 炎燼 第 3 層巡邏小王 下一次攻勢。",
+        "炎燼 第 3 層巡邏小王 攻擊 qq，造成 17 點傷害。",
+        "第 2 回合。",
+        "qq 攻擊 炎燼 第 3 層巡邏小王，造成 51 點傷害。",
+        "qq 攻擊 炎燼 第 3 層巡邏小王，暴擊，造成 69 點傷害。",
+        "qq 攻擊 炎燼 第 3 層巡邏小王，造成 39 點傷害。",
+        "終結技「百鍛・斷鋼」爆發！qq 以 4 連擊收尾，造成 95 點傷害，並壓低 炎燼 第 3 層巡邏小王 的攻勢。",
+        "連擊 x4 全段命中，總傷害 254。",
+        "炎燼 第 3 層巡邏小王 被掉落補給箱砸中，額外受到 28 點傷害。",
+        "特殊事件 4 次：4 連擊・終結 x2、精準破防 x1、幸運事故 x1",
+        "炎燼 第 3 層巡邏小王 已被擊敗，取得勝利。"
+      ]
+    },
+    {
+      "id": "battle_a6c22b4b8ba2",
+      "roomId": "guild_baee5552bc56",
+      "bossName": "炎燼 第 2 層守將",
+      "winner": "players",
+      "durationMs": 3000,
+      "totalTicks": 3,
+      "createdAt": "2026-06-20T23:21:25.287Z",
+      "battleContext": "guildBoss",
+      "battleKind": "guildBoss",
+      "castleId": "castle_1_3",
+      "targetFactionId": "faction_ember",
+      "participants": [
+        {
+          "userId": "user_228354f2654a",
+          "displayName": "qq",
+          "className": "warrior",
+          "damageDealt": 810,
+          "healingDone": 0,
+          "damageTaken": 57
+        }
+      ],
+      "logs": [
+        "【公會 Boss】目標：炎燼 第 2 層守將",
+        "開戰：qq 進入 公會 Boss。",
+        "第 1 回合。",
+        "qq 攻擊 炎燼 第 2 層守將，造成 54 點傷害。",
+        "qq 攻擊 炎燼 第 2 層守將，造成 49 點傷害。",
+        "qq 攻擊 炎燼 第 2 層守將，造成 42 點傷害。",
+        "連擊 x3 全段命中，總傷害 145。",
+        "【角色技能】qq 的 桐人 發動「星爆氣流斬」。",
+        "雙劍連斬 1 / 16：造成 3 點傷害。",
+        "雙劍連斬 2 / 16：造成 3 點傷害。",
+        "雙劍連斬 3 / 16：造成 3 點傷害。",
+        "雙劍連斬 4 / 16：造成 3 點傷害。",
+        "雙劍連斬 5 / 16：造成 3 點傷害。",
+        "雙劍連斬 6 / 16：造成 4 點傷害。",
+        "雙劍連斬 7 / 16：造成 4 點傷害。",
+        "雙劍連斬 8 / 16：造成 4 點傷害。",
+        "雙劍連斬 9 / 16：造成 4 點傷害。",
+        "雙劍連斬 10 / 16：造成 4 點傷害。",
+        "雙劍連斬 11 / 16：造成 4 點傷害。",
+        "雙劍連斬 12 / 16：造成 4 點傷害。",
+        "雙劍連斬 13 / 16：造成 4 點傷害。",
+        "雙劍連斬 14 / 16：造成 4 點傷害。",
+        "雙劍連斬 15 / 16：造成 5 點傷害。",
+        "第 16 hit：終結斬，造成 5 點傷害；總傷害 61。",
+        "【角色技能】qq 的 承太郎 發動「歐拉歐拉」。",
+        "歐拉連打 1 / 12：造成 7 點傷害。",
+        "歐拉連打 2 / 12：造成 7 點傷害。",
+        "歐拉連打 3 / 12：造成 8 點傷害。",
+        "歐拉連打 4 / 12：造成 8 點傷害。",
+        "歐拉連打 5 / 12：造成 8 點傷害。",
+        "歐拉連打 6 / 12：造成 9 點傷害。",
+        "歐拉連打 7 / 12：造成 9 點傷害。",
+        "歐拉連打 8 / 12：造成 9 點傷害。",
+        "歐拉連打 9 / 12：造成 10 點傷害。",
+        "歐拉連打 10 / 12：造成 10 點傷害。",
+        "歐拉連打 11 / 12：造成 10 點傷害。",
+        "第 12 hit：白金收拳，造成 10 點傷害；總傷害 105。",
+        "qq 格擋攻擊，減免 9 點傷害。",
+        "炎燼 第 2 層守將 攻擊 qq，造成 23 點傷害。",
+        "qq 抓到空檔反擊 炎燼 第 2 層守將，造成 49 點傷害。",
+        "第 2 回合。",
+        "qq 攻擊 炎燼 第 2 層守將，造成 49 點傷害。",
+        "qq 攻擊 炎燼 第 2 層守將，造成 46 點傷害。",
+        "qq 攻擊 炎燼 第 2 層守將，造成 42 點傷害。",
+        "連擊 x3 全段命中，總傷害 137。",
+        "【角色技能】qq 的 愛德華 發動「鍊成長槍」。",
+        "連擊 1 / 4：造成 11 點傷害。",
+        "連擊 2 / 4：造成 12 點傷害。",
+        "連擊 3 / 4：造成 13 點傷害。",
+        "第 4 hit：終結斬，造成 12 點傷害；總傷害 48。",
+        "炎燼 第 2 層守將 攻擊 qq，造成 34 點傷害。",
+        "qq 抓到空檔反擊 炎燼 第 2 層守將，造成 49 點傷害。",
+        "第 3 回合。",
+        "qq 攻擊 炎燼 第 2 層守將，暴擊，造成 68 點傷害。",
+        "qq 攻擊 炎燼 第 2 層守將，造成 46 點傷害。",
+        "qq 攻擊 炎燼 第 2 層守將，造成 41 點傷害。",
+        "連擊 x3 全段命中，總傷害 155。",
+        "【角色技能】qq 的 桐人 發動「星爆氣流斬」。",
+        "雙劍連斬 1 / 16：造成 3 點傷害。",
+        "雙劍連斬 2 / 16：造成 3 點傷害。",
+        "雙劍連斬 3 / 16：造成 3 點傷害。",
+        "雙劍連斬 4 / 16：造成 3 點傷害。",
+        "雙劍連斬 5 / 16：造成 3 點傷害。",
+        "雙劍連斬 6 / 16：造成 4 點傷害。",
+        "雙劍連斬 7 / 16：造成 4 點傷害。",
+        "雙劍連斬 8 / 16：造成 4 點傷害。",
+        "雙劍連斬 9 / 16：造成 4 點傷害。",
+        "雙劍連斬 10 / 16：造成 4 點傷害。",
+        "雙劍連斬 11 / 16：造成 4 點傷害。",
+        "雙劍連斬 12 / 16：造成 4 點傷害。",
+        "雙劍連斬 13 / 16：造成 4 點傷害。",
+        "雙劍連斬 14 / 16：造成 4 點傷害。",
+        "雙劍連斬 15 / 16：造成 5 點傷害。",
+        "第 16 hit：終結斬，造成 5 點傷害；總傷害 61。",
+        "特殊事件 10 次：3 連擊 x3、星爆氣流斬 x2、歐拉歐拉 x1、格擋減傷 x1、技巧反擊 x2、鍊成長槍 x1",
+        "炎燼 第 2 層守將 已被擊敗，取得勝利。"
+      ]
+    },
+    {
+      "id": "battle_696fb29163c8",
+      "roomId": "guild_50631ed1dc61",
+      "bossName": "炎燼 第 1 層守將",
+      "winner": "players",
+      "durationMs": 3000,
+      "totalTicks": 3,
+      "createdAt": "2026-06-20T23:19:34.363Z",
+      "battleContext": "guildBoss",
+      "battleKind": "guildBoss",
+      "castleId": "castle_1_3",
+      "targetFactionId": "faction_ember",
+      "participants": [
+        {
+          "userId": "user_228354f2654a",
+          "displayName": "qq",
+          "className": "warrior",
+          "damageDealt": 502,
+          "healingDone": 0,
+          "damageTaken": 47
+        }
+      ],
+      "logs": [
+        "【公會 Boss】目標：炎燼 第 1 層守將",
+        "開戰：qq 進入 公會 Boss。",
+        "第 1 回合。",
+        "qq 攻擊 炎燼 第 1 層守將，造成 48 點傷害。",
+        "qq 攻擊 炎燼 第 1 層守將，造成 47 點傷害。",
+        "連擊 x2 全段命中，總傷害 95。",
+        "【角色技能】qq 的 桐人 發動「星爆氣流斬」。",
+        "雙劍連斬 1 / 16：造成 3 點傷害。",
+        "雙劍連斬 2 / 16：造成 3 點傷害。",
+        "雙劍連斬 3 / 16：造成 3 點傷害。",
+        "雙劍連斬 4 / 16：造成 3 點傷害。",
+        "雙劍連斬 5 / 16：造成 3 點傷害。",
+        "雙劍連斬 6 / 16：造成 4 點傷害。",
+        "雙劍連斬 7 / 16：造成 4 點傷害。",
+        "雙劍連斬 8 / 16：造成 4 點傷害。",
+        "雙劍連斬 9 / 16：造成 4 點傷害。",
+        "雙劍連斬 10 / 16：造成 4 點傷害。",
+        "雙劍連斬 11 / 16：造成 4 點傷害。",
+        "雙劍連斬 12 / 16：造成 4 點傷害。",
+        "雙劍連斬 13 / 16：造成 4 點傷害。",
+        "雙劍連斬 14 / 16：造成 4 點傷害。",
+        "雙劍連斬 15 / 16：造成 5 點傷害。",
+        "第 16 hit：終結斬，造成 5 點傷害；總傷害 61。",
+        "【角色技能】qq 的 愛德華 發動「鍊成長槍」。",
+        "連擊 1 / 4：造成 11 點傷害。",
+        "連擊 2 / 4：造成 12 點傷害。",
+        "連擊 3 / 4：造成 13 點傷害。",
+        "第 4 hit：終結斬，造成 12 點傷害；總傷害 48。",
+        "炎燼 第 1 層守將 攻擊 qq，造成 27 點傷害。",
+        "第 2 回合。",
+        "qq 攻擊 炎燼 第 1 層守將，造成 51 點傷害。",
+        "qq 攻擊 炎燼 第 1 層守將，造成 43 點傷害。",
+        "連擊 x2 全段命中，總傷害 94。",
+        "qq 格擋攻擊，減免 8 點傷害。",
+        "炎燼 第 1 層守將 攻擊 qq，造成 20 點傷害。",
+        "第 3 回合。",
+        "qq 攻擊 炎燼 第 1 層守將，造成 49 點傷害。",
+        "qq 第 2 擊落空，連擊中斷！",
+        "【角色技能】qq 的 桐人 發動「星爆氣流斬」。",
+        "雙劍連斬 1 / 16：造成 3 點傷害。",
+        "雙劍連斬 2 / 16：造成 3 點傷害。",
+        "雙劍連斬 3 / 16：造成 3 點傷害。",
+        "雙劍連斬 4 / 16：造成 3 點傷害。",
+        "雙劍連斬 5 / 16：造成 3 點傷害。",
+        "雙劍連斬 6 / 16：造成 4 點傷害。",
+        "雙劍連斬 7 / 16：造成 4 點傷害。",
+        "雙劍連斬 8 / 16：造成 4 點傷害。",
+        "雙劍連斬 9 / 16：造成 4 點傷害。",
+        "雙劍連斬 10 / 16：造成 4 點傷害。",
+        "雙劍連斬 11 / 16：造成 4 點傷害。",
+        "雙劍連斬 12 / 16：造成 4 點傷害。",
+        "雙劍連斬 13 / 16：造成 4 點傷害。",
+        "雙劍連斬 14 / 16：造成 4 點傷害。",
+        "雙劍連斬 15 / 16：造成 5 點傷害。",
+        "第 16 hit：終結斬，造成 5 點傷害；總傷害 61。",
+        "【角色技能】qq 的 承太郎 發動「白金精密打擊」。",
+        "連擊 1 / 4：造成 21 點傷害。",
+        "連擊 2 / 4：造成 24 點傷害。",
+        "連擊 3 / 4：造成 26 點傷害。",
+        "第 4 hit：終結斬，造成 23 點傷害；總傷害 94。",
+        "特殊事件 7 次：2 連擊 x2、星爆氣流斬 x2、鍊成長槍 x1、格擋減傷 x1、白金精密打擊 x1",
+        "炎燼 第 1 層守將 已被擊敗，取得勝利。"
+      ]
+    },
+    {
+      "id": "battle_951321afde48",
+      "roomId": "guild_29522498072c",
+      "bossName": "炎燼 第 1 層守將",
+      "winner": "boss",
+      "durationMs": 3000,
+      "totalTicks": 3,
+      "createdAt": "2026-06-20T08:01:19.466Z",
+      "battleContext": "guildBoss",
+      "battleKind": "guildBoss",
+      "castleId": "castle_1_3",
+      "targetFactionId": "faction_ember",
+      "participants": [
+        {
+          "userId": "user_228354f2654a",
+          "displayName": "qq",
+          "className": "warrior",
+          "damageDealt": 136,
+          "healingDone": 0,
+          "damageTaken": 87
+        }
+      ],
+      "logs": [
+        "【公會 Boss】目標：炎燼 第 1 層守將",
+        "開戰：qq 進入 公會 Boss。",
+        "第 1 回合：炎燼 第 1 層守將 仍有 320 HP。",
+        "「斷岳擊」第 1 擊對 炎燼 第 1 層守將 造成 31 點傷害。",
+        "【角色技能】qq 的 桐人 發動「星爆氣流斬」。",
+        "雙劍連斬 1-4 / 16：高速起手，造成 9 點傷害。",
+        "雙劍連斬 5-8 / 16：節奏加速，追加 11 點傷害。",
+        "雙劍連斬 9-15 / 16：連續壓制，追加 12 點傷害。",
+        "第 16 hit：終結斬，總傷害 39。",
+        "炎燼 第 1 層守將 反擊 qq，造成 27 點傷害。",
+        "第 2 回合：炎燼 第 1 層守將 仍有 250 HP。",
+        "「上挑」第 1 擊對 炎燼 第 1 層守將 造成 31 點傷害。",
+        "炎燼 第 1 層守將 反擊 qq，造成 29 點傷害。",
+        "第 3 回合：炎燼 第 1 層守將 仍有 219 HP。",
+        "「雙手轟落」第 1 擊對 炎燼 第 1 層守將 造成 35 點傷害。",
+        "炎燼 第 1 層守將 反擊 qq，造成 31 點傷害。",
+        "特殊事件 1 次：星爆氣流斬 x1",
+        "qq 戰敗，等待下次挑戰。"
+      ]
+    },
     {
       "id": "battle_c27314413de1",
       "roomId": "LKHWRH",
@@ -731,6 +2821,2438 @@
     }
   ],
   "activityLogs": [
+    {
+      "id": "activity_5ad64a4cb49e",
+      "userId": "user_228354f2654a",
+      "createdAt": "2026-06-20T19:47:13.118Z",
+      "activity": {
+        "type": "rest",
+        "message": "qq 完成休息，狀態已恢復。",
+        "character": {
+          "id": "char_910b59a132f0",
+          "userId": "user_228354f2654a",
+          "factionId": "faction_ember",
+          "currentCastleId": "castle_1_3",
+          "movement": null,
+          "garrisonAssignment": null,
+          "name": "qq",
+          "className": "warrior",
+          "classChangedOn": "2026-06-11",
+          "level": 1,
+          "experience": 24,
+          "instinctLevel": 1,
+          "instinctExp": 24,
+          "battleLevel": 2,
+          "battleExp": 28,
+          "forgeLevel": 1,
+          "forgeExp": 0,
+          "gold": 520,
+          "materials": 0,
+          "hp": 143,
+          "maxHp": 145,
+          "mp": 78,
+          "maxMp": 78,
+          "energy": 108,
+          "maxEnergy": 108,
+          "stats": {
+            "attack": 16,
+            "defense": 6,
+            "luck": 3,
+            "intelligence": 5,
+            "vitality": 8,
+            "spirit": 5,
+            "technique": 8,
+            "tenacity": 7
+          },
+          "equipmentSlots": {
+            "weapon": null,
+            "offhand": null,
+            "helmet": null,
+            "armor": null,
+            "kneepad": null,
+            "pet": null,
+            "avatar": null
+          },
+          "title": "前線破陣者",
+          "inventory": [
+            {
+              "id": "item_8f31f57bd9c8",
+              "name": "鐵礦",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "equipmentSlot": null,
+              "rarity": "common",
+              "craftSource": null,
+              "statBonus": {},
+              "attackBonus": 0,
+              "defenseBonus": 0,
+              "luckBonus": 0,
+              "hpBonus": 0,
+              "mpBonus": 0,
+              "energyBonus": 0,
+              "durability": null,
+              "maxDurability": null,
+              "isBroken": false,
+              "sortOrder": 0,
+              "stackable": true,
+              "quantity": 15,
+              "materialType": "iron_ore",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": 0,
+              "salvagePrice": 0,
+              "craftedBy": null,
+              "craftedAt": null
+            },
+            {
+              "id": "item_b98132b0841b",
+              "name": "布料",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "equipmentSlot": null,
+              "rarity": "common",
+              "craftSource": null,
+              "statBonus": {},
+              "attackBonus": 0,
+              "defenseBonus": 0,
+              "luckBonus": 0,
+              "hpBonus": 0,
+              "mpBonus": 0,
+              "energyBonus": 0,
+              "durability": null,
+              "maxDurability": null,
+              "isBroken": false,
+              "sortOrder": 0,
+              "stackable": true,
+              "quantity": 8,
+              "materialType": "cloth",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": 0,
+              "salvagePrice": 0,
+              "craftedBy": null,
+              "craftedAt": null
+            },
+            {
+              "id": "item_37317b507116",
+              "name": "銅礦",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "equipmentSlot": null,
+              "rarity": "common",
+              "craftSource": null,
+              "statBonus": {},
+              "attackBonus": 0,
+              "defenseBonus": 0,
+              "luckBonus": 0,
+              "hpBonus": 0,
+              "mpBonus": 0,
+              "energyBonus": 0,
+              "durability": null,
+              "maxDurability": null,
+              "isBroken": false,
+              "sortOrder": 2,
+              "stackable": true,
+              "quantity": 5,
+              "materialType": "copper_ore",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": 0,
+              "salvagePrice": 0,
+              "craftedBy": null,
+              "craftedAt": null
+            },
+            {
+              "id": "item_ec53ab422199",
+              "name": "皮革",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "equipmentSlot": null,
+              "rarity": "common",
+              "craftSource": null,
+              "statBonus": {},
+              "attackBonus": 0,
+              "defenseBonus": 0,
+              "luckBonus": 0,
+              "hpBonus": 0,
+              "mpBonus": 0,
+              "energyBonus": 0,
+              "durability": null,
+              "maxDurability": null,
+              "isBroken": false,
+              "sortOrder": 3,
+              "stackable": true,
+              "quantity": 1,
+              "materialType": "leather",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": 0,
+              "salvagePrice": 0,
+              "craftedBy": null,
+              "craftedAt": null
+            },
+            {
+              "id": "item_6911a861e042",
+              "name": "星砂",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "equipmentSlot": null,
+              "rarity": "rare",
+              "craftSource": null,
+              "statBonus": {},
+              "attackBonus": 0,
+              "defenseBonus": 0,
+              "luckBonus": 0,
+              "hpBonus": 0,
+              "mpBonus": 0,
+              "energyBonus": 0,
+              "durability": null,
+              "maxDurability": null,
+              "isBroken": false,
+              "sortOrder": 4,
+              "stackable": true,
+              "quantity": 3,
+              "materialType": "stardust",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": 0,
+              "salvagePrice": 0,
+              "craftedBy": null,
+              "craftedAt": null
+            }
+          ],
+          "statusEffects": [
+            {
+              "id": "status_ea7913875a97",
+              "name": "初心者祝福",
+              "description": "剛踏上旅途的角色會獲得一段短暫的新手保護。",
+              "kind": "buff",
+              "source": "title"
+            }
+          ],
+          "subRoleSlots": [
+            {
+              "slot": 1,
+              "item": null
+            },
+            {
+              "slot": 2,
+              "item": null
+            },
+            {
+              "slot": 3,
+              "item": null
+            }
+          ],
+          "secondaryCharacters": [
+            {
+              "slot": 1,
+              "characterId": "kirito",
+              "level": 1,
+              "exp": 8,
+              "unlockedSkillIds": [
+                "kirito_starburst"
+              ],
+              "lastTriggeredSkillId": "kirito_starburst",
+              "cooldownUntilTick": 3
+            },
+            {
+              "slot": 2,
+              "characterId": null,
+              "level": 1,
+              "exp": 0,
+              "unlockedSkillIds": [],
+              "lastTriggeredSkillId": null,
+              "cooldownUntilTick": null
+            },
+            {
+              "slot": 3,
+              "characterId": null,
+              "level": 1,
+              "exp": 0,
+              "unlockedSkillIds": [],
+              "lastTriggeredSkillId": null,
+              "cooldownUntilTick": null
+            }
+          ],
+          "classMastery": {
+            "warrior": {
+              "className": "warrior",
+              "level": 1,
+              "exp": 24,
+              "unlocked": true
+            },
+            "assassin": {
+              "className": "assassin",
+              "level": 1,
+              "exp": 0,
+              "unlocked": false
+            },
+            "mage": {
+              "className": "mage",
+              "level": 1,
+              "exp": 0,
+              "unlocked": false
+            },
+            "priest": {
+              "className": "priest",
+              "level": 1,
+              "exp": 0,
+              "unlocked": false
+            }
+          },
+          "specialSkillSlot": "kirito_starburst",
+          "learnedManuals": [],
+          "equippedManuals": [],
+          "achievements": [
+            {
+              "id": "level_5",
+              "title": "本能 5 級",
+              "description": "本能等級達到 5 級。",
+              "progress": 1,
+              "target": 5,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "基礎成長"
+            },
+            {
+              "id": "level_15",
+              "title": "本能 15 級",
+              "description": "本能等級達到 15 級。",
+              "progress": 1,
+              "target": 15,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "高階成長"
+            },
+            {
+              "id": "battle_level_5",
+              "title": "戰鬥 5 級",
+              "description": "戰鬥等級達到 5 級。",
+              "progress": 2,
+              "target": 5,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "打王入門"
+            },
+            {
+              "id": "battle_level_15",
+              "title": "戰鬥 15 級",
+              "description": "戰鬥等級達到 15 級。",
+              "progress": 2,
+              "target": 15,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "連擊上限"
+            },
+            {
+              "id": "forge_level_3",
+              "title": "鍛造 3 級",
+              "description": "鍛造等級達到 3 級。",
+              "progress": 1,
+              "target": 3,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "工坊熟練"
+            },
+            {
+              "id": "gold_1000",
+              "title": "小有資產",
+              "description": "持有 1000 金幣。",
+              "progress": 520,
+              "target": 1000,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "經濟目標"
+            },
+            {
+              "id": "hp_200",
+              "title": "耐打體質",
+              "description": "最大 HP 達到 200。",
+              "progress": 145,
+              "target": 200,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "生存目標"
+            },
+            {
+              "id": "speed_10",
+              "title": "速度 10",
+              "description": "速度達到 10。",
+              "progress": 5,
+              "target": 10,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "時間系基礎"
+            },
+            {
+              "id": "technique_10",
+              "title": "技巧 10",
+              "description": "技巧達到 10。",
+              "progress": 8,
+              "target": 10,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "反擊基礎"
+            },
+            {
+              "id": "secondary_1",
+              "title": "夥伴上場",
+              "description": "裝備 1 名次要角色。",
+              "progress": 1,
+              "target": 1,
+              "completed": true,
+              "completedAt": "2026-06-20T17:37:51.860Z",
+              "rewardSummary": "角色槽"
+            },
+            {
+              "id": "secondary_3",
+              "title": "三槽成形",
+              "description": "裝備 3 名次要角色。",
+              "progress": 1,
+              "target": 3,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "完整隊列"
+            },
+            {
+              "id": "special_skill_equipped",
+              "title": "密技上身",
+              "description": "裝備 1 個特殊技能。",
+              "progress": 1,
+              "target": 1,
+              "completed": true,
+              "completedAt": "2026-06-20T17:37:51.860Z",
+              "rewardSummary": "技能槽"
+            },
+            {
+              "id": "manual_equipped",
+              "title": "秘籍入門",
+              "description": "裝備 1 本秘籍 Buff。",
+              "progress": 0,
+              "target": 1,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "秘籍槽"
+            },
+            {
+              "id": "class_mastery_5",
+              "title": "職業熟練",
+              "description": "任一職業熟練達到 5 級。",
+              "progress": 1,
+              "target": 5,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "定位成長"
+            },
+            {
+              "id": "joined_faction",
+              "title": "加入陣營",
+              "description": "加入任一陣營。",
+              "progress": 1,
+              "target": 1,
+              "completed": true,
+              "completedAt": "2026-06-20T17:37:51.860Z",
+              "rewardSummary": "公會玩法"
+            }
+          ],
+          "jobImage": null,
+          "loadout": {
+            "preferredRole": "tank",
+            "blessing": "鋼鐵誓約",
+            "title": "前線破陣者",
+            "equipment": [
+              "厚刃長劍",
+              "訓練護甲",
+              "闡釋者 / 逐暗者"
+            ],
+            "skills": [
+              "盾牆",
+              "裂地",
+              "怒吼",
+              "星爆氣流斬",
+              "特殊技能：星爆氣流斬"
+            ]
+          },
+          "actionQueue": {
+            "updatedAt": "2026-06-20T19:46:58.067Z",
+            "items": []
+          },
+          "notifications": [
+            {
+              "id": "notice_7808a17cabb1",
+              "kind": "activity",
+              "title": "行動完成",
+              "body": "qq 完成休息，狀態已恢復。\n恢復 HP 78、MP 0、精力 0，獲得 1 本能經驗。",
+              "createdAt": "2026-06-20T19:47:13.118Z",
+              "read": false
+            },
+            {
+              "id": "notice_310cf138f4ee",
+              "kind": "sign_in",
+              "title": "每日補給",
+              "body": "獲得 金幣 60, 鐵礦 x2, 銅礦 x1, 布料 x1。",
+              "createdAt": "2026-06-20T18:47:58.544Z",
+              "read": false
+            },
+            {
+              "id": "notice_1764379ee160",
+              "kind": "system",
+              "title": "行動佇列",
+              "body": "休息 已加入行動佇列。",
+              "createdAt": "2026-06-20T18:46:59.412Z",
+              "read": false
+            },
+            {
+              "id": "notice_5ebb06c7aff9",
+              "kind": "activity",
+              "title": "行動完成",
+              "body": "qq 完成休息，狀態已恢復。\n恢復 HP 65、MP 30、精力 28，獲得 1 本能經驗。",
+              "createdAt": "2026-06-20T17:15:23.393Z",
+              "read": false
+            },
+            {
+              "id": "notice_0b9ca0704d80",
+              "kind": "system",
+              "title": "行動佇列",
+              "body": "休息 已加入行動佇列。",
+              "createdAt": "2026-06-20T16:15:17.377Z",
+              "read": false
+            },
+            {
+              "id": "notice_7f0320ca2679",
+              "kind": "system",
+              "title": "特殊技能",
+              "body": "已裝備 星爆氣流斬",
+              "createdAt": "2026-06-20T13:33:10.383Z",
+              "read": false
+            },
+            {
+              "id": "notice_50160f3af327",
+              "kind": "system",
+              "title": "特殊技能",
+              "body": "已裝備 王者防壁",
+              "createdAt": "2026-06-20T13:33:08.279Z",
+              "read": false
+            },
+            {
+              "id": "notice_78e66a2a71a7",
+              "kind": "battle",
+              "title": "戰鬥失敗",
+              "body": "炎燼 第 1 層守將 的戰報已保存。",
+              "createdAt": "2026-06-20T08:01:19.466Z",
+              "read": false
+            },
+            {
+              "id": "notice_e179ab1d9525",
+              "kind": "battle",
+              "title": "公會戰鬥",
+              "body": "公庫獲得 43 金幣，個人獲得 17 金幣與戰鬥經驗 34。",
+              "createdAt": "2026-06-20T08:01:19.466Z",
+              "read": false
+            },
+            {
+              "id": "notice_5c8e2471035f",
+              "kind": "battle",
+              "title": "戰鬥升級",
+              "body": "qq 的戰鬥等級提升到 2",
+              "createdAt": "2026-06-20T08:01:19.466Z",
+              "read": false
+            },
+            {
+              "id": "notice_2d16e06987b2",
+              "kind": "battle",
+              "title": "公會爬塔",
+              "body": "趕路推進第 1 層：目前遇到第 1 層 Boss：炎燼 第 1 層守將。",
+              "createdAt": "2026-06-20T08:01:16.304Z",
+              "read": false
+            },
+            {
+              "id": "notice_1ca786f4acb8",
+              "kind": "battle",
+              "title": "公會爬塔",
+              "body": "趕路推進第 1 層：趕路推進中，尚未遇到大型目標。。",
+              "createdAt": "2026-06-20T08:01:16.154Z",
+              "read": false
+            },
+            {
+              "id": "notice_d897ae3e6699",
+              "kind": "battle",
+              "title": "公會爬塔",
+              "body": "趕路推進第 1 層：趕路推進中，尚未遇到大型目標。。",
+              "createdAt": "2026-06-20T08:01:12.847Z",
+              "read": false
+            },
+            {
+              "id": "notice_4bc1ab2853d5",
+              "kind": "activity",
+              "title": "行動完成",
+              "body": "qq 完成休息，狀態已恢復。\n恢復 HP 74、MP 36、精力 50，獲得 1 本能經驗。",
+              "createdAt": "2026-06-20T07:24:43.180Z",
+              "read": false
+            },
+            {
+              "id": "notice_fa0d1d83df61",
+              "kind": "sign_in",
+              "title": "每日補給",
+              "body": "獲得 金幣 60, 鐵礦 x2, 銅礦 x1, 布料 x1。",
+              "createdAt": "2026-06-20T06:24:38.918Z",
+              "read": false
+            },
+            {
+              "id": "notice_d5d55c63c6d7",
+              "kind": "system",
+              "title": "行動佇列",
+              "body": "休息 已加入行動佇列。",
+              "createdAt": "2026-06-20T06:24:33.166Z",
+              "read": false
+            },
+            {
+              "id": "notice_1defc7574337",
+              "kind": "activity",
+              "title": "行動完成",
+              "body": "qq 完成淺層挖礦，獲得 17 金幣與 2 份素材。\n掉落：布料 x1、星砂 x1\n獲得 12 經驗、5 本能經驗。\n狀態：HP 0/137、MP 35/76",
+              "createdAt": "2026-06-19T15:40:21.826Z",
+              "read": false
+            },
+            {
+              "id": "notice_4f4fe3114738",
+              "kind": "system",
+              "title": "行動佇列",
+              "body": "淺層挖礦 已加入行動佇列。",
+              "createdAt": "2026-06-19T14:40:16.710Z",
+              "read": false
+            },
+            {
+              "id": "notice_a252e94aba1f",
+              "kind": "sign_in",
+              "title": "每日補給",
+              "body": "獲得 金幣 60, 鐵礦 x2, 銅礦 x1, 布料 x1。",
+              "createdAt": "2026-06-19T14:39:59.520Z",
+              "read": false
+            },
+            {
+              "id": "notice_67234be03e3d",
+              "kind": "battle",
+              "title": "公會爬塔",
+              "body": "攻擊推進第 1 層：攻擊推進中，尚未遇到大型目標。。",
+              "createdAt": "2026-06-19T14:39:51.471Z",
+              "read": false
+            },
+            {
+              "id": "notice_c736707132f2",
+              "kind": "faction",
+              "title": "城池移動完成",
+              "body": "已抵達 炎燼城池 2。",
+              "createdAt": "2026-06-19T14:19:24.061Z",
+              "read": false
+            },
+            {
+              "id": "notice_834377d73d9e",
+              "kind": "faction",
+              "title": "城池移動",
+              "body": "正在前往 炎燼城池 2。",
+              "createdAt": "2026-06-15T19:49:03.636Z",
+              "read": false
+            },
+            {
+              "id": "notice_4d7cbb01403b",
+              "kind": "battle",
+              "title": "戰鬥失敗",
+              "body": "裂岩巨像 的戰報已保存。",
+              "createdAt": "2026-06-11T16:58:32.919Z",
+              "read": false
+            },
+            {
+              "id": "notice_408fe66bc4e6",
+              "kind": "system",
+              "title": "次要角色",
+              "body": "已裝備 桐人",
+              "createdAt": "2026-06-11T16:58:02.596Z",
+              "read": false
+            },
+            {
+              "id": "notice_660943011623",
+              "kind": "sign_in",
+              "title": "每日補給",
+              "body": "獲得 金幣 60, 鐵礦 x2, 銅礦 x1, 布料 x1。",
+              "createdAt": "2026-06-11T16:57:53.247Z",
+              "read": false
+            },
+            {
+              "id": "notice_222e52d2cc1a",
+              "kind": "battle",
+              "title": "戰鬥失敗",
+              "body": "裂界魔龍 的戰報已保存。",
+              "createdAt": "2026-06-11T16:57:29.491Z",
+              "read": false
+            },
+            {
+              "id": "notice_cf9e0c8a03d4",
+              "kind": "battle",
+              "title": "世界 Boss",
+              "body": "個人獲得 24 金幣、星砂 x1、戰鬥經驗 32。",
+              "createdAt": "2026-06-11T16:57:29.490Z",
+              "read": false
+            },
+            {
+              "id": "notice_706d41b4ea4a",
+              "kind": "activity",
+              "title": "行動完成",
+              "body": "qq 完成淺層挖礦，獲得 14 金幣與 2 份素材。\n掉落：皮革 x1、鐵礦 x1\n獲得 10 經驗、4 本能經驗。\n狀態：HP 134/137、MP 72/74",
+              "createdAt": "2026-06-11T15:46:23.557Z",
+              "read": false
+            },
+            {
+              "id": "notice_717826573331",
+              "kind": "faction",
+              "title": "系統通知",
+              "body": "舊通知內容已損壞，新通知會正常顯示。",
+              "createdAt": "2026-06-11T14:26:49.740Z",
+              "read": false
+            },
+            {
+              "id": "notice_ab68e5570727",
+              "kind": "system",
+              "title": "系統通知",
+              "body": "舊通知內容已損壞，新通知會正常顯示。",
+              "createdAt": "2026-06-11T14:25:56.191Z",
+              "read": false
+            },
+            {
+              "id": "notice_1921ba1fa5ee",
+              "kind": "sign_in",
+              "title": "系統通知",
+              "body": "舊通知內容已損壞，新通知會正常顯示。",
+              "createdAt": "2026-06-11T14:25:42.172Z",
+              "read": false
+            }
+          ]
+        },
+        "rewards": {
+          "hpRestored": 78,
+          "mpRestored": 0,
+          "energyRestored": 0,
+          "instinctExp": 1
+        }
+      }
+    },
+    {
+      "id": "activity_37dae5540177",
+      "userId": "user_228354f2654a",
+      "createdAt": "2026-06-20T17:15:23.394Z",
+      "activity": {
+        "type": "rest",
+        "message": "qq 完成休息，狀態已恢復。",
+        "character": {
+          "id": "char_910b59a132f0",
+          "userId": "user_228354f2654a",
+          "factionId": "faction_ember",
+          "currentCastleId": "castle_1_3",
+          "movement": null,
+          "garrisonAssignment": null,
+          "name": "qq",
+          "className": "warrior",
+          "classChangedOn": "2026-06-11",
+          "level": 1,
+          "experience": 23,
+          "instinctLevel": 1,
+          "instinctExp": 23,
+          "battleLevel": 2,
+          "battleExp": 28,
+          "forgeLevel": 1,
+          "forgeExp": 0,
+          "gold": 460,
+          "materials": 0,
+          "hp": 65,
+          "maxHp": 145,
+          "mp": 78,
+          "maxMp": 78,
+          "energy": 108,
+          "maxEnergy": 108,
+          "stats": {
+            "attack": 16,
+            "defense": 6,
+            "luck": 3,
+            "intelligence": 5,
+            "vitality": 8,
+            "spirit": 5,
+            "technique": 8,
+            "tenacity": 7
+          },
+          "equipmentSlots": {
+            "weapon": null,
+            "offhand": null,
+            "helmet": null,
+            "armor": null,
+            "kneepad": null,
+            "pet": null,
+            "avatar": null
+          },
+          "title": "前線破陣者",
+          "inventory": [
+            {
+              "id": "item_8f31f57bd9c8",
+              "name": "鐵礦",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "equipmentSlot": null,
+              "rarity": "common",
+              "craftSource": null,
+              "statBonus": {},
+              "attackBonus": 0,
+              "defenseBonus": 0,
+              "luckBonus": 0,
+              "hpBonus": 0,
+              "mpBonus": 0,
+              "energyBonus": 0,
+              "durability": null,
+              "maxDurability": null,
+              "isBroken": false,
+              "sortOrder": 0,
+              "stackable": true,
+              "quantity": 13,
+              "materialType": "iron_ore",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": 0,
+              "salvagePrice": 0,
+              "craftedBy": null,
+              "craftedAt": null
+            },
+            {
+              "id": "item_b98132b0841b",
+              "name": "布料",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "equipmentSlot": null,
+              "rarity": "common",
+              "craftSource": null,
+              "statBonus": {},
+              "attackBonus": 0,
+              "defenseBonus": 0,
+              "luckBonus": 0,
+              "hpBonus": 0,
+              "mpBonus": 0,
+              "energyBonus": 0,
+              "durability": null,
+              "maxDurability": null,
+              "isBroken": false,
+              "sortOrder": 0,
+              "stackable": true,
+              "quantity": 7,
+              "materialType": "cloth",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": 0,
+              "salvagePrice": 0,
+              "craftedBy": null,
+              "craftedAt": null
+            },
+            {
+              "id": "item_37317b507116",
+              "name": "銅礦",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "equipmentSlot": null,
+              "rarity": "common",
+              "craftSource": null,
+              "statBonus": {},
+              "attackBonus": 0,
+              "defenseBonus": 0,
+              "luckBonus": 0,
+              "hpBonus": 0,
+              "mpBonus": 0,
+              "energyBonus": 0,
+              "durability": null,
+              "maxDurability": null,
+              "isBroken": false,
+              "sortOrder": 2,
+              "stackable": true,
+              "quantity": 4,
+              "materialType": "copper_ore",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": 0,
+              "salvagePrice": 0,
+              "craftedBy": null,
+              "craftedAt": null
+            },
+            {
+              "id": "item_ec53ab422199",
+              "name": "皮革",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "equipmentSlot": null,
+              "rarity": "common",
+              "craftSource": null,
+              "statBonus": {},
+              "attackBonus": 0,
+              "defenseBonus": 0,
+              "luckBonus": 0,
+              "hpBonus": 0,
+              "mpBonus": 0,
+              "energyBonus": 0,
+              "durability": null,
+              "maxDurability": null,
+              "isBroken": false,
+              "sortOrder": 3,
+              "stackable": true,
+              "quantity": 1,
+              "materialType": "leather",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": 0,
+              "salvagePrice": 0,
+              "craftedBy": null,
+              "craftedAt": null
+            },
+            {
+              "id": "item_6911a861e042",
+              "name": "星砂",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "equipmentSlot": null,
+              "rarity": "rare",
+              "craftSource": null,
+              "statBonus": {},
+              "attackBonus": 0,
+              "defenseBonus": 0,
+              "luckBonus": 0,
+              "hpBonus": 0,
+              "mpBonus": 0,
+              "energyBonus": 0,
+              "durability": null,
+              "maxDurability": null,
+              "isBroken": false,
+              "sortOrder": 4,
+              "stackable": true,
+              "quantity": 3,
+              "materialType": "stardust",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": 0,
+              "salvagePrice": 0,
+              "craftedBy": null,
+              "craftedAt": null
+            }
+          ],
+          "statusEffects": [
+            {
+              "id": "status_ea7913875a97",
+              "name": "初心者祝福",
+              "description": "剛踏上旅途的角色會獲得一段短暫的新手保護。",
+              "kind": "buff",
+              "source": "title"
+            }
+          ],
+          "subRoleSlots": [
+            {
+              "slot": 1,
+              "item": null
+            },
+            {
+              "slot": 2,
+              "item": null
+            },
+            {
+              "slot": 3,
+              "item": null
+            }
+          ],
+          "secondaryCharacters": [
+            {
+              "slot": 1,
+              "characterId": "kirito",
+              "level": 1,
+              "exp": 8,
+              "unlockedSkillIds": [
+                "kirito_starburst"
+              ],
+              "lastTriggeredSkillId": "kirito_starburst",
+              "cooldownUntilTick": 3
+            },
+            {
+              "slot": 2,
+              "characterId": null,
+              "level": 1,
+              "exp": 0,
+              "unlockedSkillIds": [],
+              "lastTriggeredSkillId": null,
+              "cooldownUntilTick": null
+            },
+            {
+              "slot": 3,
+              "characterId": null,
+              "level": 1,
+              "exp": 0,
+              "unlockedSkillIds": [],
+              "lastTriggeredSkillId": null,
+              "cooldownUntilTick": null
+            }
+          ],
+          "classMastery": {
+            "warrior": {
+              "className": "warrior",
+              "level": 1,
+              "exp": 22,
+              "unlocked": true
+            },
+            "assassin": {
+              "className": "assassin",
+              "level": 1,
+              "exp": 0,
+              "unlocked": false
+            },
+            "mage": {
+              "className": "mage",
+              "level": 1,
+              "exp": 0,
+              "unlocked": false
+            },
+            "priest": {
+              "className": "priest",
+              "level": 1,
+              "exp": 0,
+              "unlocked": false
+            }
+          },
+          "specialSkillSlot": "kirito_starburst",
+          "learnedManuals": [],
+          "equippedManuals": [],
+          "achievements": [
+            {
+              "id": "level_5",
+              "title": "本能 5 級",
+              "description": "本能等級達到 5 級。",
+              "progress": 1,
+              "target": 5,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "基礎成長"
+            },
+            {
+              "id": "level_15",
+              "title": "本能 15 級",
+              "description": "本能等級達到 15 級。",
+              "progress": 1,
+              "target": 15,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "高階成長"
+            },
+            {
+              "id": "battle_level_5",
+              "title": "戰鬥 5 級",
+              "description": "戰鬥等級達到 5 級。",
+              "progress": 1,
+              "target": 5,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "打王入門"
+            },
+            {
+              "id": "battle_level_15",
+              "title": "戰鬥 15 級",
+              "description": "戰鬥等級達到 15 級。",
+              "progress": 1,
+              "target": 15,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "連擊上限"
+            },
+            {
+              "id": "forge_level_3",
+              "title": "鍛造 3 級",
+              "description": "鍛造等級達到 3 級。",
+              "progress": 1,
+              "target": 3,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "工坊熟練"
+            },
+            {
+              "id": "gold_1000",
+              "title": "小有資產",
+              "description": "持有 1000 金幣。",
+              "progress": 0,
+              "target": 1000,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "經濟目標"
+            },
+            {
+              "id": "hp_200",
+              "title": "耐打體質",
+              "description": "最大 HP 達到 200。",
+              "progress": 0,
+              "target": 200,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "生存目標"
+            },
+            {
+              "id": "speed_10",
+              "title": "速度 10",
+              "description": "速度達到 10。",
+              "progress": 0,
+              "target": 10,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "時間系基礎"
+            },
+            {
+              "id": "technique_10",
+              "title": "技巧 10",
+              "description": "技巧達到 10。",
+              "progress": 0,
+              "target": 10,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "反擊基礎"
+            },
+            {
+              "id": "secondary_1",
+              "title": "夥伴上場",
+              "description": "裝備 1 名次要角色。",
+              "progress": 0,
+              "target": 1,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "角色槽"
+            },
+            {
+              "id": "secondary_3",
+              "title": "三槽成形",
+              "description": "裝備 3 名次要角色。",
+              "progress": 0,
+              "target": 3,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "完整隊列"
+            },
+            {
+              "id": "special_skill_equipped",
+              "title": "密技上身",
+              "description": "裝備 1 個特殊技能。",
+              "progress": 0,
+              "target": 1,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "技能槽"
+            },
+            {
+              "id": "manual_equipped",
+              "title": "秘籍入門",
+              "description": "裝備 1 本秘籍 Buff。",
+              "progress": 0,
+              "target": 1,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "秘籍槽"
+            },
+            {
+              "id": "class_mastery_5",
+              "title": "職業熟練",
+              "description": "任一職業熟練達到 5 級。",
+              "progress": 1,
+              "target": 5,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "定位成長"
+            },
+            {
+              "id": "joined_faction",
+              "title": "加入陣營",
+              "description": "加入任一陣營。",
+              "progress": 0,
+              "target": 1,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "公會玩法"
+            }
+          ],
+          "jobImage": null,
+          "loadout": {
+            "preferredRole": "tank",
+            "blessing": "鋼鐵誓約",
+            "title": "前線破陣者",
+            "equipment": [
+              "厚刃長劍",
+              "訓練護甲",
+              "闡釋者 / 逐暗者"
+            ],
+            "skills": [
+              "盾牆",
+              "裂地",
+              "怒吼",
+              "星爆氣流斬",
+              "特殊技能：星爆氣流斬"
+            ]
+          },
+          "actionQueue": {
+            "updatedAt": "2026-06-20T17:15:08.406Z",
+            "items": []
+          },
+          "notifications": [
+            {
+              "id": "notice_5ebb06c7aff9",
+              "kind": "activity",
+              "title": "行動完成",
+              "body": "qq 完成休息，狀態已恢復。\n恢復 HP 65、MP 30、精力 28，獲得 1 本能經驗。",
+              "createdAt": "2026-06-20T17:15:23.393Z",
+              "read": false
+            },
+            {
+              "id": "notice_0b9ca0704d80",
+              "kind": "system",
+              "title": "行動佇列",
+              "body": "休息 已加入行動佇列。",
+              "createdAt": "2026-06-20T16:15:17.377Z",
+              "read": false
+            },
+            {
+              "id": "notice_7f0320ca2679",
+              "kind": "system",
+              "title": "特殊技能",
+              "body": "已裝備 星爆氣流斬",
+              "createdAt": "2026-06-20T13:33:10.383Z",
+              "read": false
+            },
+            {
+              "id": "notice_50160f3af327",
+              "kind": "system",
+              "title": "特殊技能",
+              "body": "已裝備 王者防壁",
+              "createdAt": "2026-06-20T13:33:08.279Z",
+              "read": false
+            },
+            {
+              "id": "notice_78e66a2a71a7",
+              "kind": "battle",
+              "title": "戰鬥失敗",
+              "body": "炎燼 第 1 層守將 的戰報已保存。",
+              "createdAt": "2026-06-20T08:01:19.466Z",
+              "read": false
+            },
+            {
+              "id": "notice_e179ab1d9525",
+              "kind": "battle",
+              "title": "公會戰鬥",
+              "body": "公庫獲得 43 金幣，個人獲得 17 金幣與戰鬥經驗 34。",
+              "createdAt": "2026-06-20T08:01:19.466Z",
+              "read": false
+            },
+            {
+              "id": "notice_5c8e2471035f",
+              "kind": "battle",
+              "title": "戰鬥升級",
+              "body": "qq 的戰鬥等級提升到 2",
+              "createdAt": "2026-06-20T08:01:19.466Z",
+              "read": false
+            },
+            {
+              "id": "notice_2d16e06987b2",
+              "kind": "battle",
+              "title": "公會爬塔",
+              "body": "趕路推進第 1 層：目前遇到第 1 層 Boss：炎燼 第 1 層守將。",
+              "createdAt": "2026-06-20T08:01:16.304Z",
+              "read": false
+            },
+            {
+              "id": "notice_1ca786f4acb8",
+              "kind": "battle",
+              "title": "公會爬塔",
+              "body": "趕路推進第 1 層：趕路推進中，尚未遇到大型目標。。",
+              "createdAt": "2026-06-20T08:01:16.154Z",
+              "read": false
+            },
+            {
+              "id": "notice_d897ae3e6699",
+              "kind": "battle",
+              "title": "公會爬塔",
+              "body": "趕路推進第 1 層：趕路推進中，尚未遇到大型目標。。",
+              "createdAt": "2026-06-20T08:01:12.847Z",
+              "read": false
+            },
+            {
+              "id": "notice_4bc1ab2853d5",
+              "kind": "activity",
+              "title": "行動完成",
+              "body": "qq 完成休息，狀態已恢復。\n恢復 HP 74、MP 36、精力 50，獲得 1 本能經驗。",
+              "createdAt": "2026-06-20T07:24:43.180Z",
+              "read": false
+            },
+            {
+              "id": "notice_fa0d1d83df61",
+              "kind": "sign_in",
+              "title": "每日補給",
+              "body": "獲得 金幣 60, 鐵礦 x2, 銅礦 x1, 布料 x1。",
+              "createdAt": "2026-06-20T06:24:38.918Z",
+              "read": false
+            },
+            {
+              "id": "notice_d5d55c63c6d7",
+              "kind": "system",
+              "title": "行動佇列",
+              "body": "休息 已加入行動佇列。",
+              "createdAt": "2026-06-20T06:24:33.166Z",
+              "read": false
+            },
+            {
+              "id": "notice_1defc7574337",
+              "kind": "activity",
+              "title": "行動完成",
+              "body": "qq 完成淺層挖礦，獲得 17 金幣與 2 份素材。\n掉落：布料 x1、星砂 x1\n獲得 12 經驗、5 本能經驗。\n狀態：HP 0/137、MP 35/76",
+              "createdAt": "2026-06-19T15:40:21.826Z",
+              "read": false
+            },
+            {
+              "id": "notice_4f4fe3114738",
+              "kind": "system",
+              "title": "行動佇列",
+              "body": "淺層挖礦 已加入行動佇列。",
+              "createdAt": "2026-06-19T14:40:16.710Z",
+              "read": false
+            },
+            {
+              "id": "notice_a252e94aba1f",
+              "kind": "sign_in",
+              "title": "每日補給",
+              "body": "獲得 金幣 60, 鐵礦 x2, 銅礦 x1, 布料 x1。",
+              "createdAt": "2026-06-19T14:39:59.520Z",
+              "read": false
+            },
+            {
+              "id": "notice_67234be03e3d",
+              "kind": "battle",
+              "title": "公會爬塔",
+              "body": "攻擊推進第 1 層：攻擊推進中，尚未遇到大型目標。。",
+              "createdAt": "2026-06-19T14:39:51.471Z",
+              "read": false
+            },
+            {
+              "id": "notice_c736707132f2",
+              "kind": "faction",
+              "title": "城池移動完成",
+              "body": "已抵達 炎燼城池 2。",
+              "createdAt": "2026-06-19T14:19:24.061Z",
+              "read": false
+            },
+            {
+              "id": "notice_834377d73d9e",
+              "kind": "faction",
+              "title": "城池移動",
+              "body": "正在前往 炎燼城池 2。",
+              "createdAt": "2026-06-15T19:49:03.636Z",
+              "read": false
+            },
+            {
+              "id": "notice_4d7cbb01403b",
+              "kind": "battle",
+              "title": "戰鬥失敗",
+              "body": "裂岩巨像 的戰報已保存。",
+              "createdAt": "2026-06-11T16:58:32.919Z",
+              "read": false
+            },
+            {
+              "id": "notice_408fe66bc4e6",
+              "kind": "system",
+              "title": "次要角色",
+              "body": "已裝備 桐人",
+              "createdAt": "2026-06-11T16:58:02.596Z",
+              "read": false
+            },
+            {
+              "id": "notice_660943011623",
+              "kind": "sign_in",
+              "title": "每日補給",
+              "body": "獲得 金幣 60, 鐵礦 x2, 銅礦 x1, 布料 x1。",
+              "createdAt": "2026-06-11T16:57:53.247Z",
+              "read": false
+            },
+            {
+              "id": "notice_222e52d2cc1a",
+              "kind": "battle",
+              "title": "戰鬥失敗",
+              "body": "裂界魔龍 的戰報已保存。",
+              "createdAt": "2026-06-11T16:57:29.491Z",
+              "read": false
+            },
+            {
+              "id": "notice_cf9e0c8a03d4",
+              "kind": "battle",
+              "title": "世界 Boss",
+              "body": "個人獲得 24 金幣、星砂 x1、戰鬥經驗 32。",
+              "createdAt": "2026-06-11T16:57:29.490Z",
+              "read": false
+            },
+            {
+              "id": "notice_706d41b4ea4a",
+              "kind": "activity",
+              "title": "行動完成",
+              "body": "qq 完成淺層挖礦，獲得 14 金幣與 2 份素材。\n掉落：皮革 x1、鐵礦 x1\n獲得 10 經驗、4 本能經驗。\n狀態：HP 134/137、MP 72/74",
+              "createdAt": "2026-06-11T15:46:23.557Z",
+              "read": false
+            },
+            {
+              "id": "notice_717826573331",
+              "kind": "faction",
+              "title": "系統通知",
+              "body": "舊通知內容已損壞，新通知會正常顯示。",
+              "createdAt": "2026-06-11T14:26:49.740Z",
+              "read": false
+            },
+            {
+              "id": "notice_ab68e5570727",
+              "kind": "system",
+              "title": "系統通知",
+              "body": "舊通知內容已損壞，新通知會正常顯示。",
+              "createdAt": "2026-06-11T14:25:56.191Z",
+              "read": false
+            },
+            {
+              "id": "notice_1921ba1fa5ee",
+              "kind": "sign_in",
+              "title": "系統通知",
+              "body": "舊通知內容已損壞，新通知會正常顯示。",
+              "createdAt": "2026-06-11T14:25:42.172Z",
+              "read": false
+            }
+          ]
+        },
+        "rewards": {
+          "hpRestored": 65,
+          "mpRestored": 30,
+          "energyRestored": 28,
+          "instinctExp": 1
+        }
+      }
+    },
+    {
+      "id": "activity_5fbf83d4f902",
+      "userId": "user_228354f2654a",
+      "createdAt": "2026-06-20T07:24:43.181Z",
+      "activity": {
+        "type": "rest",
+        "message": "qq 完成休息，狀態已恢復。",
+        "character": {
+          "id": "char_910b59a132f0",
+          "userId": "user_228354f2654a",
+          "factionId": "faction_ember",
+          "currentCastleId": "castle_1_3",
+          "movement": null,
+          "garrisonAssignment": null,
+          "name": "qq",
+          "className": "warrior",
+          "classChangedOn": "2026-06-11",
+          "level": 1,
+          "experience": 18,
+          "instinctLevel": 1,
+          "instinctExp": 18,
+          "battleLevel": 1,
+          "battleExp": 66,
+          "forgeLevel": 1,
+          "forgeExp": 0,
+          "gold": 413,
+          "materials": 0,
+          "hp": 74,
+          "maxHp": 137,
+          "mp": 71,
+          "maxMp": 76,
+          "energy": 104,
+          "maxEnergy": 104,
+          "stats": {
+            "attack": 14,
+            "defense": 6,
+            "luck": 3,
+            "intelligence": 5,
+            "vitality": 8,
+            "spirit": 5,
+            "technique": 6,
+            "tenacity": 7
+          },
+          "equipmentSlots": {
+            "weapon": null,
+            "offhand": null,
+            "helmet": null,
+            "armor": null,
+            "kneepad": null,
+            "pet": null,
+            "avatar": null
+          },
+          "title": "前線破陣者",
+          "inventory": [
+            {
+              "id": "item_8f31f57bd9c8",
+              "name": "鐵礦",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "equipmentSlot": null,
+              "rarity": "common",
+              "craftSource": null,
+              "statBonus": {},
+              "attackBonus": 0,
+              "defenseBonus": 0,
+              "luckBonus": 0,
+              "hpBonus": 0,
+              "mpBonus": 0,
+              "energyBonus": 0,
+              "durability": null,
+              "maxDurability": null,
+              "isBroken": false,
+              "sortOrder": 0,
+              "stackable": true,
+              "quantity": 13,
+              "materialType": "iron_ore",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": 0,
+              "salvagePrice": 0,
+              "craftedBy": null,
+              "craftedAt": null
+            },
+            {
+              "id": "item_b98132b0841b",
+              "name": "布料",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "equipmentSlot": null,
+              "rarity": "common",
+              "craftSource": null,
+              "statBonus": {},
+              "attackBonus": 0,
+              "defenseBonus": 0,
+              "luckBonus": 0,
+              "hpBonus": 0,
+              "mpBonus": 0,
+              "energyBonus": 0,
+              "durability": null,
+              "maxDurability": null,
+              "isBroken": false,
+              "sortOrder": 0,
+              "stackable": true,
+              "quantity": 7,
+              "materialType": "cloth",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": 0,
+              "salvagePrice": 0,
+              "craftedBy": null,
+              "craftedAt": null
+            },
+            {
+              "id": "item_37317b507116",
+              "name": "銅礦",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "equipmentSlot": null,
+              "rarity": "common",
+              "craftSource": null,
+              "statBonus": {},
+              "attackBonus": 0,
+              "defenseBonus": 0,
+              "luckBonus": 0,
+              "hpBonus": 0,
+              "mpBonus": 0,
+              "energyBonus": 0,
+              "durability": null,
+              "maxDurability": null,
+              "isBroken": false,
+              "sortOrder": 2,
+              "stackable": true,
+              "quantity": 4,
+              "materialType": "copper_ore",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": 0,
+              "salvagePrice": 0,
+              "craftedBy": null,
+              "craftedAt": null
+            },
+            {
+              "id": "item_ec53ab422199",
+              "name": "皮革",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "equipmentSlot": null,
+              "rarity": "common",
+              "craftSource": null,
+              "statBonus": {},
+              "attackBonus": 0,
+              "defenseBonus": 0,
+              "luckBonus": 0,
+              "hpBonus": 0,
+              "mpBonus": 0,
+              "energyBonus": 0,
+              "durability": null,
+              "maxDurability": null,
+              "isBroken": false,
+              "sortOrder": 3,
+              "stackable": true,
+              "quantity": 1,
+              "materialType": "leather",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": 0,
+              "salvagePrice": 0,
+              "craftedBy": null,
+              "craftedAt": null
+            },
+            {
+              "id": "item_6911a861e042",
+              "name": "星砂",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "equipmentSlot": null,
+              "rarity": "rare",
+              "craftSource": null,
+              "statBonus": {},
+              "attackBonus": 0,
+              "defenseBonus": 0,
+              "luckBonus": 0,
+              "hpBonus": 0,
+              "mpBonus": 0,
+              "energyBonus": 0,
+              "durability": null,
+              "maxDurability": null,
+              "isBroken": false,
+              "sortOrder": 4,
+              "stackable": true,
+              "quantity": 2,
+              "materialType": "stardust",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": 0,
+              "salvagePrice": 0,
+              "craftedBy": null,
+              "craftedAt": null
+            }
+          ],
+          "statusEffects": [
+            {
+              "id": "status_ea7913875a97",
+              "name": "初心者祝福",
+              "description": "剛踏上旅途的角色會獲得一段短暫的新手保護。",
+              "kind": "buff",
+              "source": "title"
+            }
+          ],
+          "subRoleSlots": [
+            {
+              "slot": 1,
+              "item": null
+            },
+            {
+              "slot": 2,
+              "item": null
+            },
+            {
+              "slot": 3,
+              "item": null
+            }
+          ],
+          "secondaryCharacters": [
+            {
+              "slot": 1,
+              "characterId": "kirito",
+              "level": 1,
+              "exp": 4,
+              "unlockedSkillIds": [
+                "kirito_starburst"
+              ],
+              "lastTriggeredSkillId": null,
+              "cooldownUntilTick": null
+            },
+            {
+              "slot": 2,
+              "characterId": null,
+              "level": 1,
+              "exp": 0,
+              "unlockedSkillIds": [],
+              "lastTriggeredSkillId": null,
+              "cooldownUntilTick": null
+            },
+            {
+              "slot": 3,
+              "characterId": null,
+              "level": 1,
+              "exp": 0,
+              "unlockedSkillIds": [],
+              "lastTriggeredSkillId": null,
+              "cooldownUntilTick": null
+            }
+          ],
+          "classMastery": {
+            "warrior": {
+              "className": "warrior",
+              "level": 1,
+              "exp": 16,
+              "unlocked": true
+            },
+            "assassin": {
+              "className": "assassin",
+              "level": 1,
+              "exp": 0,
+              "unlocked": false
+            },
+            "mage": {
+              "className": "mage",
+              "level": 1,
+              "exp": 0,
+              "unlocked": false
+            },
+            "priest": {
+              "className": "priest",
+              "level": 1,
+              "exp": 0,
+              "unlocked": false
+            }
+          },
+          "specialSkillSlot": null,
+          "learnedManuals": [],
+          "equippedManuals": [],
+          "achievements": [
+            {
+              "id": "level_5",
+              "title": "達到 5 級",
+              "description": "角色等級達到 5 級。",
+              "progress": 1,
+              "target": 5,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "待領取"
+            }
+          ],
+          "jobImage": null,
+          "loadout": {
+            "preferredRole": "tank",
+            "blessing": "鋼鐵誓約",
+            "title": "前線破陣者",
+            "equipment": [
+              "厚刃長劍",
+              "訓練護甲",
+              "闡釋者 / 逐暗者"
+            ],
+            "skills": [
+              "盾牆",
+              "裂地",
+              "怒吼",
+              "星爆氣流斬"
+            ]
+          },
+          "actionQueue": {
+            "updatedAt": "2026-06-20T07:24:28.176Z",
+            "items": []
+          },
+          "notifications": [
+            {
+              "id": "notice_4bc1ab2853d5",
+              "kind": "activity",
+              "title": "行動完成",
+              "body": "qq 完成休息，狀態已恢復。\n恢復 HP 74、MP 36、精力 50，獲得 1 本能經驗。",
+              "createdAt": "2026-06-20T07:24:43.180Z",
+              "read": false
+            },
+            {
+              "id": "notice_fa0d1d83df61",
+              "kind": "sign_in",
+              "title": "每日補給",
+              "body": "獲得 金幣 60, 鐵礦 x2, 銅礦 x1, 布料 x1。",
+              "createdAt": "2026-06-20T06:24:38.918Z",
+              "read": false
+            },
+            {
+              "id": "notice_d5d55c63c6d7",
+              "kind": "system",
+              "title": "行動佇列",
+              "body": "休息 已加入行動佇列。",
+              "createdAt": "2026-06-20T06:24:33.166Z",
+              "read": false
+            },
+            {
+              "id": "notice_1defc7574337",
+              "kind": "activity",
+              "title": "行動完成",
+              "body": "qq 完成淺層挖礦，獲得 17 金幣與 2 份素材。\n掉落：布料 x1、星砂 x1\n獲得 12 經驗、5 本能經驗。\n狀態：HP 0/137、MP 35/76",
+              "createdAt": "2026-06-19T15:40:21.826Z",
+              "read": false
+            },
+            {
+              "id": "notice_4f4fe3114738",
+              "kind": "system",
+              "title": "行動佇列",
+              "body": "淺層挖礦 已加入行動佇列。",
+              "createdAt": "2026-06-19T14:40:16.710Z",
+              "read": false
+            },
+            {
+              "id": "notice_a252e94aba1f",
+              "kind": "sign_in",
+              "title": "每日補給",
+              "body": "獲得 金幣 60, 鐵礦 x2, 銅礦 x1, 布料 x1。",
+              "createdAt": "2026-06-19T14:39:59.520Z",
+              "read": false
+            },
+            {
+              "id": "notice_67234be03e3d",
+              "kind": "battle",
+              "title": "公會爬塔",
+              "body": "攻擊推進第 1 層：攻擊推進中，尚未遇到大型目標。。",
+              "createdAt": "2026-06-19T14:39:51.471Z",
+              "read": false
+            },
+            {
+              "id": "notice_c736707132f2",
+              "kind": "faction",
+              "title": "城池移動完成",
+              "body": "已抵達 炎燼城池 2。",
+              "createdAt": "2026-06-19T14:19:24.061Z",
+              "read": false
+            },
+            {
+              "id": "notice_834377d73d9e",
+              "kind": "faction",
+              "title": "城池移動",
+              "body": "正在前往 炎燼城池 2。",
+              "createdAt": "2026-06-15T19:49:03.636Z",
+              "read": false
+            },
+            {
+              "id": "notice_4d7cbb01403b",
+              "kind": "battle",
+              "title": "戰鬥失敗",
+              "body": "裂岩巨像 的戰報已保存。",
+              "createdAt": "2026-06-11T16:58:32.919Z",
+              "read": false
+            },
+            {
+              "id": "notice_408fe66bc4e6",
+              "kind": "system",
+              "title": "次要角色",
+              "body": "已裝備 桐人",
+              "createdAt": "2026-06-11T16:58:02.596Z",
+              "read": false
+            },
+            {
+              "id": "notice_660943011623",
+              "kind": "sign_in",
+              "title": "每日補給",
+              "body": "獲得 金幣 60, 鐵礦 x2, 銅礦 x1, 布料 x1。",
+              "createdAt": "2026-06-11T16:57:53.247Z",
+              "read": false
+            },
+            {
+              "id": "notice_222e52d2cc1a",
+              "kind": "battle",
+              "title": "戰鬥失敗",
+              "body": "裂界魔龍 的戰報已保存。",
+              "createdAt": "2026-06-11T16:57:29.491Z",
+              "read": false
+            },
+            {
+              "id": "notice_cf9e0c8a03d4",
+              "kind": "battle",
+              "title": "世界 Boss",
+              "body": "個人獲得 24 金幣、星砂 x1、戰鬥經驗 32。",
+              "createdAt": "2026-06-11T16:57:29.490Z",
+              "read": false
+            },
+            {
+              "id": "notice_706d41b4ea4a",
+              "kind": "activity",
+              "title": "行動完成",
+              "body": "qq 完成淺層挖礦，獲得 14 金幣與 2 份素材。\n掉落：皮革 x1、鐵礦 x1\n獲得 10 經驗、4 本能經驗。\n狀態：HP 134/137、MP 72/74",
+              "createdAt": "2026-06-11T15:46:23.557Z",
+              "read": false
+            },
+            {
+              "id": "notice_717826573331",
+              "kind": "faction",
+              "title": "系統通知",
+              "body": "舊通知內容已損壞，新通知會正常顯示。",
+              "createdAt": "2026-06-11T14:26:49.740Z",
+              "read": false
+            },
+            {
+              "id": "notice_ab68e5570727",
+              "kind": "system",
+              "title": "系統通知",
+              "body": "舊通知內容已損壞，新通知會正常顯示。",
+              "createdAt": "2026-06-11T14:25:56.191Z",
+              "read": false
+            },
+            {
+              "id": "notice_1921ba1fa5ee",
+              "kind": "sign_in",
+              "title": "系統通知",
+              "body": "舊通知內容已損壞，新通知會正常顯示。",
+              "createdAt": "2026-06-11T14:25:42.172Z",
+              "read": false
+            }
+          ]
+        },
+        "rewards": {
+          "hpRestored": 74,
+          "mpRestored": 36,
+          "energyRestored": 50,
+          "instinctExp": 1
+        }
+      }
+    },
+    {
+      "id": "activity_f4de5a71020f",
+      "userId": "user_228354f2654a",
+      "createdAt": "2026-06-19T15:40:21.826Z",
+      "activity": {
+        "type": "mining",
+        "message": "qq 完成淺層挖礦，獲得 17 金幣與 2 份素材。",
+        "character": {
+          "id": "char_910b59a132f0",
+          "userId": "user_228354f2654a",
+          "factionId": "faction_ember",
+          "currentCastleId": "castle_1_3",
+          "movement": null,
+          "garrisonAssignment": null,
+          "name": "qq",
+          "className": "warrior",
+          "classChangedOn": "2026-06-11",
+          "level": 1,
+          "experience": 17,
+          "instinctLevel": 1,
+          "instinctExp": 17,
+          "battleLevel": 1,
+          "battleExp": 66,
+          "forgeLevel": 1,
+          "forgeExp": 0,
+          "gold": 353,
+          "materials": 0,
+          "hp": 0,
+          "maxHp": 137,
+          "mp": 35,
+          "maxMp": 76,
+          "energy": 54,
+          "maxEnergy": 104,
+          "stats": {
+            "attack": 14,
+            "defense": 6,
+            "luck": 3,
+            "intelligence": 5,
+            "vitality": 8,
+            "spirit": 5,
+            "technique": 6,
+            "tenacity": 7
+          },
+          "equipmentSlots": {
+            "weapon": null,
+            "offhand": null,
+            "helmet": null,
+            "armor": null,
+            "kneepad": null,
+            "pet": null,
+            "avatar": null
+          },
+          "title": "前線破陣者",
+          "inventory": [
+            {
+              "id": "item_8f31f57bd9c8",
+              "name": "鐵礦",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "equipmentSlot": null,
+              "rarity": "common",
+              "craftSource": null,
+              "statBonus": {},
+              "attackBonus": 0,
+              "defenseBonus": 0,
+              "luckBonus": 0,
+              "hpBonus": 0,
+              "mpBonus": 0,
+              "energyBonus": 0,
+              "durability": null,
+              "maxDurability": null,
+              "isBroken": false,
+              "sortOrder": 0,
+              "stackable": true,
+              "quantity": 11,
+              "materialType": "iron_ore",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": 0,
+              "salvagePrice": 0,
+              "craftedBy": null,
+              "craftedAt": null
+            },
+            {
+              "id": "item_b98132b0841b",
+              "name": "布料",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "equipmentSlot": null,
+              "rarity": "common",
+              "craftSource": null,
+              "statBonus": {},
+              "attackBonus": 0,
+              "defenseBonus": 0,
+              "luckBonus": 0,
+              "hpBonus": 0,
+              "mpBonus": 0,
+              "energyBonus": 0,
+              "durability": null,
+              "maxDurability": null,
+              "isBroken": false,
+              "sortOrder": 0,
+              "stackable": true,
+              "quantity": 6,
+              "materialType": "cloth",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": 0,
+              "salvagePrice": 0,
+              "craftedBy": null,
+              "craftedAt": null
+            },
+            {
+              "id": "item_37317b507116",
+              "name": "銅礦",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "equipmentSlot": null,
+              "rarity": "common",
+              "craftSource": null,
+              "statBonus": {},
+              "attackBonus": 0,
+              "defenseBonus": 0,
+              "luckBonus": 0,
+              "hpBonus": 0,
+              "mpBonus": 0,
+              "energyBonus": 0,
+              "durability": null,
+              "maxDurability": null,
+              "isBroken": false,
+              "sortOrder": 2,
+              "stackable": true,
+              "quantity": 3,
+              "materialType": "copper_ore",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": 0,
+              "salvagePrice": 0,
+              "craftedBy": null,
+              "craftedAt": null
+            },
+            {
+              "id": "item_ec53ab422199",
+              "name": "皮革",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "equipmentSlot": null,
+              "rarity": "common",
+              "craftSource": null,
+              "statBonus": {},
+              "attackBonus": 0,
+              "defenseBonus": 0,
+              "luckBonus": 0,
+              "hpBonus": 0,
+              "mpBonus": 0,
+              "energyBonus": 0,
+              "durability": null,
+              "maxDurability": null,
+              "isBroken": false,
+              "sortOrder": 3,
+              "stackable": true,
+              "quantity": 1,
+              "materialType": "leather",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": 0,
+              "salvagePrice": 0,
+              "craftedBy": null,
+              "craftedAt": null
+            },
+            {
+              "id": "item_6911a861e042",
+              "name": "星砂",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "equipmentSlot": null,
+              "rarity": "rare",
+              "craftSource": null,
+              "statBonus": {},
+              "attackBonus": 0,
+              "defenseBonus": 0,
+              "luckBonus": 0,
+              "hpBonus": 0,
+              "mpBonus": 0,
+              "energyBonus": 0,
+              "durability": null,
+              "maxDurability": null,
+              "isBroken": false,
+              "sortOrder": 4,
+              "stackable": true,
+              "quantity": 2,
+              "materialType": "stardust",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": 0,
+              "salvagePrice": 0,
+              "craftedBy": null,
+              "craftedAt": null
+            }
+          ],
+          "statusEffects": [
+            {
+              "id": "status_ea7913875a97",
+              "name": "初心者祝福",
+              "description": "剛踏上旅途的角色會獲得一段短暫的新手保護。",
+              "kind": "buff",
+              "source": "title"
+            }
+          ],
+          "subRoleSlots": [
+            {
+              "slot": 1,
+              "item": null
+            },
+            {
+              "slot": 2,
+              "item": null
+            },
+            {
+              "slot": 3,
+              "item": null
+            }
+          ],
+          "secondaryCharacters": [
+            {
+              "slot": 1,
+              "characterId": "kirito",
+              "level": 1,
+              "exp": 4,
+              "unlockedSkillIds": [
+                "kirito_starburst"
+              ],
+              "lastTriggeredSkillId": null,
+              "cooldownUntilTick": null
+            },
+            {
+              "slot": 2,
+              "characterId": null,
+              "level": 1,
+              "exp": 0,
+              "unlockedSkillIds": [],
+              "lastTriggeredSkillId": null,
+              "cooldownUntilTick": null
+            },
+            {
+              "slot": 3,
+              "characterId": null,
+              "level": 1,
+              "exp": 0,
+              "unlockedSkillIds": [],
+              "lastTriggeredSkillId": null,
+              "cooldownUntilTick": null
+            }
+          ],
+          "classMastery": {
+            "warrior": {
+              "className": "warrior",
+              "level": 1,
+              "exp": 14,
+              "unlocked": true
+            },
+            "assassin": {
+              "className": "assassin",
+              "level": 1,
+              "exp": 0,
+              "unlocked": false
+            },
+            "mage": {
+              "className": "mage",
+              "level": 1,
+              "exp": 0,
+              "unlocked": false
+            },
+            "priest": {
+              "className": "priest",
+              "level": 1,
+              "exp": 0,
+              "unlocked": false
+            }
+          },
+          "specialSkillSlot": null,
+          "learnedManuals": [],
+          "equippedManuals": [],
+          "achievements": [
+            {
+              "id": "level_5",
+              "title": "達到 5 級",
+              "description": "角色等級達到 5 級。",
+              "progress": 1,
+              "target": 5,
+              "completed": false,
+              "completedAt": null,
+              "rewardSummary": "待領取"
+            }
+          ],
+          "jobImage": null,
+          "loadout": {
+            "preferredRole": "tank",
+            "blessing": "鋼鐵誓約",
+            "title": "前線破陣者",
+            "equipment": [
+              "厚刃長劍",
+              "訓練護甲",
+              "闡釋者 / 逐暗者"
+            ],
+            "skills": [
+              "盾牆",
+              "裂地",
+              "怒吼",
+              "星爆氣流斬"
+            ]
+          },
+          "actionQueue": {
+            "updatedAt": "2026-06-19T15:40:06.823Z",
+            "items": []
+          },
+          "notifications": [
+            {
+              "id": "notice_1defc7574337",
+              "kind": "activity",
+              "title": "行動完成",
+              "body": "qq 完成淺層挖礦，獲得 17 金幣與 2 份素材。\n掉落：布料 x1、星砂 x1\n獲得 12 經驗、5 本能經驗。\n狀態：HP 0/137、MP 35/76",
+              "createdAt": "2026-06-19T15:40:21.826Z",
+              "read": false
+            },
+            {
+              "id": "notice_4f4fe3114738",
+              "kind": "system",
+              "title": "行動佇列",
+              "body": "淺層挖礦 已加入行動佇列。",
+              "createdAt": "2026-06-19T14:40:16.710Z",
+              "read": false
+            },
+            {
+              "id": "notice_a252e94aba1f",
+              "kind": "sign_in",
+              "title": "每日補給",
+              "body": "獲得 金幣 60, 鐵礦 x2, 銅礦 x1, 布料 x1。",
+              "createdAt": "2026-06-19T14:39:59.520Z",
+              "read": false
+            },
+            {
+              "id": "notice_67234be03e3d",
+              "kind": "battle",
+              "title": "公會爬塔",
+              "body": "攻擊推進第 1 層：攻擊推進中，尚未遇到大型目標。。",
+              "createdAt": "2026-06-19T14:39:51.471Z",
+              "read": false
+            },
+            {
+              "id": "notice_c736707132f2",
+              "kind": "faction",
+              "title": "城池移動完成",
+              "body": "已抵達 炎燼城池 2。",
+              "createdAt": "2026-06-19T14:19:24.061Z",
+              "read": false
+            },
+            {
+              "id": "notice_834377d73d9e",
+              "kind": "faction",
+              "title": "城池移動",
+              "body": "正在前往 炎燼城池 2。",
+              "createdAt": "2026-06-15T19:49:03.636Z",
+              "read": false
+            },
+            {
+              "id": "notice_4d7cbb01403b",
+              "kind": "battle",
+              "title": "戰鬥失敗",
+              "body": "裂岩巨像 的戰報已保存。",
+              "createdAt": "2026-06-11T16:58:32.919Z",
+              "read": false
+            },
+            {
+              "id": "notice_408fe66bc4e6",
+              "kind": "system",
+              "title": "次要角色",
+              "body": "已裝備 桐人",
+              "createdAt": "2026-06-11T16:58:02.596Z",
+              "read": false
+            },
+            {
+              "id": "notice_660943011623",
+              "kind": "sign_in",
+              "title": "每日補給",
+              "body": "獲得 金幣 60, 鐵礦 x2, 銅礦 x1, 布料 x1。",
+              "createdAt": "2026-06-11T16:57:53.247Z",
+              "read": false
+            },
+            {
+              "id": "notice_222e52d2cc1a",
+              "kind": "battle",
+              "title": "戰鬥失敗",
+              "body": "裂界魔龍 的戰報已保存。",
+              "createdAt": "2026-06-11T16:57:29.491Z",
+              "read": false
+            },
+            {
+              "id": "notice_cf9e0c8a03d4",
+              "kind": "battle",
+              "title": "世界 Boss",
+              "body": "個人獲得 24 金幣、星砂 x1、戰鬥經驗 32。",
+              "createdAt": "2026-06-11T16:57:29.490Z",
+              "read": false
+            },
+            {
+              "id": "notice_706d41b4ea4a",
+              "kind": "activity",
+              "title": "行動完成",
+              "body": "qq 完成淺層挖礦，獲得 14 金幣與 2 份素材。\n掉落：皮革 x1、鐵礦 x1\n獲得 10 經驗、4 本能經驗。\n狀態：HP 134/137、MP 72/74",
+              "createdAt": "2026-06-11T15:46:23.557Z",
+              "read": false
+            },
+            {
+              "id": "notice_717826573331",
+              "kind": "faction",
+              "title": "系統通知",
+              "body": "舊通知內容已損壞，新通知會正常顯示。",
+              "createdAt": "2026-06-11T14:26:49.740Z",
+              "read": false
+            },
+            {
+              "id": "notice_ab68e5570727",
+              "kind": "system",
+              "title": "系統通知",
+              "body": "舊通知內容已損壞，新通知會正常顯示。",
+              "createdAt": "2026-06-11T14:25:56.191Z",
+              "read": false
+            },
+            {
+              "id": "notice_1921ba1fa5ee",
+              "kind": "sign_in",
+              "title": "系統通知",
+              "body": "舊通知內容已損壞，新通知會正常顯示。",
+              "createdAt": "2026-06-11T14:25:42.172Z",
+              "read": false
+            }
+          ]
+        },
+        "rewards": {
+          "gold": 17,
+          "materials": 2,
+          "items": [
+            {
+              "id": "item_251a5a44e55d",
+              "name": "布料",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "rarity": "common",
+              "craftSource": null,
+              "isBroken": false,
+              "sortOrder": 0,
+              "stackable": true,
+              "quantity": 1,
+              "materialType": "cloth",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": null,
+              "salvagePrice": null,
+              "craftedBy": null,
+              "craftedAt": null
+            },
+            {
+              "id": "item_5d81263867c7",
+              "name": "星砂",
+              "category": "material",
+              "effectSummary": "鍛造與修復素材",
+              "rarity": "rare",
+              "craftSource": null,
+              "isBroken": false,
+              "sortOrder": 0,
+              "stackable": true,
+              "quantity": 1,
+              "materialType": "stardust",
+              "prefixName": null,
+              "suffixName": null,
+              "qualityTier": null,
+              "tenacityBonus": 0,
+              "itemLevel": 1,
+              "sellPrice": null,
+              "salvagePrice": null,
+              "craftedBy": null,
+              "craftedAt": null
+            }
+          ],
+          "experience": 12,
+          "instinctExp": 5
+        }
+      }
+    },
     {
       "id": "activity_c5cc9399e2a3",
       "userId": "user_228354f2654a",
@@ -1116,7 +5638,7 @@
       "allyIds": [],
       "warTargetIds": [],
       "treasury": {
-        "gold": 30,
+        "gold": 1033,
         "materials": 0
       },
       "tech": {
@@ -1127,17 +5649,17 @@
         "offense_speed": 0
       },
       "tower": {
-        "currentLayer": 1,
-        "highestClearedLayer": 0,
-        "bossName": "炎燼 第 1 層守將",
-        "bossHp": 260,
-        "bossAttack": 28,
+        "currentLayer": 3,
+        "highestClearedLayer": 2,
+        "bossName": "炎燼 第 3 層守將",
+        "bossHp": 425,
+        "bossAttack": 36,
         "rewardSummary": "公庫金幣、個人素材與戰鬥經驗",
-        "progress": 0,
-        "steps": 0,
+        "progress": 100,
+        "steps": 5,
         "stepsRequired": 5,
-        "bossUnlocked": false,
-        "lastEvent": null
+        "bossUnlocked": true,
+        "lastEvent": "目前遇到第 3 層 Boss：炎燼 第 3 層守將"
       }
     },
     {
@@ -2131,18 +6653,11 @@
   "marketListings": [],
   "announcements": [
     {
-      "id": "announcement_4551c08cecc4",
+      "id": "announcement_a66ceecd750c",
       "title": "每日補給",
       "body": "補給發放：金幣 60, 鐵礦 x2, 銅礦 x1, 布料 x1。",
       "active": true,
-      "createdAt": "2026-06-11T16:57:53.248Z"
-    },
-    {
-      "id": "announcement_32422378a741",
-      "title": "系統公告",
-      "body": "舊公告內容已損壞，新的公告會正常顯示。",
-      "active": true,
-      "createdAt": "2026-06-11T14:25:42.172Z"
+      "createdAt": "2026-06-20T18:47:58.544Z"
     }
   ],
   "classConfigs": [
@@ -2443,6 +6958,262 @@
         },
         "unlockLevel": 1,
         "logStyle": "single"
+      },
+      {
+        "id": "jotaro_ora_ora",
+        "name": "歐拉歐拉",
+        "source": "secondary",
+        "detail": "承太郎高速拳連打，逐 hit 造成物理傷害。",
+        "statBonus": {
+          "attack": 2,
+          "spirit": 2,
+          "technique": 1
+        },
+        "unlockLevel": 1,
+        "baseChance": 0.46,
+        "cooldownTurns": 2,
+        "hitCount": 12,
+        "hitLabel": "歐拉連打",
+        "finisherText": "第 12 hit：白金收拳",
+        "logStyle": "multi_hit"
+      },
+      {
+        "id": "jotaro_time_stop",
+        "name": "時間暫停",
+        "source": "secondary",
+        "detail": "時間停止期間追加行動窗口，傷害較高並大幅降低 Boss 下一次攻擊。",
+        "statBonus": {
+          "spirit": 3,
+          "technique": 2
+        },
+        "unlockLevel": 3,
+        "baseChance": 0.3,
+        "cooldownTurns": 3,
+        "hitCount": 6,
+        "hitLabel": "停時追擊",
+        "finisherText": "時間恢復：最後一擊",
+        "logStyle": "multi_hit"
+      },
+      {
+        "id": "jotaro_star_platinum",
+        "name": "白金精密打擊",
+        "source": "secondary",
+        "detail": "精密近身打擊，提高技巧暴擊與反擊節奏。",
+        "statBonus": {
+          "attack": 2,
+          "technique": 3
+        },
+        "unlockLevel": 5,
+        "baseChance": 0.32,
+        "cooldownTurns": 2,
+        "logStyle": "single"
+      },
+      {
+        "id": "luffy_gatling",
+        "name": "橡膠機關槍",
+        "source": "secondary",
+        "detail": "魯夫高速連拳，逐 hit 造成物理傷害。",
+        "statBonus": {
+          "attack": 2,
+          "vitality": 2
+        },
+        "unlockLevel": 1,
+        "baseChance": 0.44,
+        "cooldownTurns": 2,
+        "hitCount": 10,
+        "hitLabel": "橡膠連拳",
+        "finisherText": "第 10 hit：重拳收尾",
+        "logStyle": "multi_hit"
+      },
+      {
+        "id": "luffy_gear_second",
+        "name": "二檔加速",
+        "source": "secondary",
+        "detail": "二檔加速後追加高速打擊。",
+        "statBonus": {
+          "attack": 2,
+          "spirit": 2,
+          "vitality": 1
+        },
+        "unlockLevel": 3,
+        "baseChance": 0.36,
+        "cooldownTurns": 2,
+        "hitCount": 7,
+        "hitLabel": "二檔追擊",
+        "finisherText": "蒸汽爆發：終段重擊",
+        "logStyle": "multi_hit"
+      },
+      {
+        "id": "luffy_nika_dawn",
+        "name": "解放之鼓",
+        "source": "secondary",
+        "detail": "高階爆發，兼具傷害與壓制。",
+        "statBonus": {
+          "attack": 3,
+          "vitality": 3,
+          "spirit": 2
+        },
+        "unlockLevel": 5,
+        "baseChance": 0.28,
+        "cooldownTurns": 3,
+        "hitCount": 8,
+        "hitLabel": "自由連打",
+        "finisherText": "黎明重擊",
+        "logStyle": "multi_hit"
+      },
+      {
+        "id": "tanjiro_water_breathing",
+        "name": "水之呼吸",
+        "source": "secondary",
+        "detail": "炭治郎水流連斬，穩定造成技巧傷害。",
+        "statBonus": {
+          "technique": 2,
+          "tenacity": 1
+        },
+        "unlockLevel": 1,
+        "baseChance": 0.42,
+        "cooldownTurns": 2,
+        "hitCount": 6,
+        "hitLabel": "水流斬",
+        "finisherText": "水面斬：收刀",
+        "logStyle": "multi_hit"
+      },
+      {
+        "id": "tanjiro_hinokami",
+        "name": "火之神神樂",
+        "source": "secondary",
+        "detail": "高爆發劍舞，造成大量傷害。",
+        "statBonus": {
+          "attack": 2,
+          "intelligence": 1,
+          "technique": 2
+        },
+        "unlockLevel": 3,
+        "baseChance": 0.34,
+        "cooldownTurns": 2,
+        "hitCount": 8,
+        "hitLabel": "火舞連斬",
+        "finisherText": "日暈之龍：終舞",
+        "logStyle": "multi_hit"
+      },
+      {
+        "id": "tanjiro_opening_thread",
+        "name": "破綻之線",
+        "source": "secondary",
+        "detail": "讀取敵方破綻，降低 Boss 下一次攻擊。",
+        "statBonus": {
+          "luck": 1,
+          "technique": 3
+        },
+        "unlockLevel": 5,
+        "baseChance": 0.3,
+        "cooldownTurns": 3,
+        "logStyle": "single"
+      },
+      {
+        "id": "rem_morningstar",
+        "name": "流星錘亂舞",
+        "source": "secondary",
+        "detail": "雷姆流星錘連擊，造成穩定傷害。",
+        "statBonus": {
+          "attack": 2,
+          "defense": 1,
+          "vitality": 1
+        },
+        "unlockLevel": 1,
+        "baseChance": 0.42,
+        "cooldownTurns": 2,
+        "hitCount": 6,
+        "hitLabel": "錘擊",
+        "finisherText": "終段重砸",
+        "logStyle": "multi_hit"
+      },
+      {
+        "id": "rem_healing_maid",
+        "name": "女僕急救",
+        "source": "secondary",
+        "detail": "雷姆支援最低血量隊友。",
+        "statBonus": {
+          "spirit": 2,
+          "vitality": 1
+        },
+        "unlockLevel": 3,
+        "baseChance": 0.34,
+        "cooldownTurns": 2,
+        "logStyle": "single"
+      },
+      {
+        "id": "rem_oni_guard_parry",
+        "name": "鬼化護衛",
+        "source": "secondary",
+        "detail": "鬼化後反制攻勢，降低 Boss 下一次攻擊。",
+        "statBonus": {
+          "attack": 2,
+          "defense": 2,
+          "tenacity": 1
+        },
+        "unlockLevel": 5,
+        "baseChance": 0.3,
+        "cooldownTurns": 3,
+        "logStyle": "single"
+      },
+      {
+        "id": "edward_alchemy_spear",
+        "name": "鍊成長槍",
+        "source": "secondary",
+        "detail": "愛德華以鍊金術突刺破防。",
+        "statBonus": {
+          "intelligence": 2,
+          "technique": 2
+        },
+        "unlockLevel": 1,
+        "baseChance": 0.42,
+        "cooldownTurns": 2,
+        "logStyle": "single"
+      },
+      {
+        "id": "edward_alchemy_parry",
+        "name": "鍊成壁反制",
+        "source": "secondary",
+        "detail": "鍊成防壁反制 Boss 攻勢。",
+        "statBonus": {
+          "defense": 2,
+          "intelligence": 1,
+          "technique": 1
+        },
+        "unlockLevel": 3,
+        "baseChance": 0.34,
+        "cooldownTurns": 2,
+        "logStyle": "single"
+      },
+      {
+        "id": "edward_fullmetal_burst",
+        "name": "鋼之鍊成爆發",
+        "source": "secondary",
+        "detail": "高階鍊成爆發，造成智慧與技巧傷害。",
+        "statBonus": {
+          "intelligence": 3,
+          "technique": 3
+        },
+        "unlockLevel": 5,
+        "baseChance": 0.28,
+        "cooldownTurns": 3,
+        "hitCount": 5,
+        "hitLabel": "鍊成連擊",
+        "finisherText": "等價交換：終段爆破",
+        "logStyle": "multi_hit"
+      },
+      {
+        "id": "manual_time_pulse",
+        "name": "時脈密技",
+        "source": "manual",
+        "detail": "秘籍解鎖的時間系基礎，提升速度與反擊窗口。",
+        "statBonus": {
+          "spirit": 2,
+          "technique": 1
+        },
+        "unlockLevel": 1,
+        "logStyle": "single"
       }
     ],
     "secondaryCharacters": [
@@ -2580,6 +7351,148 @@
         "preferredEquipmentSlots": [
           "weapon",
           "offhand"
+        ]
+      },
+      {
+        "id": "jotaro",
+        "name": "承太郎",
+        "origin": "Stardust Crusaders",
+        "role": "時間拳手",
+        "weapon": "白金之星",
+        "detail": "歐拉歐拉與時間暫停，適合測試高速連段、反擊與 Boss 壓制。",
+        "statBonus": {
+          "attack": 2,
+          "spirit": 3,
+          "technique": 2,
+          "tenacity": 1
+        },
+        "unlockedSkillIds": [
+          "jotaro_ora_ora",
+          "jotaro_time_stop",
+          "jotaro_star_platinum"
+        ],
+        "classAffinity": {
+          "warrior": 1.2,
+          "assassin": 1.25,
+          "mage": 0.95,
+          "priest": 0.9
+        },
+        "preferredEquipmentSlots": [
+          "weapon",
+          "offhand",
+          "kneepad"
+        ]
+      },
+      {
+        "id": "luffy",
+        "name": "魯夫",
+        "origin": "One Piece",
+        "role": "橡膠船長",
+        "weapon": "橡膠拳與二檔",
+        "detail": "高體力連拳角色，適合前排或輸出位測試連打。",
+        "statBonus": {
+          "attack": 2,
+          "vitality": 3,
+          "spirit": 1
+        },
+        "unlockedSkillIds": [
+          "luffy_gatling",
+          "luffy_gear_second",
+          "luffy_nika_dawn"
+        ],
+        "classAffinity": {
+          "warrior": 1.2,
+          "assassin": 1.15,
+          "mage": 0.8,
+          "priest": 0.9
+        },
+        "preferredEquipmentSlots": [
+          "weapon",
+          "kneepad"
+        ]
+      },
+      {
+        "id": "tanjiro",
+        "name": "炭治郎",
+        "origin": "Demon Slayer",
+        "role": "呼吸劍士",
+        "weapon": "日輪刀",
+        "detail": "穩定劍技與爆發劍舞，適合技巧型角色。",
+        "statBonus": {
+          "attack": 1,
+          "technique": 3,
+          "tenacity": 1
+        },
+        "unlockedSkillIds": [
+          "tanjiro_water_breathing",
+          "tanjiro_hinokami",
+          "tanjiro_opening_thread"
+        ],
+        "classAffinity": {
+          "warrior": 1.1,
+          "assassin": 1.25,
+          "mage": 0.85,
+          "priest": 1
+        },
+        "preferredEquipmentSlots": [
+          "weapon"
+        ]
+      },
+      {
+        "id": "rem",
+        "name": "雷姆",
+        "origin": "Re:Zero",
+        "role": "鬼族支援",
+        "weapon": "流星錘",
+        "detail": "能打能補，適合隊伍需要續戰時裝備。",
+        "statBonus": {
+          "attack": 2,
+          "defense": 1,
+          "spirit": 2,
+          "vitality": 1
+        },
+        "unlockedSkillIds": [
+          "rem_morningstar",
+          "rem_healing_maid",
+          "rem_oni_guard_parry"
+        ],
+        "classAffinity": {
+          "warrior": 1.05,
+          "assassin": 0.95,
+          "mage": 0.85,
+          "priest": 1.25
+        },
+        "preferredEquipmentSlots": [
+          "weapon",
+          "armor"
+        ]
+      },
+      {
+        "id": "edward",
+        "name": "愛德華",
+        "origin": "Fullmetal Alchemist",
+        "role": "鍊金術師",
+        "weapon": "鍊成長槍與防壁",
+        "detail": "智慧與技巧型角色，能破防也能降低 Boss 攻勢。",
+        "statBonus": {
+          "intelligence": 3,
+          "technique": 2,
+          "defense": 1
+        },
+        "unlockedSkillIds": [
+          "edward_alchemy_spear",
+          "edward_alchemy_parry",
+          "edward_fullmetal_burst"
+        ],
+        "classAffinity": {
+          "warrior": 0.9,
+          "assassin": 1.05,
+          "mage": 1.25,
+          "priest": 1.05
+        },
+        "preferredEquipmentSlots": [
+          "offhand",
+          "helmet"
         ]
       }
     ],
@@ -3045,13 +7958,61 @@
       "rushDoubleStepChance": 0.72,
       "rushSingleStepChance": 0.22,
       "huntStepChance": 0.38,
-      "bossFindChanceRush": 0.68,
-      "bossFindChanceHunt": 0.42,
-      "minorBossChanceRush": 0.14,
-      "minorBossChanceHunt": 0.42,
+      "bossFindChanceRush": 0.32,
+      "bossFindChanceHunt": 0.22,
+      "minorBossChanceRush": 0.22,
+      "minorBossChanceHunt": 0.36,
       "bossHpMultiplier": 1,
       "bossAttackMultiplier": 1,
-      "rewardMultiplier": 1
+      "rewardMultiplier": 1,
+      "checkpointInterval": 2,
+      "checkpointGold": 18,
+      "checkpointBattleExp": 12,
+      "checkpointMaterialQuantity": 1
+    },
+    "playerAttackRules": {
+      "energyCost": 12,
+      "maxRounds": 5,
+      "attackerWinBattleExp": 36,
+      "attackerLoseBattleExp": 16,
+      "defenderWinBattleExp": 26,
+      "defenderLoseBattleExp": 12,
+      "baseGoldSteal": 12,
+      "goldStealPerBattleLevel": 4,
+      "goldStealLuckMultiplier": 0.8,
+      "minGoldSteal": 8,
+      "maxGoldSteal": 120
+    },
+    "worldBossRules": {
+      "bossName": "裂界魔龍",
+      "bossHp": 520,
+      "bossAttack": 34,
+      "maxRounds": 12,
+      "rewardGold": 420,
+      "rewardMaterials": 8,
+      "materialType": "stardust",
+      "firstWinPersonalGoldRate": 0.35,
+      "firstWinMaterialRate": 0.5,
+      "firstWinBattleExp": 120,
+      "repeatWinPersonalGold": 60,
+      "repeatWinGuildGold": 80,
+      "repeatWinBattleExp": 70,
+      "lossPersonalGold": 24,
+      "lossGuildGold": 30,
+      "lossBattleExp": 32,
+      "participationMaterials": 1
+    },
+    "roomBossRules": {
+      "bossName": "裂岩巨像",
+      "tickIntervalMs": 2000,
+      "hpMultiplier": 1,
+      "attackMultiplier": 1,
+      "winBattleExp": 18,
+      "lossBattleExp": 8,
+      "winInstinctExp": 10,
+      "lossInstinctExp": 4,
+      "winGold": 36,
+      "lossGold": 12
     }
   },
   "worldBoss": {
@@ -3061,9 +8022,19 @@
     "bossAttack": 34,
     "rewardGold": 420,
     "rewardMaterials": 8,
-    "winnerFactionId": null,
-    "rewardClaimed": false,
+    "winnerFactionId": "faction_ember",
+    "rewardClaimed": true,
     "attempts": [
+      {
+        "id": "world_attempt_2700aaec5115",
+        "factionId": "faction_ember",
+        "factionName": "炎燼",
+        "characterName": "qq",
+        "won": true,
+        "damageDealt": 545,
+        "createdAt": "2026-06-20T23:31:59.695Z",
+        "battleRecordId": "battle_afe29dc6f322"
+      },
       {
         "id": "world_attempt_4a6ba1a06f15",
         "factionId": "faction_ember",
