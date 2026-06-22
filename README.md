@@ -13,7 +13,7 @@ git clone https://github.com/Aqusia/OurFloatingCastleRe.git
 cd "OurFloatingCastleRe/Documents/New project"
 ```
 
-- **Windows 一鍵啟動**：直接執行 `start-game.bat`（會自動 `npm install`，並開啟後端 API、主遊戲前端與管理後台三個視窗；舊的 `啟動遊戲.bat` 為相容轉接）。
+- **Windows 一鍵啟動**：直接執行 `start-game.bat`（會自動 `npm install`，並開啟後端 API、主遊戲前端與管理後台三個視窗）。
 - **手動啟動**（跨平台）：
 
   ```bash
