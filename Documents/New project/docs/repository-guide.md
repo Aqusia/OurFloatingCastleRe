@@ -13,6 +13,15 @@
 
 ## 目錄地圖
 
+### 根目錄啟動器
+
+- `start-game.bat`
+  - Windows 本機一鍵啟動入口
+  - 會分別開啟 `server`、`client`、`admin-client` 三個 dev 視窗
+  - 使用 `start /D` 指定工作目錄，避免路徑含空白時 `cmd /k` 巢狀引號截斷
+- `啟動遊戲.bat`
+  - 舊檔名相容入口，只轉接到 `start-game.bat`
+
 ### `client/`
 
 前端 React 應用。
@@ -118,8 +127,8 @@
 
 ### Production 部署
 
-1. `npm run build` 先建置 `client/dist` 與 `server/dist`
-2. `npm start` 執行 `server/dist/server/src/index.js`
+1. `npm run build` 先建置 `client/dist`、`admin-client/dist` 與 `server/dist`
+2. `npm start` 透過 `tsx` 執行 `server/src/index.ts`
 3. `NODE_ENV=production` 時 Express 會回傳前端靜態檔
 4. REST API 仍在 `/api/*`，Socket.IO 與頁面共用同一個 origin
 

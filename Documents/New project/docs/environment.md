@@ -29,6 +29,16 @@ Vite 透過 `import.meta.env.VITE_*` 注入 (build time)。
 
 > 同源部署 (production 單一 Node 服務) 時，前端不用設 `VITE_API_URL` / `VITE_SOCKET_URL`，會自動沿用 `window.location.origin`。
 
+## 本機一鍵啟動
+
+Windows 開發可從專案根目錄執行：
+
+```powershell
+.\start-game.bat
+```
+
+此啟動器會開三個命令視窗：`server` API、`client` 主遊戲與 `admin-client` 管理後台。舊的 `啟動遊戲.bat` 仍可執行，但只會轉接到英文檔名的 `start-game.bat`。
+
 ## 本地資料位置
 
 | 路徑                            | 內容                                                                                        |
@@ -41,7 +51,7 @@ Vite 透過 `import.meta.env.VITE_*` 注入 (build time)。
 
 1. 在根目錄跑 `npm run build`，產生 `client/dist`、`admin-client/dist`、`server/dist`
 2. 設定 `NODE_ENV=production`，並視需要設 `PORT`、`GAME_DATA_DIR`
-3. `npm start` 會啟動 `server/dist/server/src/index.js`，單一 port 同時提供前端 + REST + Socket.IO
+3. `npm start` 會透過 `tsx` 執行 `server/src/index.ts`，單一 port 同時提供前端 + REST + Socket.IO
 4. Docker 部署可直接用根目錄的 `Dockerfile`
 
 ## 重置本地資料

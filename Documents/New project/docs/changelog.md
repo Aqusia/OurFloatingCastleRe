@@ -2,6 +2,13 @@
 
 ## 2026-06-23
 
+### 本地啟動器英文化與三服務啟動
+
+- 新增英文啟動器 `start-game.bat`，一次啟動後端 API、主遊戲前端與管理後台三個 dev 視窗，並自動開啟 5173 / 5174。
+- 舊 `啟動遊戲.bat` 改為相容轉接，避免既有捷徑失效。
+- 修正原啟動命令在 `D:\...\New project` 這類含空白路徑下容易被 `cmd /k` 巢狀引號截斷的問題，改用 `start /D` 指定工作目錄。
+- README、repository guide、environment 文件同步更新；`docs/game-design.md` 未變更，因本輪沒有玩法或規則調整。
+
 ### 戰鬥手感再打磨：MP 連擊、屬性用途重調、心態系統與能量槽密技
 
 - 連擊資源模型：連擊第 2 擊起每擊統一消耗 **MP**（全職業），行動本身改為消耗**精力**；速度回 MP、體力回精力（`resolveComboAttack` 欄位 `availableResource`→`availableMp`；`game.ts`、`runInstantBattle`、`pvpStrike` 同步）。

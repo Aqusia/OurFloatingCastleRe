@@ -39,6 +39,14 @@ supabase/               schema / migration 草稿
 
 ## 啟動方式
 
+Windows 可直接執行英文啟動器：
+
+```powershell
+.\start-game.bat
+```
+
+這會開啟三個服務視窗：後端 API、主遊戲前端與管理後台。舊的 `啟動遊戲.bat` 只保留為轉接到 `start-game.bat` 的相容入口。
+
 在專案根目錄執行：
 
 ```powershell
