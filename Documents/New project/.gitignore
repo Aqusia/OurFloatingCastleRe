@@ -15,3 +15,13 @@ server/data/
 # Test / coverage
 coverage/
 **/*.tsbuildinfo
+
+# Vite temp files
+*.timestamp-*.mjs
+
+# Python caches
+__pycache__/
+*.pyc
+
+# Local data backups
+server/server/data/*.backup-*.json

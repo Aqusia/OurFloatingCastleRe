@@ -4,6 +4,30 @@
 
 - `Documents/New project/`
 
+## 快速啟動（clone 後，任何目錄皆可）
+
+需求：Node.js 20+（含 npm）。clone 後：
+
+```powershell
+git clone https://github.com/Aqusia/OurFloatingCastleRe.git
+cd "OurFloatingCastleRe/Documents/New project"
+```
+
+- **Windows 一鍵啟動**：直接執行 `start-game.bat`（會自動 `npm install`，並開啟後端 API、主遊戲前端與管理後台三個視窗；舊的 `啟動遊戲.bat` 為相容轉接）。
+- **手動啟動**（跨平台）：
+
+  ```bash
+  npm install
+  npm --workspace server run dev      # 後端 http://localhost:3001
+  npm --workspace client run dev      # 前端 http://127.0.0.1:5173
+  npm run dev:admin                   # 管理後台 http://127.0.0.1:5174
+  ```
+
+- **production**：`npm install && npm run build && npm start`
+- **驗證可建置**：`npm run ci`（lint + typecheck + test + build，與 GitHub Actions 相同）
+
+> 注意：專案位於含空白的 `Documents/New project/` 子目錄，指令請務必在該目錄內執行（`start-game.bat` 會自動切換到自身所在目錄）。
+
 如果你是人或 AI，要理解這個專案，請先從這裡開始看：
 
 1. `Documents/New project/AGENTS.md`
