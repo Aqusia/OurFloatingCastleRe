@@ -15,12 +15,15 @@ import type {
   SpecialSkillDefinition
 } from "../../shared/events";
 import {
+  applyStatuses,
   comboBaseDamageFor,
   mitigateIncomingDamage,
   resolveComboAttack,
   rollAttackSpecialEvents,
   rollBossCounterEvent,
-  rollDangerDodge
+  rollDangerDodge,
+  rollOffensiveSpecials,
+  tickStatuses
 } from "./combatEngine";
 import { recordBattle, syncBattleResult, updateCharacter } from "./persistence/localStore";
 import {
@@ -30,6 +33,7 @@ import {
   capLogs,
   cloneCharacter,
   gameplaySecondaryCharacterCatalog,
+  bossAttackMoveName,
   gameplayRoomBossRules,
   gameplaySpecialSkillCatalog,
   hasEquippedTimeManual,
@@ -93,7 +97,10 @@ function createBoss(memberCount: number, battleContext: BattleContext = "raid", 
     attackPower: Math.round(
       bossBaseAttack(memberCount, battleContext, averageLevel) *
         (battleContext === "raid" ? roomBossRules.attackMultiplier : 1)
-    )
+    ),
+    statuses: [],
+    phase: "normal",
+    enrageThreshold: 0.4
   };
 }
 
@@ -517,7 +524,7 @@ function comboBaseDamage(member: RoomMemberState) {
   );
 }
 
-function chooseRoleAction(member: RoomMemberState, room: RoomInternal): BattleActionResult {
+function chooseRoleAction(member: RoomMemberState, room: RoomInternal, damageMultiplier = 1): BattleActionResult {
   const role = member.character.loadout.preferredRole;
   const boss = room.boss!;
   const allies = livingMembers(room);
@@ -551,7 +558,8 @@ function chooseRoleAction(member: RoomMemberState, room: RoomInternal): BattleAc
     };
   }
 
-  const usesMp = member.character.className === "mage";
+  // 行動消耗精力；連擊（第 2 擊起）每擊消耗 MP（全職業統一吃 MP）
+  member.currentEnergy = Math.max(0, member.currentEnergy - 3);
   const combo = resolveComboAttack({
     actorUserId: member.userId,
     actorName: member.displayName,
@@ -560,21 +568,34 @@ function chooseRoleAction(member: RoomMemberState, room: RoomInternal): BattleAc
     stats: member.character.stats,
     battleLevel: Math.max(1, member.character.battleLevel || 1),
     baseDamage: comboBaseDamage(member),
-    availableResource: usesMp ? member.currentMp : member.currentEnergy
+    availableMp: member.currentMp
   });
+  member.currentMp = Math.max(0, member.currentMp - combo.resourceSpent);
+  const dealt = Math.round(combo.totalDamage * damageMultiplier);
+  boss.hp = Math.max(0, boss.hp - dealt);
+  member.battleStats.damageDealt += dealt;
 
-  if (usesMp) {
-    member.currentMp = Math.max(0, member.currentMp - combo.resourceSpent);
-  } else {
-    member.currentEnergy = Math.max(0, member.currentEnergy - combo.resourceSpent);
+  const attackSpecials = applyAttackSpecials(member, room, combo.totalDamage);
+  const offensive = rollOffensiveSpecials({
+    actorUserId: member.userId,
+    actorName: member.displayName,
+    bossName: boss.name,
+    stats: member.character.stats,
+    baseDamage: combo.totalDamage
+  });
+  if (offensive.extraDamage > 0) {
+    const off = Math.round(offensive.extraDamage * damageMultiplier);
+    boss.hp = Math.max(0, boss.hp - off);
+    member.battleStats.damageDealt += off;
   }
-  boss.hp = Math.max(0, boss.hp - combo.totalDamage);
-  member.battleStats.damageDealt += combo.totalDamage;
+  if (offensive.statuses.length) {
+    boss.statuses = applyStatuses(boss.statuses || [], offensive.statuses);
+  }
 
   return {
-    message: combo.logs[0] || `${member.displayName} 發動攻擊，對 ${boss.name} 造成 ${combo.totalDamage} 點傷害。`,
-    events: [...combo.events, ...applyAttackSpecials(member, room, combo.totalDamage)],
-    logs: combo.logs
+    message: combo.logs[0] || `${member.displayName} 發動攻擊，對 ${boss.name} 造成 ${dealt} 點傷害。`,
+    events: [...combo.events, ...attackSpecials, ...offensive.events],
+    logs: [...combo.logs, ...offensive.events.map((event) => event.message)]
   };
 }
 
@@ -610,7 +631,7 @@ function bossAttack(room: RoomInternal, attackModifier = 1) {
   target.battleStats.damageTaken += damage;
   target.defending = false;
   return {
-    message: `${boss.name} 攻擊 ${target.displayName}，造成 ${damage} 點傷害。`,
+    message: `${boss.name} 以「${bossAttackMoveName(boss.name)}」攻擊 ${target.displayName}，造成 ${damage} 點傷害。`,
     events: dodge.event ? [dodge.event] : []
   };
 }
@@ -691,11 +712,22 @@ export async function runBattleTick(roomId: string) {
   const recentLogs: string[] = [];
   const specialEvents: BattleSpecialEvent[] = [];
 
+  // 狀態結算（DoT、凍結、眩暈、破甲）— 每 tick 開頭
+  const statusTick = tickStatuses(room.boss.statuses || [], room.boss.name);
+  room.boss.statuses = statusTick.statuses;
+  if (statusTick.damage > 0) {
+    room.boss.hp = Math.max(0, room.boss.hp - statusTick.damage);
+  }
+  if (statusTick.event) {
+    specialEvents.push(statusTick.event);
+    recentLogs.push(statusTick.event.message);
+  }
+
   for (const member of livingMembers(room)) {
     if (room.boss.hp <= 0) {
       break;
     }
-    const action = chooseRoleAction(member, room);
+    const action = chooseRoleAction(member, room, statusTick.incomingMultiplier);
     recentLogs.push(...(action.logs?.length ? action.logs : [action.message]));
     specialEvents.push(...action.events);
     recentLogs.push(
@@ -709,33 +741,51 @@ export async function runBattleTick(roomId: string) {
   }
 
   if (room.boss.hp > 0) {
-    const bossCounter = rollBossCounterEvent({
-      bossName: room.boss.name,
-      tick: room.tick,
-      livingCount: livingMembers(room).length,
-      attackPower: room.boss.attackPower
-    });
-    if (bossCounter) {
-      specialEvents.push(bossCounter);
-      recentLogs.push(bossCounter.message);
-      const pressureDamage = bossCounter.impact.damage || 0;
-      if (pressureDamage > 0) {
-        for (const member of livingMembers(room)) {
-          const damage = Math.max(1, pressureDamage - Math.floor(member.character.stats.tenacity / 5));
-          member.currentHp = Math.max(0, member.currentHp - damage);
-          member.battleStats.damageTaken += damage;
-        }
-        recentLogs.push(`${room.boss.name} 的反制對全隊造成 ${pressureDamage} 點基礎壓力。`);
-      }
+    // Boss 狂怒：血量低於門檻時攻擊力提升（僅一次）
+    if (room.boss.phase !== "enraged" && room.boss.hp / room.boss.maxHp < (room.boss.enrageThreshold || 0.4)) {
+      room.boss.phase = "enraged";
+      room.boss.attackPower = Math.round(room.boss.attackPower * 1.25);
+      const enrageEvent: BattleSpecialEvent = {
+        kind: "boss_enrage",
+        actorUserId: null,
+        label: "Boss 狂怒",
+        message: `${room.boss.name} 陷入狂怒，攻擊力大幅提升！`,
+        impact: { enraged: true }
+      };
+      specialEvents.push(enrageEvent);
+      recentLogs.push(enrageEvent.message);
     }
-    const bossAttackModifier = specialEvents.reduce(
-      (modifier, event) => modifier * (event.impact.bossAttackModifier || 1),
-      1
-    );
-    const attack = bossAttack(room, bossAttackModifier);
-    recentLogs.push(attack.message);
-    specialEvents.push(...attack.events);
-    recentLogs.push(...attack.events.map((event) => event.message));
+
+    if (statusTick.skipAttack) {
+      recentLogs.push(`${room.boss.name} 因失措而跳過了這次行動。`);
+    } else {
+      const bossCounter = rollBossCounterEvent({
+        bossName: room.boss.name,
+        tick: room.tick,
+        livingCount: livingMembers(room).length,
+        attackPower: room.boss.attackPower
+      });
+      if (bossCounter) {
+        specialEvents.push(bossCounter);
+        recentLogs.push(bossCounter.message);
+        const pressureDamage = bossCounter.impact.damage || 0;
+        if (pressureDamage > 0) {
+          for (const member of livingMembers(room)) {
+            const damage = Math.max(1, pressureDamage - Math.floor(member.character.stats.tenacity / 5));
+            member.currentHp = Math.max(0, member.currentHp - damage);
+            member.battleStats.damageTaken += damage;
+          }
+          recentLogs.push(`${room.boss.name} 的反制對全隊造成 ${pressureDamage} 點基礎壓力。`);
+        }
+      }
+      const bossAttackModifier =
+        specialEvents.reduce((modifier, event) => modifier * (event.impact.bossAttackModifier || 1), 1) *
+        statusTick.attackMultiplier;
+      const attack = bossAttack(room, bossAttackModifier);
+      recentLogs.push(attack.message);
+      specialEvents.push(...attack.events);
+      recentLogs.push(...attack.events.map((event) => event.message));
+    }
   }
 
   room.logs = capLogs([...room.logs, ...recentLogs]);

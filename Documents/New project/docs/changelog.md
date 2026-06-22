@@ -1,5 +1,42 @@
 # Changelog
 
+## 2026-06-23
+
+### 戰鬥手感再打磨：MP 連擊、屬性用途重調、心態系統與能量槽密技
+
+- 連擊資源模型：連擊第 2 擊起每擊統一消耗 **MP**（全職業），行動本身改為消耗**精力**；速度回 MP、體力回精力（`resolveComboAttack` 欄位 `availableResource`→`availableMp`；`game.ts`、`runInstantBattle`、`pvpStrike` 同步）。
+- 八屬性用途依設計重調（`combatEngine.ts` + 後端 `statRules` 說明文字為單一真實來源）：
+  - 速度（spirit）大幅主導連擊接續次數與閃避，小幅提供反擊 / 暴擊；技巧大幅主導反擊 / 格擋 / 暴擊，小幅提供閃避 / 命中。
+  - 智力提高技能觸發率、技能傷害與小幅技能暴擊；運氣主導幸運特殊事件並小幅暴擊；防禦提供 % 減傷 + HP + 格擋；韌性提供較大固定減傷。
+- 新增**心態（士氣）系統**（`combatEngine.ts` `initialMindset`/`driftMindset`/`mindsetDamageMultiplier`/`mindsetLabel`/`rollMindsetFalter`）：體力與韌性撐起心態，高心態進入「亢奮」小幅增傷、低落則降傷；心態極低且瀕死時可能一度退縮，體 / 韌 越高越不會因心態低落而降傷或退縮。已接入 `runInstantBattle`。
+- 新增**能量槽 + 必殺密技**（`runInstantBattle`，事件種類 `ultimate`）：連擊與受擊累積能量槽，滿格時釋放已裝備的密技 —— 時間暫停（停時窗口做更多事的強化版）、歐拉歐拉（連拳爆發），未裝備密技則發動職業覺醒爆發。
+- 敵人 / Boss 命名去單一化：Boss 攻擊改用依屬性主題挑選的招式名（`utils.ts` `bossAttackMoveName`，火 / 冰 / 毒 / 法 / 石 / 獸 + 通用池），不再每次都只寫「攻擊」；爬塔守將加入稱號池（鎮關守將、裂空魔將……）。
+- 成就由 16 增至 32：補齊八屬性里程碑、深度等級 / 鍛造 / 經濟里程碑、密技 / 秘籍 / 職業大師等（`starterAchievements`，`normalizeAchievements` 對既有存檔自動補齊）。
+- 戰報整理：探險不再每步覆述血量（遭遇行已標 HP）；確認普攻不寫招式名、Boss 普攻寫「攻擊」、技能逐 hit 寫入、反擊由技巧觸發。
+- 介面精簡：角色頁 8 屬性卡移除攻城 / 守城提示行，屬性用途說明改以後端 `statRules` 為準。
+- 後端 GM 工具經實機驗證：以 `admin` 帳號登入後，`/admin/characters/adjust`（改等級 / 戰鬥等級 / 8 屬性 / HP）、`/admin/actions/fill-resources`（回復狀態）、`/admin/resources/grant`（發金幣 / 材料）、`/admin/items/grant`（發裝備）皆可對指定玩家生效（驗證後已還原存檔）。
+- 測試：`combatEngine.test.ts` 由 24 增至 29 項（新增心態系統 5 項）；`availableMp` 欄位重命名同步更新；`npm run ci` 全綠。
+
+### 戰鬥豐富化：狀態效果、連擊里程碑、進階戰技與 Boss 狂怒
+
+- 新增進階攻擊戰技（`combatEngine.ts` `rollOffensiveSpecials`）：破甲穿刺、灼燒、劇毒、冰封、震懾，於連擊之外追加爆發並對 Boss 施加持續狀態。
+- 新增戰鬥狀態系統（`shared/events.ts` `ActiveStatus`、`BossState.statuses/phase/enrageThreshold`）：燃燒/中毒（逐回合 DoT，中毒可疊加）、冰凍（削弱 Boss 攻勢）、眩暈（Boss 跳過行動）、破甲（Boss 受擊加重）。狀態於每回合開頭由 `tickStatuses` 結算。
+- 連擊里程碑：連擊達 8/12/16/20 段時追加 12/20/30/40% 爆發傷害（`resolveComboAttack`）。
+- Boss 狂怒：血量低於 40% 時攻擊力提升 25%（`runBattleTick` 與 `runInstantBattle` 皆套用）。
+- 前端戰鬥畫面：Boss 血條顯示狀態徽章與狂怒標記、進階戰技事件依類型上色、戰報配色擴充（`client/src/App.tsx`、`index.css`）。
+- 其他系統加料：探險敵人池由每場景 3 種擴充為 5–6 種並加情境文字（`adventureEncounter`）；個人戰鬥勝利新增依運氣的稀有掉落（額外金幣與星塵）。
+- 平衡再驗證：`balance-sim/` 同步移植上述機制（`formulas.py`/`simulate.py` + 單元測試），重跑後菁英難度職業勝率落差較舊版收斂（戰士已不再墊底崩盤）；戰士基礎技巧 4→8、速度 5→6 的調整於新機制下仍接近落差最小區（網格搜尋 (8,6) 落差約 12.6pt，(10,6) 約 11.7pt）。
+- 測試：`server/tests/combatEngine.test.ts` 由 17 增至 24 項，涵蓋狀態結算、狀態疊加、進階戰技與連擊里程碑；`npm run ci` 全綠。
+
+## 2026-06-22
+
+### Python 平衡模擬工具與戰士平衡微調
+
+- 新增 `balance-sim/`：純 Python（numpy / pandas / matplotlib）離線重現戰鬥與成長公式的 Monte Carlo 平衡分析工具，不連線、不改動 `store.json`；可一鍵產出各職業 × 等級 × 難度的勝率、擊殺回合、連擊長度、終結率與每擊傷害，並自動列出失衡 case。
+- 模擬發現：戰士因基礎技巧 / 速度過低，連擊續擊率墊底，於菁英難度勝率僅約 18–38%，且擊殺回合長期落在 3–4 回合目標帶之外；職業勝率落差最高達約 75pts（L10 刺客 93% vs 戰士 18%）。
+- 平衡微調：`classBaseStats` 戰士基礎技巧 4→8、速度 5→6（`server/src/utils.ts`）。模擬投影戰士平均勝率回升至約 59%、職業勝率落差由 ~36pts 收斂到 ~22pts。僅影響新建角色，既有存檔不受影響。
+- 文件：`docs/game-design.md` 成長曲線段的「模擬驗證」改以本工具實測結果重新陳述（修正先前未經實證的 3–4 回合宣稱）。
+
 ## 2026-06-21
 
 ### 行動鎖、後台調參與戰報整理

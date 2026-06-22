@@ -82,14 +82,18 @@ export function classMigrationBase(className: CharacterClass) {
 
 export function classBaseStats(className: CharacterClass): CharacterStats {
   if (className === "warrior") {
+    // 平衡微調 (2026-06-22)：balance-sim Monte Carlo 研究發現戰士在連擊系統中
+    // 因技巧 / 速度過低而續擊率墊底（菁英難度勝率僅約 18-38%）。將基礎技巧
+    // 4→8、速度 5→6 以補強連擊接續，模擬顯示戰士平均勝率回升到約 59%、
+    // 職業勝率落差由 ~36pts 收斂到 ~22pts。詳見 balance-sim/ 與專題報告。
     return {
       attack: 12,
       defense: 6,
       luck: 3,
       intelligence: 5,
       vitality: 8,
-      spirit: 5,
-      technique: 4,
+      spirit: 6,
+      technique: 8,
       tenacity: 7
     };
   }
@@ -1095,6 +1099,22 @@ export function randomFrom<T>(items: T[]) {
   return items[Math.floor(Math.random() * items.length)];
 }
 
+// 依敵人名稱關鍵字挑選有變化、貼合屬性的攻擊招式名，避免戰報每次都只寫「攻擊」。
+const BOSS_ATTACK_MOVE_POOLS: Array<{ test: RegExp; moves: string[] }> = [
+  { test: /火|焰|熔|炎|灼|燃|爆/, moves: ["熔岩噴發", "烈焰橫掃", "焦爆衝擊", "燎原突刺", "餘燼爪擊"] },
+  { test: /冰|霜|雪|凍|寒/, moves: ["霜爆突刺", "寒冰碎擊", "凍霜重壓", "極寒吐息", "冰棘穿刺"] },
+  { test: /毒|腐|瘴|蟲|沼|菌/, moves: ["劇毒撕咬", "腐蝕吐息", "瘴氣噴吐", "毒棘亂刺", "腐液潑灑"] },
+  { test: /符|法|奧|魔|術|晶|靈|咒/, moves: ["奧能轟擊", "符咒爆裂", "魔力洪流", "晶刃齊射", "禁咒爆發"] },
+  { test: /石|岩|巨|像|機關|傀儡|甲|殼|核/, moves: ["碎地猛擊", "巨力踏擊", "盾牆衝撞", "落石轟砸", "地裂重錘"] },
+  { test: /狼|獸|牙|爪|豬|鼠|蜂/, moves: ["撕裂猛撲", "連環爪擊", "獠牙咬擊", "野性衝撞", "亂抓狂咬"] }
+];
+const BOSS_ATTACK_MOVE_DEFAULT = ["橫掃重擊", "連環突刺", "蓄力猛攻", "破甲斬擊", "壓制踏擊", "迅捷突進"];
+
+export function bossAttackMoveName(bossName: string) {
+  const matched = BOSS_ATTACK_MOVE_POOLS.find((entry) => entry.test.test(bossName));
+  return randomFrom(matched ? matched.moves : BOSS_ATTACK_MOVE_DEFAULT);
+}
+
 export function capLogs(logs: string[]) {
   return logs.slice(-60);
 }
@@ -1655,7 +1675,7 @@ export function defaultStatRules(): GameConfig["statRules"] {
       sustain: 0,
       siege: 1.8,
       growth: 1,
-      summary: "提高攻方破防與對守軍傷害。"
+      summary: "提高攻擊傷害（補師則轉化為治療量）；攻城時提高破防與對守軍傷害。"
     },
     defense: {
       attackPower: 0.6,
@@ -1663,7 +1683,7 @@ export function defaultStatRules(): GameConfig["statRules"] {
       sustain: 0.6,
       siege: 0.8,
       growth: 1,
-      summary: "降低承受傷害，提高守方對戰存活。"
+      summary: "提高百分比減傷、最大 HP 與格擋減傷量。"
     },
     luck: {
       attackPower: 0.9,
@@ -1671,7 +1691,7 @@ export function defaultStatRules(): GameConfig["statRules"] {
       sustain: 0.4,
       siege: 0.8,
       growth: 1,
-      summary: "提高暴擊、繳獲、低損耗機率。"
+      summary: "提高幸運特殊事件機率（與對手比運：閃避、奇遇、讓對手失足）並小幅提高暴擊。"
     },
     intelligence: {
       attackPower: 1.6,
@@ -1679,7 +1699,7 @@ export function defaultStatRules(): GameConfig["statRules"] {
       sustain: 0.4,
       siege: 1.4,
       growth: 1,
-      summary: "提高戰術判定、攻城器械效率與法術型傷害。"
+      summary: "提高技能觸發率與技能傷害，並小幅提升技能暴擊；法師主屬性。"
     },
     vitality: {
       attackPower: 0.8,
@@ -1687,7 +1707,7 @@ export function defaultStatRules(): GameConfig["statRules"] {
       sustain: 2,
       siege: 0.6,
       growth: 1,
-      summary: "提高 HP、駐防持久與攻城精力消耗抗性。"
+      summary: "提高最大 HP 並回復精力；小幅穩定心態（較不因心態低落而降傷或退縮）。"
     },
     spirit: {
       attackPower: 0.9,
@@ -1695,7 +1715,7 @@ export function defaultStatRules(): GameConfig["statRules"] {
       sustain: 1.7,
       siege: 0.7,
       growth: 1,
-      summary: "顯示為速度；提高連擊接續、閃避、反擊與時間系技能窗口。"
+      summary: "顯示為速度：大幅提高連擊接續次數與閃避，小幅提高反擊與暴擊，並回復 MP、延長時間系技能窗口。"
     },
     technique: {
       attackPower: 2,
@@ -1703,7 +1723,7 @@ export function defaultStatRules(): GameConfig["statRules"] {
       sustain: 0.5,
       siege: 1.7,
       growth: 1,
-      summary: "提高命中、連擊、破防與攻城器械操作。"
+      summary: "大幅提高反擊、格擋與暴擊率，小幅提高閃避與命中。"
     },
     tenacity: {
       attackPower: 0.5,
@@ -1711,7 +1731,7 @@ export function defaultStatRules(): GameConfig["statRules"] {
       sustain: 2.2,
       siege: 0.7,
       growth: 1,
-      summary: "降低 HP / 精力 / 裝備耐久損耗，守城時提高抗壓。"
+      summary: "大幅穩定心態（幾乎不因心態低落而降傷或投降），提供固定減傷並降低裝備耐久損耗。"
     }
   };
 }

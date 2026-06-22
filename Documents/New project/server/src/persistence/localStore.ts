@@ -1,6 +1,7 @@
 ﻿import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type {
+  ActiveStatus,
   ActionQueueState,
   ActionType,
   ActivityResult,
@@ -98,19 +99,28 @@ import type {
   WorldBossStateResult
 } from "../../../shared/events";
 import {
+  applyStatuses,
   comboBaseDamageFor,
+  driftMindset,
+  initialMindset,
+  mindsetDamageMultiplier,
+  mindsetLabel,
   mitigateIncomingDamage,
   resolveComboAttack,
   rollAttackSpecialEvents,
   rollBlockMitigation,
   rollBossCounterEvent,
   rollCounterStrike,
-  rollDangerDodge
+  rollDangerDodge,
+  rollMindsetFalter,
+  rollOffensiveSpecials,
+  tickStatuses
 } from "../combatEngine";
 import {
   actionDurationLabel,
   actionDurationMs,
   actionLabel,
+  bossAttackMoveName,
   buildSkillLogLines,
   bossBaseAttack,
   bossBaseHp,
@@ -819,7 +829,45 @@ function starterAchievements(character: Partial<CharacterProfile>): AchievementP
       "秘籍槽"
     ),
     buildAchievement("class_mastery_5", "職業熟練", "任一職業熟練達到 5 級。", classMasteryMax, 5, "定位成長"),
-    buildAchievement("joined_faction", "加入陣營", "加入任一陣營。", character.factionId ? 1 : 0, 1, "公會玩法")
+    buildAchievement("joined_faction", "加入陣營", "加入任一陣營。", character.factionId ? 1 : 0, 1, "公會玩法"),
+    // --- 追加成就（2026-06-23）：補齊八屬性與深度里程碑 ---
+    buildAchievement("attack_15", "鋒銳", "攻擊達到 15。", Number(character.stats?.attack || 0), 15, "輸出強化"),
+    buildAchievement("defense_15", "壁壘", "防禦達到 15。", Number(character.stats?.defense || 0), 15, "減傷強化"),
+    buildAchievement("intelligence_15", "睿智", "智慧達到 15。", Number(character.stats?.intelligence || 0), 15, "技能強化"),
+    buildAchievement("vitality_15", "強健", "體力達到 15。", Number(character.stats?.vitality || 0), 15, "心態穩定"),
+    buildAchievement("tenacity_12", "不屈", "韌性達到 12。", Number(character.stats?.tenacity || 0), 12, "心態大成"),
+    buildAchievement("luck_10", "天選之人", "運氣達到 10。", Number(character.stats?.luck || 0), 10, "奇遇加成"),
+    buildAchievement("level_30", "本能宗師", "本能等級達到 30 級。", level, 30, "頂尖成長"),
+    buildAchievement(
+      "battle_level_25",
+      "連擊宗師",
+      "戰鬥等級達到 25 級。",
+      Number(character.battleLevel || 1),
+      25,
+      "連擊上限拉滿"
+    ),
+    buildAchievement("forge_level_8", "鍛造名匠", "鍛造等級達到 8 級。", Number(character.forgeLevel || 1), 8, "工坊精通"),
+    buildAchievement("gold_10000", "萬貫家財", "持有 10000 金幣。", Number(character.gold || 0), 10000, "富甲一方"),
+    buildAchievement("materials_500", "囤積成癖", "持有 500 材料。", Number(character.materials || 0), 500, "資源儲備"),
+    buildAchievement("hp_500", "銅牆鐵壁", "最大 HP 達到 500。", Number(character.maxHp || 0), 500, "極限生存"),
+    buildAchievement("mp_200", "法力深厚", "最大 MP 達到 200。", Number(character.maxMp || 0), 200, "連擊續航"),
+    buildAchievement(
+      "special_skill_full",
+      "密技大師",
+      "裝滿全部特殊技能槽。",
+      specialSkillCount,
+      SPECIAL_SKILL_SLOT_COUNT,
+      "密技大成"
+    ),
+    buildAchievement(
+      "manual_collector",
+      "秘籍收藏家",
+      "習得 5 本秘籍。",
+      Number(character.learnedManuals?.length || 0),
+      5,
+      "藏經閣"
+    ),
+    buildAchievement("class_mastery_10", "職業大師", "任一職業熟練達到 10 級。", classMasteryMax, 10, "定位大成")
   ];
 }
 
@@ -2568,7 +2616,8 @@ function listNearbyPlayerSummaries(data: StoreData, actor: CharacterProfile): Ne
 function pvpStrike(attacker: CharacterProfile, defender: CharacterProfile, round: number) {
   attacker.mp = clamp(attacker.mp + Math.floor(attacker.stats.spirit / 8), 0, attacker.maxMp);
   attacker.energy = clamp(attacker.energy + Math.floor(attacker.stats.vitality / 10), 0, attacker.maxEnergy);
-  const usesMp = attacker.className === "mage";
+  // 行動消耗精力；連擊（第 2 擊起）每擊消耗 MP（全職業統一吃 MP）
+  attacker.energy = clamp(attacker.energy - 3, 0, attacker.maxEnergy);
   const combo = resolveComboAttack({
     actorUserId: attacker.userId,
     actorName: attacker.name,
@@ -2577,16 +2626,11 @@ function pvpStrike(attacker: CharacterProfile, defender: CharacterProfile, round
     stats: attacker.stats,
     battleLevel: Math.max(1, attacker.battleLevel || 1),
     baseDamage: comboBaseDamageFor(attacker.className, attacker.stats, Math.max(1, attacker.battleLevel || 1)),
-    availableResource: usesMp ? attacker.mp : attacker.energy
+    availableMp: attacker.mp
   });
-  if (usesMp) {
-    attacker.mp = clamp(attacker.mp - combo.resourceSpent, 0, attacker.maxMp);
-  } else {
-    attacker.energy = clamp(attacker.energy - combo.resourceSpent, 0, attacker.maxEnergy);
-  }
+  attacker.mp = clamp(attacker.mp - combo.resourceSpent, 0, attacker.maxMp);
   const damage = Math.max(1, mitigateIncomingDamage(combo.totalDamage, defender.stats));
   defender.hp = clamp(defender.hp - damage, 0, defender.maxHp);
-  attacker.energy = clamp(attacker.energy - 2, 0, attacker.maxEnergy);
   return {
     damage,
     logs: [
@@ -4245,32 +4289,47 @@ function adventureEncounter(purpose: CastleState["mapNodePurpose"] = "solo_comba
     capital: [
       { name: "城門訓練傀儡", intro: "守備教官放出訓練傀儡，測試你的起手節奏。", hp: 0.9, attack: 0.85 },
       { name: "潛入斥候", intro: "城門陰影裡竄出一名潛入斥候。", hp: 1, attack: 1 },
-      { name: "失控守城機關", intro: "舊式守城機關突然失控，必須立刻壓制。", hp: 1.1, attack: 1.05 }
+      { name: "失控守城機關", intro: "舊式守城機關突然失控，必須立刻壓制。", hp: 1.1, attack: 1.05 },
+      { name: "巡夜鐵衛", intro: "巡夜鐵衛舉起長戟，喝令你止步。", hp: 1.12, attack: 1.02 },
+      { name: "城牆弩炮手", intro: "城牆上的弩炮手鎖定了你的身影。", hp: 0.95, attack: 1.15 },
+      { name: "叛變禁衛統領", intro: "倒戈的禁衛統領率眾堵住內城門。", hp: 1.3, attack: 1.18 }
     ],
     gathering: [
       { name: "田野野豬群", intro: "農野被野豬群踩亂，牠們正朝補給車衝來。", hp: 0.85, attack: 0.9 },
       { name: "偷糧盜鼠王", intro: "糧倉旁傳來翻箱聲，盜鼠王帶著小怪現身。", hp: 0.95, attack: 0.95 },
-      { name: "毒藤寄生獸", intro: "採集點的藤蔓纏上腳踝，寄生獸從土裡鑽出。", hp: 1, attack: 1 }
+      { name: "毒藤寄生獸", intro: "採集點的藤蔓纏上腳踝，寄生獸從土裡鑽出。", hp: 1, attack: 1 },
+      { name: "蜂巢守衛蟲", intro: "驚動了蜂巢，守衛蟲群嗡鳴撲來。", hp: 0.9, attack: 1.08 },
+      { name: "腐沼泥怪", intro: "腳邊沼泥隆起，凝成一隻緩慢卻黏人的泥怪。", hp: 1.2, attack: 0.92 },
+      { name: "豐收祭暴走稻草人", intro: "祭典稻草人被邪術灌注，揮舞鐮刀失控。", hp: 1.08, attack: 1.1 }
     ],
     solo_combat: [
       { name: "荒野狼群", intro: "遠處狼嚎回應，荒野狼群從兩側包抄。", hp: 1, attack: 1 },
       { name: "裂谷蠻兵", intro: "裂谷邊的蠻兵敲盾挑釁，逼你正面交戰。", hp: 1.1, attack: 1.08 },
-      { name: "遊蕩菁英怪", intro: "道路中央出現遊蕩菁英怪，牠守著一只補給箱。", hp: 1.18, attack: 1.12 }
+      { name: "遊蕩菁英怪", intro: "道路中央出現遊蕩菁英怪，牠守著一只補給箱。", hp: 1.18, attack: 1.12 },
+      { name: "烈焰熔岩獸", intro: "地表裂開，熔岩獸帶著灼熱蒸氣現身。", hp: 1.15, attack: 1.16 },
+      { name: "霜牙雪原狼", intro: "暴雪中一頭霜牙雪原狼緩步逼近，吐息成冰。", hp: 1.12, attack: 1.1 },
+      { name: "賞金獵魔人", intro: "一名賞金獵魔人盯上了你的人頭，拔劍相向。", hp: 1.24, attack: 1.2 }
     ],
     guild_boss: [
       { name: "前哨守衛隊長", intro: "公會前哨的守衛隊長攔下隊伍，要求一對一試煉。", hp: 1.2, attack: 1.12 },
       { name: "爬塔偵察兵", intro: "爬塔偵察兵帶著戰術圖撤退，必須先截住他。", hp: 1.12, attack: 1.18 },
-      { name: "儀式護衛", intro: "討伐營周圍的儀式護衛展開防線。", hp: 1.25, attack: 1.15 }
+      { name: "儀式護衛", intro: "討伐營周圍的儀式護衛展開防線。", hp: 1.25, attack: 1.15 },
+      { name: "鍛魂試煉魔像", intro: "公會試煉場啟動鍛魂魔像，硬度驚人。", hp: 1.4, attack: 1.08 },
+      { name: "雙修符師", intro: "符師左手雷、右手冰，雙系符咒齊發。", hp: 1.18, attack: 1.26 }
     ],
     mining: [
       { name: "晶化礦獸", intro: "礦壁裂開，晶化礦獸拖著礦脈碎片衝出來。", hp: 1.15, attack: 1.05 },
       { name: "噬礦蟲群", intro: "腳下礦砂塌陷，噬礦蟲群從裂縫中湧出。", hp: 1.05, attack: 1.15 },
-      { name: "深層岩殼怪", intro: "深層通道傳來重擊聲，岩殼怪堵住退路。", hp: 1.28, attack: 1.12 }
+      { name: "深層岩殼怪", intro: "深層通道傳來重擊聲，岩殼怪堵住退路。", hp: 1.28, attack: 1.12 },
+      { name: "毒氣瓦斯水母", intro: "礦坑滲出毒氣，凝成漂浮的瓦斯水母。", hp: 1.0, attack: 1.22 },
+      { name: "地心熔核守衛", intro: "礦脈最深處，熔核守衛睜開灼紅雙眼。", hp: 1.45, attack: 1.18 }
     ],
     trade: [
       { name: "商路盜匪", intro: "商隊旗幟倒在路邊，盜匪從貨車後現身。", hp: 0.98, attack: 1.05 },
       { name: "走私法師", intro: "走私法師撕開卷軸，準備用幻術拖延你。", hp: 1, attack: 1.12 },
-      { name: "攔路破甲兵", intro: "關卡前的破甲兵舉起重槌，企圖打斷你的連擊。", hp: 1.12, attack: 1.1 }
+      { name: "攔路破甲兵", intro: "關卡前的破甲兵舉起重槌，企圖打斷你的連擊。", hp: 1.12, attack: 1.1 },
+      { name: "黑市傭兵", intro: "黑市僱來的傭兵收了錢，專程來砸場。", hp: 1.16, attack: 1.14 },
+      { name: "貪婪兌幣魔", intro: "兌幣攤的金幣堆突然成精，化為貪婪兌幣魔。", hp: 1.22, attack: 1.0 }
     ]
   };
   const encounter = randomFrom(pools[purpose] || pools.solo_combat);
@@ -4301,18 +4360,20 @@ function rollInstantSecondarySkills(character: CharacterProfile, bossName: strin
     const skill = randomFrom(skills);
     const affinity = secondaryAffinity(definition, character.className);
     const equipmentMultiplier = equippedPreferenceMultiplier(character, definition.preferredEquipmentSlots);
+    // 智力提高技能觸發率（智 = 技能屬性）
     const chance = Math.min(
-      0.86,
+      0.9,
       (skill.baseChance || 0.38) +
         0.18 +
         (slot.level - 1) * 0.025 +
         (affinity - 1) * 0.14 +
-        (equipmentMultiplier - 1) * 0.08
+        (equipmentMultiplier - 1) * 0.08 +
+        Math.max(0, character.stats.intelligence) * 0.004
     );
     if (Math.random() >= chance) continue;
     const timeManualActive = skill.id.includes("time_stop") && hasEquippedTimeManual(character);
     const skillDamageMultiplier = skill.id.includes("time_stop") ? 1.04 : skill.id.includes("ora_ora") ? 1.12 : 1;
-    const damage = Math.max(
+    let damage = Math.max(
       8,
       Math.round(
         (10 +
@@ -4326,6 +4387,9 @@ function rollInstantSecondarySkills(character: CharacterProfile, bossName: strin
           skillDamageMultiplier
       )
     );
+    // 智力小幅提高技能暴擊率
+    const skillCrit = Math.random() < Math.min(0.3, 0.05 + Math.max(0, character.stats.intelligence) * 0.006);
+    if (skillCrit) damage = Math.round(damage * 1.5);
     const healing =
       skill.id.includes("healing") || skill.id.includes("rosario")
         ? Math.max(4, Math.round(character.stats.spirit * 0.7 + slot.level * 2))
@@ -4410,6 +4474,17 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
     damageTaken: 0
   };
   let roundCount = 0;
+  // 心態（士氣）：體/韌 撐起，影響輸出與是否退縮
+  let mindset = initialMindset(character.stats);
+  let mindsetLabelPrev = mindsetLabel(mindset);
+  // 能量槽（必殺槽）：連擊與受擊累積，滿格時釋放裝備的密技（歐拉歐拉 / 時間暫停 / 覺醒爆發）
+  let ultimateGauge = 0;
+  const ULTIMATE_MAX = 100;
+  // 狀態效果與 Boss 狂怒（2026-06-22 豐富化）
+  let bossStatuses: ActiveStatus[] = [];
+  let bossMaxHp = config.context === "adventure" ? 1 : config.bossHp;
+  let enraged = false;
+  const enrageThreshold = 0.4;
   const adventureSteps = config.context === "adventure" ? 3 + Math.floor(Math.random() * 4) : config.maxRounds;
 
   for (let round = 1; round <= adventureSteps; round += 1) {
@@ -4420,6 +4495,9 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
       currentTargetName = encounter.name;
       currentAttack = Math.round(config.bossAttack * encounter.attack);
       bossHp = Math.round((config.bossHp + round * 14) * encounter.hp);
+      bossMaxHp = bossHp;
+      bossStatuses = [];
+      enraged = false;
       const difficultyName = (
         { easy: "簡單", normal: "普通", hard: "困難", elite: "菁英" } as Record<SoloBattleDifficulty, string>
       )[config.difficulty || "normal"];
@@ -4432,16 +4510,35 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
       }
     }
     roundCount = round;
-    if (config.context === "adventure") {
-      logs.push(`第 ${round} 步交戰：${currentTargetName} 剩餘 ${bossHp} HP。`);
-    } else {
+    // 不在每回合都覆述血量；探險的「遭遇」行已標出該步敵人與 HP，這裡只標回合序。
+    if (config.context !== "adventure") {
       logs.push(`第 ${round} 回合。`);
     }
     // 速度回魔、體力回精力，支撐連擊持久度
     character.mp = clamp(character.mp + Math.floor(character.stats.spirit / 6), 0, character.maxMp);
     character.energy = clamp(character.energy + Math.floor(character.stats.vitality / 8), 0, character.maxEnergy);
 
-    const usesMp = character.className === "mage";
+    // 狀態結算：DoT、凍結、眩暈、破甲（每回合開頭）
+    const statusTick = tickStatuses(bossStatuses, currentTargetName);
+    bossStatuses = statusTick.statuses;
+    if (statusTick.damage > 0) {
+      bossHp = Math.max(0, bossHp - statusTick.damage);
+      participant.damageDealt += statusTick.damage;
+    }
+    if (statusTick.event) {
+      specialEvents.push(statusTick.event);
+      logs.push(statusTick.event.message);
+    }
+    if (bossHp <= 0) {
+      if (config.context === "adventure") {
+        logs.push(`第 ${round} 步：持續傷害擊倒 ${currentTargetName}，繼續前進。`);
+        continue;
+      }
+      break;
+    }
+
+    // 行動消耗精力；連擊（第 2 擊起）每擊消耗 MP（全職業統一吃 MP）
+    character.energy = clamp(character.energy - 3, 0, character.maxEnergy);
     const combo = resolveComboAttack({
       actorUserId: character.userId,
       actorName: character.name,
@@ -4450,17 +4547,27 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
       stats: character.stats,
       battleLevel: Math.max(1, character.battleLevel || 1),
       baseDamage: comboBaseDamageFor(character.className, character.stats, Math.max(1, character.battleLevel || 1)),
-      availableResource: usesMp ? character.mp : character.energy
+      availableMp: character.mp
     });
-    if (usesMp) {
-      character.mp = clamp(character.mp - combo.resourceSpent, 0, character.maxMp);
-    } else {
-      character.energy = clamp(character.energy - combo.resourceSpent, 0, character.maxEnergy);
+    character.mp = clamp(character.mp - combo.resourceSpent, 0, character.maxMp);
+
+    // 心態影響輸出：低落降傷；極低且瀕死時可能一度退縮（體/韌 大幅降低機率）
+    let mindsetMultiplier = mindsetDamageMultiplier(mindset);
+    const faltered = rollMindsetFalter(mindset, character.hp / character.maxHp, character.stats);
+    if (faltered) {
+      mindsetMultiplier *= 0.45;
+      logs.push(`${character.name} 一度心態崩潰、幾乎想放棄，僅靠意志勉強穩住攻勢（體力與韌性不足以撐住）。`);
     }
-    bossHp = Math.max(0, bossHp - combo.totalDamage);
-    participant.damageDealt += combo.totalDamage;
+    let roundDamageTaken = 0;
+    let ultimateAttackModifier = 1;
+    const comboDamage = Math.round(combo.totalDamage * statusTick.incomingMultiplier * mindsetMultiplier);
+    bossHp = Math.max(0, bossHp - comboDamage);
+    participant.damageDealt += comboDamage;
     logs.push(...combo.logs);
     specialEvents.push(...combo.events);
+
+    // 能量槽充能：基礎 + 連擊段數
+    ultimateGauge = Math.min(ULTIMATE_MAX, ultimateGauge + 14 + combo.comboLength * 3);
 
     const attackEvents = rollAttackSpecialEvents({
       actorUserId: character.userId,
@@ -4480,6 +4587,25 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
     specialEvents.push(...attackEvents.events);
     logs.push(...attackEvents.events.map((event) => event.message));
 
+    // 進階戰技：破甲穿刺 / 灼燒 / 劇毒 / 冰封 / 震懾（追加傷害並對 Boss 施加狀態）
+    const offensive = rollOffensiveSpecials({
+      actorUserId: character.userId,
+      actorName: character.name,
+      bossName: currentTargetName,
+      stats: character.stats,
+      baseDamage: combo.totalDamage
+    });
+    if (offensive.extraDamage > 0) {
+      const offDamage = Math.round(offensive.extraDamage * statusTick.incomingMultiplier * mindsetMultiplier);
+      bossHp = Math.max(0, bossHp - offDamage);
+      participant.damageDealt += offDamage;
+    }
+    if (offensive.statuses.length) {
+      bossStatuses = applyStatuses(bossStatuses, offensive.statuses);
+    }
+    specialEvents.push(...offensive.events);
+    logs.push(...offensive.events.map((event) => event.message));
+
     const secondaryEvents = rollInstantSecondarySkills(character, currentTargetName, round);
     if (secondaryEvents.damageTotal > 0) {
       bossHp = Math.max(0, bossHp - secondaryEvents.damageTotal);
@@ -4492,6 +4618,81 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
     specialEvents.push(...secondaryEvents.events);
     logs.push(...secondaryEvents.logs);
 
+    // 能量槽滿格：釋放裝備的密技（時間暫停 / 歐拉歐拉 / 覺醒爆發）
+    if (ultimateGauge >= ULTIMATE_MAX) {
+      ultimateGauge = 0;
+      const equippedUltDefs = equippedSpecialSkillIds(character)
+        .map((sid) => gameplaySpecialSkillCatalog().find((entry) => entry.id === sid))
+        .filter((entry): entry is SpecialSkillDefinition => Boolean(entry));
+      const ultSkill =
+        equippedUltDefs.find((entry) => entry.id.includes("time_stop")) ||
+        equippedUltDefs.find((entry) => entry.id.includes("ora_ora")) ||
+        equippedUltDefs.find((entry) => entry.logStyle === "multi_hit") ||
+        null;
+      const ultBase = comboBaseDamageFor(character.className, character.stats, Math.max(1, character.battleLevel || 1));
+      const ultLogs: string[] = ["⚡ 能量槽全滿！"];
+      let ultDamage = 0;
+      let ultModifier = 1;
+
+      if (ultSkill && ultSkill.id.includes("time_stop")) {
+        // 時間系密技：停時窗口做更多事（強化版，回復資源並大幅壓低 Boss 攻勢）
+        const followUpSkillNames = equippedUltDefs
+          .filter((entry) => entry.id !== ultSkill.id)
+          .map((entry) => entry.name);
+        const window = resolveTimeStopWindow({
+          actorName: character.name,
+          targetName: currentTargetName,
+          stats: character.stats,
+          battleLevel: Math.max(1, character.battleLevel || 1),
+          slotLevel: 3,
+          manualActive: true,
+          followUpSkillNames
+        });
+        ultDamage = Math.round(window.damage * 1.5 * mindsetMultiplier);
+        ultModifier = window.bossAttackModifier;
+        character.energy = clamp(character.energy + window.recoveredEnergy, 0, character.maxEnergy);
+        character.mp = clamp(character.mp + window.recoveredMp + 4, 0, character.maxMp);
+        ultLogs.push(`必殺密技「${ultSkill.name}」發動 ——「ザ・ワールド！時間停止！」`);
+        ultLogs.push(...window.logs);
+        ultLogs.push(`停時連段全部命中，合計造成 ${ultDamage} 點傷害！`);
+      } else if (ultSkill && ultSkill.id.includes("ora_ora")) {
+        ultDamage = Math.round(ultBase * (4 + combo.comboLength * 0.3) * mindsetMultiplier);
+        ultModifier = 0.8;
+        ultLogs.push(`必殺密技「${ultSkill.name}」發動 ——「オラオラオラオラ！」`);
+        ultLogs.push(`${character.name} 的拳影覆蓋 ${currentTargetName}，無數重拳連續貫穿，造成 ${ultDamage} 點傷害！`);
+      } else if (ultSkill) {
+        ultDamage = Math.round(ultBase * 3.4 * mindsetMultiplier);
+        ultModifier = 0.85;
+        ultLogs.push(
+          ...buildSkillLogLines({
+            actorName: character.name,
+            characterName: ultSkill.name,
+            skill: ultSkill,
+            targetName: currentTargetName,
+            damage: ultDamage
+          })
+        );
+      } else {
+        // 沒有裝備密技時的職業覺醒爆發
+        ultDamage = Math.round(ultBase * 3.2 * mindsetMultiplier);
+        ultModifier = 0.85;
+        ultLogs.push(`${character.name} 解放覺醒爆發，全力一擊對 ${currentTargetName} 造成 ${ultDamage} 點傷害！`);
+      }
+
+      bossHp = Math.max(0, bossHp - ultDamage);
+      participant.damageDealt += ultDamage;
+      ultimateAttackModifier = ultModifier;
+      mindset = driftMindset(mindset, character.stats, 8);
+      specialEvents.push({
+        kind: "ultimate",
+        actorUserId: character.userId,
+        label: ultSkill ? `必殺・${ultSkill.name}` : "覺醒爆發",
+        message: ultLogs.join("\n"),
+        impact: { damage: ultDamage, ...(ultModifier < 1 ? { bossAttackModifier: ultModifier } : {}) }
+      });
+      logs.push(...ultLogs);
+    }
+
     if (bossHp <= 0) {
       if (config.context === "adventure") {
         logs.push(`第 ${round} 步：擊倒 ${currentTargetName}，隊伍繼續前進。`);
@@ -4500,51 +4701,73 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
       break;
     }
 
-    const bossCounter = rollBossCounterEvent({
-      bossName: currentTargetName,
-      tick: round,
-      livingCount: 1,
-      attackPower: currentAttack
-    });
-    if (bossCounter) {
-      specialEvents.push(bossCounter);
-      logs.push(bossCounter.message);
+    // Boss 狂怒：血量低於門檻時攻擊力提升（每場/每隻僅一次）
+    if (!enraged && bossMaxHp > 0 && bossHp / bossMaxHp < enrageThreshold) {
+      enraged = true;
+      currentAttack = Math.round(currentAttack * 1.25);
+      const enrageEvent: BattleSpecialEvent = {
+        kind: "boss_enrage",
+        actorUserId: null,
+        label: "Boss 狂怒",
+        message: `${currentTargetName} 血量見底，陷入狂怒，攻擊力大幅提升！`,
+        impact: { enraged: true }
+      };
+      specialEvents.push(enrageEvent);
+      logs.push(enrageEvent.message);
     }
 
-    const incomingRaw = Math.round(
-      (currentAttack + round * 2 + (bossCounter?.impact.damage || 0)) *
-        (attackEvents.bossAttackModifier || 1) *
-        secondaryEvents.bossAttackModifier *
-        combo.bossAttackModifier
-    );
-    const incoming = mitigateIncomingDamage(incomingRaw, character.stats);
-    const block = rollBlockMitigation({
-      actorUserId: character.userId,
-      actorName: character.name,
-      stats: character.stats,
-      incomingDamage: incoming
-    });
-    if (block.event) {
-      specialEvents.push(block.event);
-      logs.push(block.event.message);
+    if (statusTick.skipAttack) {
+      logs.push(`${currentTargetName} 因失措而跳過了這次攻擊。`);
+    } else {
+      const bossCounter = rollBossCounterEvent({
+        bossName: currentTargetName,
+        tick: round,
+        livingCount: 1,
+        attackPower: currentAttack
+      });
+      if (bossCounter) {
+        specialEvents.push(bossCounter);
+        logs.push(bossCounter.message);
+      }
+
+      const incomingRaw = Math.round(
+        (currentAttack + round * 2 + (bossCounter?.impact.damage || 0)) *
+          (attackEvents.bossAttackModifier || 1) *
+          secondaryEvents.bossAttackModifier *
+          combo.bossAttackModifier *
+          ultimateAttackModifier *
+          statusTick.attackMultiplier
+      );
+      const incoming = mitigateIncomingDamage(incomingRaw, character.stats);
+      const block = rollBlockMitigation({
+        actorUserId: character.userId,
+        actorName: character.name,
+        stats: character.stats,
+        incomingDamage: incoming
+      });
+      if (block.event) {
+        specialEvents.push(block.event);
+        logs.push(block.event.message);
+      }
+      const dodge = rollDangerDodge({
+        actorUserId: character.userId,
+        actorName: character.name,
+        stats: character.stats,
+        hpRatio: character.hp / character.maxHp,
+        incomingDamage: Math.max(1, incoming - block.damageReduction)
+      });
+      const damage = Math.max(1, incoming - block.damageReduction - dodge.damageReduction);
+      if (dodge.event) {
+        specialEvents.push(dodge.event);
+        logs.push(dodge.event.message);
+      }
+      character.hp = clamp(character.hp - damage, 0, character.maxHp);
+      character.mp = clamp(character.mp - Math.ceil(damage / 4), 0, character.maxMp);
+      character.energy = clamp(character.energy - 4, 0, character.maxEnergy);
+      participant.damageTaken += damage;
+      roundDamageTaken = damage;
+      logs.push(`${currentTargetName} 以「${bossAttackMoveName(currentTargetName)}」攻擊 ${character.name}，造成 ${damage} 點傷害。`);
     }
-    const dodge = rollDangerDodge({
-      actorUserId: character.userId,
-      actorName: character.name,
-      stats: character.stats,
-      hpRatio: character.hp / character.maxHp,
-      incomingDamage: Math.max(1, incoming - block.damageReduction)
-    });
-    const damage = Math.max(1, incoming - block.damageReduction - dodge.damageReduction);
-    if (dodge.event) {
-      specialEvents.push(dodge.event);
-      logs.push(dodge.event.message);
-    }
-    character.hp = clamp(character.hp - damage, 0, character.maxHp);
-    character.mp = clamp(character.mp - Math.ceil(damage / 4), 0, character.maxMp);
-    character.energy = clamp(character.energy - 4, 0, character.maxEnergy);
-    participant.damageTaken += damage;
-    logs.push(`${currentTargetName} 攻擊 ${character.name}，造成 ${damage} 點傷害。`);
 
     const counter = rollCounterStrike({
       actorUserId: character.userId,
@@ -4558,6 +4781,22 @@ function runInstantBattle(character: CharacterProfile, config: InstantBattleConf
       participant.damageDealt += counter.damage;
       specialEvents.push(counter.event);
       logs.push(counter.event.message);
+    }
+
+    // 心態結算：連擊振奮、退縮或受重擊受挫；體/韌 提供回穩下限
+    let mindsetDelta = 0;
+    if (combo.finisherTriggered || combo.comboLength >= 8) mindsetDelta += 6;
+    else if (combo.comboLength >= 2) mindsetDelta += 2;
+    if (faltered) mindsetDelta -= 5;
+    if (roundDamageTaken > character.maxHp * 0.18) mindsetDelta -= 7;
+    mindset = driftMindset(mindset, character.stats, mindsetDelta);
+    // 受擊也會充能能量槽
+    if (roundDamageTaken > 0) ultimateGauge = Math.min(ULTIMATE_MAX, ultimateGauge + 10);
+    const mindsetLabelNow = mindsetLabel(mindset);
+    if (mindsetLabelNow !== mindsetLabelPrev) {
+      if (mindsetLabelNow === "亢奮") logs.push(`${character.name} 漸入佳境，心態亢奮，攻勢更猛。`);
+      else if (mindsetLabelNow === "低落") logs.push(`${character.name} 心態低落，攻勢一度遲疑。`);
+      mindsetLabelPrev = mindsetLabelNow;
     }
   }
 
@@ -4626,6 +4865,23 @@ export async function startAdventureBattle(
     `獲得 ${gold} 金幣、${materialName(config.materialType)} x${materialQuantity}、戰鬥經驗 ${battleExp}。`
   );
 
+  // 稀有掉落：勝利時依運氣有機會額外獲得稀有材料與金幣（2026-06-22 豐富化）
+  if (result.won) {
+    const rareChance = Math.min(0.35, 0.06 + Math.max(0, character.stats.luck) * 0.006);
+    if (Math.random() < rareChance) {
+      const bonusGold = Math.round(gold * (0.5 + Math.random() * 0.5));
+      const rareQty = 1 + (Math.random() < 0.25 ? 1 : 0);
+      character.gold = clamp(character.gold + bonusGold, 0, GAME_LIMITS.goldBalance);
+      mergeInventoryStack(character, createMaterialItem("stardust", rareQty));
+      appendNotification(
+        character,
+        "battle",
+        "稀有掉落",
+        `運氣爆發！額外獲得 ${bonusGold} 金幣與 ${materialName("stardust")} x${rareQty}。`
+      );
+    }
+  }
+
   const record: BattleRecordSummary = {
     id: randomId("battle"),
     roomId: randomId("solo"),
@@ -4676,9 +4932,27 @@ function syncTowerProgress(tower: FactionTowerProgress) {
   );
 }
 
+// 每層守將的稱號池：讓爬塔 Boss 名稱不再千篇一律「第 N 層守將」
+const TOWER_BOSS_TITLES = [
+  "鎮關守將",
+  "裂空魔將",
+  "鐵壁統帥",
+  "嗜血劍鬼",
+  "焚天炎將",
+  "霜牢冰皇",
+  "毒沼瘟王",
+  "雷紋符主",
+  "崩岳巨像",
+  "幽冥羅刹"
+];
+
+function towerBossTitle(layer: number) {
+  return TOWER_BOSS_TITLES[(Math.max(1, layer) - 1) % TOWER_BOSS_TITLES.length];
+}
+
 function prepareTowerLayer(faction: StoredFaction, layer: number, lastEvent: string | null) {
   faction.tower.currentLayer = layer;
-  faction.tower.bossName = `${faction.name} 第 ${layer} 層守將`;
+  faction.tower.bossName = `${faction.name} 第 ${layer} 層・${towerBossTitle(layer)}`;
   faction.tower.bossHp = towerBossHpForLayer(layer);
   faction.tower.bossAttack = towerBossAttackForLayer(layer);
   faction.tower.stepsRequired = towerStepsRequired(layer);

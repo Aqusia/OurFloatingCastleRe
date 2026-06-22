@@ -36,7 +36,27 @@ export type BattleSpecialEventKind =
   | "boss_counter"
   | "block"
   | "counter_strike"
-  | "lucky_twist";
+  | "lucky_twist"
+  | "piercing_strike"
+  | "ignite"
+  | "poison_strike"
+  | "frostbite"
+  | "stun_blow"
+  | "momentum"
+  | "combo_milestone"
+  | "status_tick"
+  | "boss_enrage"
+  | "ultimate";
+
+export type ActiveStatusKind = "burn" | "poison" | "freeze" | "stun" | "armor_break";
+
+/** 戰鬥中作用於 Boss（或角色）的持續狀態：燃燒/中毒(DoT)、冰凍/眩暈(行動干擾)、破甲(受擊加重)。 */
+export type ActiveStatus = {
+  kind: ActiveStatusKind;
+  label: string;
+  remaining: number;
+  magnitude: number;
+};
 
 export type ComboHitDetail = {
   index: number;
@@ -59,6 +79,9 @@ export type BattleSpecialEvent = {
     shield?: number;
     comboLength?: number;
     comboHits?: ComboHitDetail[];
+    statuses?: ActiveStatus[];
+    milestone?: number;
+    enraged?: boolean;
   };
 };
 
@@ -511,6 +534,9 @@ export type BossState = {
   hp: number;
   maxHp: number;
   attackPower: number;
+  statuses?: ActiveStatus[];
+  phase?: "normal" | "enraged";
+  enrageThreshold?: number;
 };
 
 export type BattleConfig = {

@@ -1,0 +1,8 @@
+{
+  "weakest_class": "warrior",
+  "change": "technique +4, spirit +1",
+  "mean_spread_before": 0.1564,
+  "mean_spread_after": 0.1146,
+  "weakest_winrate_before": 0.7954,
+  "weakest_winrate_after": 0.9039
+}

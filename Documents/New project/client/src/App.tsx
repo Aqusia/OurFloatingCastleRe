@@ -661,13 +661,17 @@ function roomBossFunRating(
 }
 
 function battleLogTone(log: string) {
-  if (/終結技|連擊收尾/.test(log)) return "finisher";
+  if (/終結技|連擊收尾|里程碑|能量槽全滿|必殺密技|覺醒爆發|歐拉歐拉|オラオラ|時間停止|ザ・ワールド/.test(log)) return "finisher";
   if (/暴擊/.test(log)) return "crit";
   if (/連擊 x|第 \d+ 擊|連擊中斷/.test(log)) return "combo";
-  if (/角色技能|自動施放|幸運事故|幸運暴擊|技巧連擊|精準破防|隊友支援|危急閃避|Boss 反制|特殊事件/.test(log))
+  if (
+    /角色技能|自動施放|幸運事故|幸運暴擊|技巧連擊|精準破防|隊友支援|危急閃避|Boss 反制|特殊事件|破甲穿刺|灼燒|燃燒|劇毒|中毒|冰封|冰凍|震懾|眩暈|持續傷害|心態|亢奮|退守|時間暫停|停時/.test(
+      log
+    )
+  )
     return "special";
   if (/獎勵|獲得|公庫|勝利|倒下/.test(log)) return "reward";
-  if (/Boss|首領|反擊|撤退|失敗|攻擊/.test(log)) return "boss";
+  if (/Boss|首領|反擊|撤退|失敗|攻擊|狂怒|失措/.test(log)) return "boss";
   return "normal";
 }
 
@@ -2757,10 +2761,6 @@ function App() {
                   <div className="muted">
                     技 {character.stats.technique} · 韌 {character.stats.tenacity}
                   </div>
-                  <div className="muted" style={{ marginTop: 8 }}>
-                    攻城：攻/智/技破防，體/韌降低精力損耗。
-                  </div>
-                  <div className="muted">守城：防/速/韌提高存活，運氣降低戰損。</div>
                 </div>
                 {currentCastle ? (
                   <div className="stat-card" style={{ padding: 16 }}>
@@ -4102,12 +4102,23 @@ function App() {
                         <strong>
                           Boss HP {roomState.boss.hp} / {roomState.boss.maxHp}
                         </strong>
+                        {roomState.boss.phase === "enraged" ? <span className="boss-enrage-tag">狂怒</span> : null}
                         <div className="progress-bar" style={{ marginTop: 10 }}>
                           <div
                             className="progress-fill is-danger"
                             style={{ width: `${percent(roomState.boss.hp, roomState.boss.maxHp)}%` }}
                           />
                         </div>
+                        {roomState.boss.statuses?.length ? (
+                          <div className="status-badge-row" style={{ marginTop: 10 }}>
+                            {roomState.boss.statuses.map((st, index) => (
+                              <span key={`${st.kind}-${index}`} className={`status-badge status-${st.kind}`}>
+                                {st.label}
+                                <span className="status-badge-turns">{st.remaining}</span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                     ) : null}
                     {(() => {
@@ -4145,8 +4156,8 @@ function App() {
                     </div>
                     {lastBattleTick?.specialEvents?.length ? (
                       <div className="tag-row" style={{ marginTop: 14 }}>
-                        {lastBattleTick.specialEvents.slice(-5).map((event, index) => (
-                          <span key={`${event.kind}-${index}`} className="mini-pill">
+                        {lastBattleTick.specialEvents.slice(-6).map((event, index) => (
+                          <span key={`${event.kind}-${index}`} className={`mini-pill event-${event.kind}`}>
                             {event.label}
                           </span>
                         ))}
